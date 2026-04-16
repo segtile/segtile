@@ -1,10 +1,38 @@
 package superpixel
 
-import "image"
+import (
+	"image"
+)
 
-type Superpixel interface {
-	Run()
-	GetLabelAt(x, y int) int
-	GetLabelMap() [][]int
-	DrawEdgesToImage(img image.Image) image.Image
+type SpAlgorithm interface {
+	SetImage(img image.Image)
+	GetImage() image.Image
+
+	GetResult() SpResult
+
+	SetDefaultParameters()
+
+	Run() error
+}
+
+type SpAlgorithmData struct {
+	Img    image.Image
+	Result SpResult
+}
+
+func (this *SpAlgorithmData) SetImage(img image.Image) {
+	this.Img = img
+}
+
+func (this *SpAlgorithmData) GetImage() image.Image {
+	return this.Img
+}
+
+func (this *SpAlgorithmData) GetResult() SpResult {
+	return this.Result
+}
+
+type SpResult struct {
+	LabelMap *image.Gray16
+	SpCount  int
 }

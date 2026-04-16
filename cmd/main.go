@@ -19,16 +19,18 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	slic "github.com/kurige/SLIC"
+	"github.com/struffel/annotation-tool/superpixel"
+	"github.com/struffel/annotation-tool/superpixel/slic"
 )
 
 type AppState struct {
-	img_raw        *image.NRGBA
-	img_annotated  image.Image
-	slic           slic.SLIC
-	selectionIndex []bool
-	window         *app.Window
+	img_raw       *image.NRGBA // Original image
+	img_annotated *image.NRGBA // Image with the annotations
+	superpixels   superpixel.SpAlgorithm
 
+	selectionIndex []bool
+
+	window          *app.Window
 	canvasTag       bool
 	currentlyAdding bool
 }
@@ -49,8 +51,10 @@ func main() {
 		appState.img_raw, _ = loadImage(os.Args[1])
 
 		// Perform the slic segmentation
-		appState.slic = *slic.MakeSlic(appState.img_raw, 5, appState.img_raw.Rect.Size().X*appState.img_raw.Rect.Size().Y/1000)
-		appState.slic.Run(10)
+		appState.superpixels = &slic.SpSlic{}
+		appState.superpixels.SetDefaultParameters()
+		appState.superpixels.SetImage(appState.img_raw)
+		appState.superpixels.Run()
 
 		// Create a separate copy so img_raw is never modified
 		b := appState.img_raw.Bounds()
@@ -59,7 +63,7 @@ func main() {
 		appState.img_annotated = dst
 
 		// Initialize selection index
-		appState.selectionIndex = make([]bool, len(appState.slic.Labels))
+		appState.selectionIndex = make([]bool, appState.superpixels.GetResult().SpCount)
 
 		// Run main event loop
 		if err := appState.run(appWindow); err != nil {
@@ -148,8 +152,7 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 		}
 
 		// Sample the current superpixel label at the pointer position
-		labelIndex := int(iy)*appState.img_raw.Bounds().Dx() + int(ix)
-		label := appState.slic.Labels[labelIndex]
+		label := appState.superpixels.GetResult().LabelMap.At(int(ix), int(iy)).(color.Gray16).Y
 		fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
 
 		// Decide the desired action based on the pointer event type and the current app state
@@ -174,8 +177,10 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 		}
 
 		// Iterate over the annotated image and update the color of the selected superpixel
-		for i := 0; i < len(appState.slic.Labels); i++ {
-			if appState.slic.Labels[i] == label {
+		result := appState.superpixels.GetResult()
+		totalPixels := appState.img_raw.Bounds().Dx() * appState.img_raw.Bounds().Dy()
+		for i := 0; i < totalPixels; i++ {
+			if result.LabelMap.At(i%appState.img_raw.Bounds().Dx(), i/appState.img_raw.Bounds().Dx()).(color.Gray16).Y == label {
 				x := i % appState.img_raw.Bounds().Dx()
 				y := i / appState.img_raw.Bounds().Dx()
 				if appState.selectionIndex[label] {
@@ -183,10 +188,10 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 					newColor := appState.img_raw.NRGBAAt(x, y)
 					newColor.R = uint8(math.Min(255, float64(newColor.R)+50))
 
-					appState.img_annotated.(*image.NRGBA).Set(x, y, newColor)
+					appState.img_annotated.Set(x, y, newColor)
 				} else {
 					// If deselected, revert to the original color
-					appState.img_annotated.(*image.NRGBA).Set(x, y, appState.img_raw.NRGBAAt(x, y))
+					appState.img_annotated.Set(x, y, appState.img_raw.NRGBAAt(x, y))
 				}
 			}
 		}
