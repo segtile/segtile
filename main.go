@@ -154,9 +154,14 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 
 		// Decide the desired action based on the pointer event type and the current app state
 		if pe.Kind == pointer.Press {
-			// This is a new press. If the current SP is selected, we enter deselection mode and stay there until the press is lifted.
-			// If the current SP is not selected, we enter selection mode and stay there until the press is lifted.
-			appState.currentlyAdding = !appState.selectionIndex[label]
+			// Differentiate between left-click (Button 1) and right-click (Button 3)
+			if pe.Buttons == pointer.ButtonPrimary {
+				// Left-click: enter selection mode
+				appState.currentlyAdding = true
+			} else if pe.Buttons == pointer.ButtonSecondary {
+				// Right-click: enter deselection mode
+				appState.currentlyAdding = false
+			}
 		}
 
 		// For both drag and press events, we update the selection state of the current SP based on the current mode (selection or deselection)
