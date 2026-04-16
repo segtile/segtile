@@ -33,6 +33,6 @@ func (this *SpAlgorithmData) GetResult() SpResult {
 }
 
 type SpResult struct {
-	LabelMap *image.Gray16
+	LabelMap [][]uint16
 	SpCount  int
 }

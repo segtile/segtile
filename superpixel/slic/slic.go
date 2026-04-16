@@ -1,9 +1,6 @@
 package slic
 
 import (
-	"image"
-	"image/color"
-
 	vendor_slic "github.com/kurige/SLIC"
 	"github.com/struffel/annotation-tool/superpixel"
 )
@@ -19,8 +16,8 @@ type SpSlic struct {
 func (this *SpSlic) SetDefaultParameters() {
 	// Set default parameters for the SLIC algorithm
 	this.numSuperpixels = 1000
-	this.compactness = 10.0
-	this.iterations = 10
+	this.compactness = 15.0
+	this.iterations = 8
 
 }
 
@@ -34,12 +31,12 @@ func (this *SpSlic) Run() error {
 	vendorSlic := vendor_slic.MakeSlic(this.GetImage(), this.compactness, width*height/this.numSuperpixels)
 	vendorSlic.Run(this.iterations)
 
-	// Convert the result into a grayscale image
-	labelmap := image.NewGray16(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			label := vendorSlic.Labels[y*width+x]
-			labelmap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
+	// Convert the result into a 2D label map
+	labelmap := make([][]uint16, width)
+	for x := 0; x < width; x++ {
+		labelmap[x] = make([]uint16, height)
+		for y := 0; y < height; y++ {
+			labelmap[x][y] = uint16(vendorSlic.Labels[y*width+x])
 		}
 	}
 

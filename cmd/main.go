@@ -152,7 +152,7 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 		}
 
 		// Sample the current superpixel label at the pointer position
-		label := appState.superpixels.GetResult().LabelMap.At(int(ix), int(iy)).(color.Gray16).Y
+		label := appState.superpixels.GetResult().LabelMap[int(ix)][int(iy)]
 		fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
 
 		// Decide the desired action based on the pointer event type and the current app state
@@ -178,20 +178,20 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 
 		// Iterate over the annotated image and update the color of the selected superpixel
 		result := appState.superpixels.GetResult()
-		totalPixels := appState.img_raw.Bounds().Dx() * appState.img_raw.Bounds().Dy()
-		for i := 0; i < totalPixels; i++ {
-			if result.LabelMap.At(i%appState.img_raw.Bounds().Dx(), i/appState.img_raw.Bounds().Dx()).(color.Gray16).Y == label {
-				x := i % appState.img_raw.Bounds().Dx()
-				y := i / appState.img_raw.Bounds().Dx()
-				if appState.selectionIndex[label] {
-					// If selected, color the superpixel red
-					newColor := appState.img_raw.NRGBAAt(x, y)
-					newColor.R = uint8(math.Min(255, float64(newColor.R)+50))
+		for x := 0; x < appState.img_raw.Bounds().Dx(); x++ {
+			for y := 0; y < appState.img_raw.Bounds().Dy(); y++ {
 
-					appState.img_annotated.Set(x, y, newColor)
-				} else {
-					// If deselected, revert to the original color
-					appState.img_annotated.Set(x, y, appState.img_raw.NRGBAAt(x, y))
+				if result.LabelMap[x][y] == label {
+					if appState.selectionIndex[label] {
+						// If selected, color the superpixel red
+						newColor := appState.img_raw.NRGBAAt(x, y)
+						newColor.R = uint8(math.Min(255, float64(newColor.R)+50))
+
+						appState.img_annotated.Set(x, y, newColor)
+					} else {
+						// If deselected, revert to the original color
+						appState.img_annotated.Set(x, y, appState.img_raw.NRGBAAt(x, y))
+					}
 				}
 			}
 		}
