@@ -15,9 +15,9 @@ type SpSlic struct {
 
 func (this *SpSlic) SetDefaultParameters() {
 	// Set default parameters for the SLIC algorithm
-	this.numSuperpixels = 1000
-	this.compactness = 15.0
-	this.iterations = 8
+	this.numSuperpixels = 1500
+	this.compactness = 25.0
+	this.iterations = 12
 
 }
 

@@ -24,9 +24,10 @@ import (
 )
 
 type AppState struct {
-	img_raw       *image.NRGBA // Original image
-	img_annotated *image.NRGBA // Image with the annotations
-	superpixels   superpixel.SpAlgorithm
+	img_raw     *image.NRGBA // Original image
+	img_preview *image.NRGBA // Image with the annotations and overlays
+
+	superpixels superpixel.SpAlgorithm
 
 	selectionIndex []bool
 
@@ -60,10 +61,12 @@ func main() {
 		b := appState.img_raw.Bounds()
 		dst := image.NewNRGBA(b)
 		draw.Draw(dst, b, appState.img_raw, b.Min, draw.Src)
-		appState.img_annotated = dst
+		appState.img_preview = dst
+		result := appState.superpixels.GetResult()
+		//appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
 		// Initialize selection index
-		appState.selectionIndex = make([]bool, appState.superpixels.GetResult().SpCount)
+		appState.selectionIndex = make([]bool, result.SpCount)
 
 		// Run main event loop
 		if err := appState.run(appWindow); err != nil {
@@ -113,8 +116,8 @@ func (appState *AppState) layout(layoutContext layout.Context) {
 	clickArea.Pop()
 	bgClip.Pop()
 
-	if appState.img_annotated != nil {
-		paint.NewImageOp(appState.img_annotated).Add(layoutContext.Ops)
+	if appState.img_preview != nil {
+		paint.NewImageOp(appState.img_preview).Add(layoutContext.Ops)
 		paint.PaintOp{}.Add(layoutContext.Ops)
 
 	}
@@ -187,10 +190,10 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 						newColor := appState.img_raw.NRGBAAt(x, y)
 						newColor.R = uint8(math.Min(255, float64(newColor.R)+50))
 
-						appState.img_annotated.Set(x, y, newColor)
+						appState.img_preview.Set(x, y, newColor)
 					} else {
 						// If deselected, revert to the original color
-						appState.img_annotated.Set(x, y, appState.img_raw.NRGBAAt(x, y))
+						appState.img_preview.Set(x, y, appState.img_raw.NRGBAAt(x, y))
 					}
 				}
 			}
