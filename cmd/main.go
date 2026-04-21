@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"gioui.org/app"
+	"gioui.org/f32"
 	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -34,6 +35,11 @@ type AppState struct {
 	window          *app.Window
 	canvasTag       bool
 	currentlyAdding bool
+
+	// Display scaling
+	imageScale   float32
+	imageOffsetX float32
+	imageOffsetY float32
 }
 
 func main() {
@@ -101,6 +107,7 @@ func (appState *AppState) run(appWindow *app.Window) error {
 }
 
 func (appState *AppState) layout(layoutContext layout.Context) {
+
 	// This is the size of the window
 	size := layoutContext.Constraints.Max
 
@@ -117,9 +124,36 @@ func (appState *AppState) layout(layoutContext layout.Context) {
 	bgClip.Pop()
 
 	if appState.img_preview != nil {
+		imageWidth := float32(appState.img_preview.Bounds().Dx())
+		imageHeight := float32(appState.img_preview.Bounds().Dy())
+		windowWidth := float32(size.X)
+		windowHeight := float32(size.Y)
+
+		// Scale the image without stretching
+		scaleX := windowWidth / imageWidth
+		scaleY := windowHeight / imageHeight
+		scale := scaleX
+		if scaleY < scale {
+			scale = scaleY
+		}
+
+		// Place image in center
+		offsetX := (windowWidth - imageWidth*scale) / 2
+		offsetY := (windowHeight - imageHeight*scale) / 2
+
+		// Store the transformation for event handling
+		appState.imageScale = scale
+		appState.imageOffsetX = offsetX
+		appState.imageOffsetY = offsetY
+
+		// Apply the transformation
+		transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).Offset(f32.Pt(offsetX, offsetY))
+		stack := op.Affine(transformation).Push(layoutContext.Ops)
+
 		paint.NewImageOp(appState.img_preview).Add(layoutContext.Ops)
 		paint.PaintOp{}.Add(layoutContext.Ops)
 
+		stack.Pop()
 	}
 }
 
@@ -144,9 +178,9 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 			continue
 		}
 
-		// Get the position of the pointer event
-		ix := pe.Position.X
-		iy := pe.Position.Y
+		// From the raw position of the pointer, calculate the position in image space
+		ix := (pe.Position.X - appState.imageOffsetX) / appState.imageScale
+		iy := (pe.Position.Y - appState.imageOffsetY) / appState.imageScale
 
 		// Check if the position is within the bounds of the image
 		if ix < 0 || iy < 0 || int(ix) >= appState.img_raw.Bounds().Dx() || int(iy) >= appState.img_raw.Bounds().Dy() {
