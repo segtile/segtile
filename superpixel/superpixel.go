@@ -34,23 +34,23 @@ func (this *SpAlgorithmData) GetResult() *SpResult {
 }
 
 type SpResult struct {
-	LabelMap [][]uint16 // 2D array where each element is the superpixel label for that pixel
-	SpCount  int        // Number of superpixels
+	LabelMap *image.Gray16 // Image where each pixel's value is the superpixel label
+	SpCount  int           // Number of superpixels
 }
 
 func (this *SpResult) GetSuperPixelBorders(borderWidth int, borderColor color.Color) *image.NRGBA {
-	bounds := image.Rect(0, 0, len(this.LabelMap), len(this.LabelMap[0]))
+	bounds := this.LabelMap.Bounds()
 	borderImage := image.NewNRGBA(bounds)
 	for x := 0; x < bounds.Dx(); x++ {
 		for y := 0; y < bounds.Dy(); y++ {
-			currentLabel := this.LabelMap[x][y]
+			currentLabel := this.LabelMap.Gray16At(x, y).Y
 			// Check neighboring pixels for different labels
 			isBorder := false
 			for dx := -borderWidth; dx <= borderWidth; dx++ {
 				for dy := -borderWidth; dy <= borderWidth; dy++ {
 					nx, ny := x+dx, y+dy
 					if nx >= 0 && nx < bounds.Dx() && ny >= 0 && ny < bounds.Dy() {
-						if this.LabelMap[nx][ny] != currentLabel {
+						if this.LabelMap.Gray16At(nx, ny).Y != currentLabel {
 							isBorder = true
 							break
 						}
