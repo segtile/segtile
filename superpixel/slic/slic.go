@@ -18,10 +18,21 @@ type SpSlic struct {
 
 func (this *SpSlic) SetDefaultParameters() {
 	// Set default parameters for the SLIC algorithm
-	this.numSuperpixels = 1500
-	this.compactness = 25.0
+	this.numSuperpixels = 800
+	this.compactness = 10
 	this.iterations = 12
+}
 
+func (this *SpSlic) SetNumSuperpixels(num int) {
+	this.numSuperpixels = num
+}
+
+func (this *SpSlic) SetCompactness(compactness float64) {
+	this.compactness = compactness
+}
+
+func (this *SpSlic) SetIterations(iterations int) {
+	this.iterations = iterations
 }
 
 func (this *SpSlic) Run() error {
@@ -38,12 +49,22 @@ func (this *SpSlic) Run() error {
 	labelmap := image.NewGray16(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			labelmap.SetGray16(x, y, color.Gray16{Y: uint16(vendorSlic.Labels[y*width+x])})
+			label := vendorSlic.Labels[y*width+x]
+			labelmap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
 		}
 	}
 
 	this.Result.LabelMap = labelmap
-	this.Result.SpCount = len(vendorSlic.Superpixels)
+
+	// The connectivity algorithm can produce more SP, so we need to
+	// count manually.
+	maxLabel := 0
+	for _, l := range vendorSlic.Labels {
+		if l > maxLabel {
+			maxLabel = l
+		}
+	}
+	this.Result.SpCount = maxLabel + 1
 
 	return nil
 }

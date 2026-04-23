@@ -55,7 +55,7 @@ func main() {
 		// Create the application and load the image
 		appState := &AppState{}
 		appState.window = appWindow
-		appState.img_raw = util.LoadImage(os.Args[1])
+		appState.img_raw = util.ToNRGBA(util.LoadImage(os.Args[1]))
 
 		// Perform the slic segmentation
 		appState.superpixels = &slic.SpSlic{}
