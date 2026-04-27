@@ -10,7 +10,7 @@ func RegularGridPoints(width int, height int, targetNumPoints int) (points []ima
 
 	// Build a square grid, trying to hit the target number of points
 	numPixels := width * height
-	gridInterval = int(math.Sqrt(float64(numPixels)) + 0.5)
+	gridInterval = int(math.Sqrt(float64(numPixels)/float64(targetNumPoints)) + 0.5)
 
 	columns := int(0.5 + float64(width)/float64(gridInterval))
 	rows := int(0.5 + float64(height)/float64(gridInterval))
@@ -38,7 +38,7 @@ func RegularGridPoints(width int, height int, targetNumPoints int) (points []ima
 	points = make([]image.Point, columns*rows)
 	for iX := 0; iX < columns; iX++ {
 		for iY := 0; iY < rows; iY++ {
-			points[iX*columns+iY] = image.Point{
+			points[iX*rows+iY] = image.Point{
 				X: iX*gridInterval + xOffset,
 				Y: iY*gridInterval + yOffset,
 			}

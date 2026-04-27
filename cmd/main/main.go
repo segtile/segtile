@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	_ "image/jpeg"
 	"log"
 	"math"
@@ -64,12 +63,12 @@ func main() {
 		appState.superpixels.Run()
 
 		// Create a separate copy so img_raw is never modified
-		b := appState.img_raw.Bounds()
-		dst := image.NewNRGBA(b)
-		draw.Draw(dst, b, appState.img_raw, b.Min, draw.Src)
-		appState.img_preview = dst
+		//b := appState.img_raw.Bounds()
+		//dst := image.NewNRGBA(b)
+		//draw.Draw(dst, b, appState.img_raw, b.Min, draw.Src)
+		//appState.img_preview = dst
 		result := appState.superpixels.GetResult()
-		//appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
+		appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
 		// Initialize selection index
 		appState.selectionIndex = make([]bool, result.SpCount)
