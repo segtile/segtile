@@ -15,24 +15,18 @@ func RegularGridPoints(width int, height int, targetNumPoints int) (points []ima
 	columns := int(0.5 + float64(width)/float64(gridInterval))
 	rows := int(0.5 + float64(height)/float64(gridInterval))
 
-	// Calculate the "over/undershoot" that the equal grid would produce
-	xError := gridInterval*columns - width
-	yError := gridInterval*rows - height
-
-	// If the error is positive, we are clipping out of the image, so remove a column
-	if xError > 0 {
+	// If the grid overflows the image, remove a column/row
+	if gridInterval*columns > width {
 		columns--
-		xError = width - gridInterval*columns
 	}
-
-	if yError > 0 {
+	if gridInterval*rows > height {
 		rows--
-		yError = height - gridInterval*rows
 	}
 
-	// Offset the grid
-	xOffset := -xError / 2
-	yOffset := -yError / 2
+	// Recompute the undershoot after adjustments (always <= 0: grid is shorter than image)
+	// and offset the grid to center it within the image.
+	xOffset := (width - gridInterval*columns) / 2
+	yOffset := (height - gridInterval*rows) / 2
 
 	// Calculate the final positions
 	points = make([]image.Point, columns*rows)

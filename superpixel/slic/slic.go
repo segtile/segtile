@@ -29,8 +29,8 @@ import (
 )
 
 type slicSpCluster struct {
-	loc image.Point
-	col colorful.Color
+	x, y    float64
+	l, a, b float64
 }
 
 type SpSlic struct {
@@ -44,17 +44,20 @@ type SpSlic struct {
 	iterations                     int
 
 	// State
-	gridInterval     int
-	clusters         []slicSpCluster
-	bestDistancesMap []float64    // For each pixel, the distance to the closest cluster center. Used in the main loop.
-	labCache         [][3]float64 // Pre-computed LAB values for each pixel, indexed by y*width+x.
+	gridInterval int             // Interval in which the initial cluster centers are placed.
+	clusters     []slicSpCluster // The current cluster centers, indexed by cluster label.
+
+	// State maps, all indexed by y*width+x
+	labelMap         []uint16     // For each pixel, the index of the assigned cluster.
+	bestDistancesMap []float64    // For each pixel, the distance to the closest cluster center.
+	labCache         [][3]float64 // Pre-computed LAB values for each pixel.
 
 }
 
 func (this *SpSlic) SetDefaultParameters() {
 	// Set default parameters for the SLIC algorithm
 	this.numSuperpixels = 800
-	this.compactness = 10
+	this.compactness = 20
 	this.initialPertubationNeighborhood = 3
 	this.iterations = 8
 }
@@ -76,13 +79,19 @@ func (this *SpSlic) SetIterations(iterations int) {
 
 func (this *SpSlic) SetImage(img image.Image) {
 	this.Img = img
-	this.bestDistancesMap = nil // Reset the best distances
+	this.bestDistancesMap = nil
+	this.Result = superpixel.SpResult{}
+	this.clusters = nil
+	this.gridInterval = 0
+	this.bestDistancesMap = nil
+
+	this.buildLabCache()
+
 }
 
-// The distance measure SLIC uses to assign pixels to clusters, as defined in the original paper
-// See Equation 1 in the original paper
+// The distance measure SLIC uses to assign pixels to clusters, see Equation 1 in the original paper
 // clL, clA, clB are the pre-computed LAB values of the cluster center, to avoid recomputing them for every pixel.
-func (this *SpSlic) distance(cluster slicSpCluster, clL, clA, clB float64, pixelX int, pixelY int) (gradient float64, err error) {
+func (this *SpSlic) distance(cluster slicSpCluster, pixelX int, pixelY int) (gradient float64, err error) {
 
 	// If the pixel is out of bounds, we return infinity and an error to make sure it is not assigned to any cluster.
 	width := this.Img.Bounds().Dx()
@@ -95,10 +104,8 @@ func (this *SpSlic) distance(cluster slicSpCluster, clL, clA, clB float64, pixel
 	pixelL, pixelA, pixelB := lab[0], lab[1], lab[2]
 
 	// Calculate the distance in LAB and XY and combine it.
-	// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
-	// so we scale distanceLab by 100 to match the scale the compactness parameter is calibrated for.
-	distanceLab := 100 * math.Sqrt(math.Pow(clL-pixelL, 2)+math.Pow(clA-pixelA, 2)+math.Pow(clB-pixelB, 2))
-	distanceXY := math.Sqrt(math.Pow(float64(cluster.loc.X-pixelX), 2) + math.Pow(float64(cluster.loc.Y-pixelY), 2))
+	distanceLab := math.Sqrt(math.Pow(cluster.l-pixelL, 2) + math.Pow(cluster.a-pixelA, 2) + math.Pow(cluster.b-pixelB, 2))
+	distanceXY := math.Sqrt(math.Pow(cluster.x-float64(pixelX), 2) + math.Pow(cluster.y-float64(pixelY), 2))
 	distance := distanceLab + (this.compactness/float64(this.gridInterval))*distanceXY
 	return distance, nil
 
@@ -114,7 +121,7 @@ func (this *SpSlic) gradient(pixelX int, pixelY int) (float64, error) {
 	// but since having cluster centers right near the edge is generally undesirable,
 	// we just return infinity to make this very unlikely to be chosen as a cluster center.
 	if pixelX < 1 || pixelY < 1 || pixelX > width-2 || pixelY > height-2 {
-		return math.Inf(1), errors.New("Out of bounds, assuming infinite error")
+		return math.Inf(1), errors.New("Out of bounds, infinite error")
 	}
 
 	// Get the color components of the neighboring pixels in LAB
@@ -241,13 +248,11 @@ func (this *SpSlic) labelPixels() {
 	// For every cluster, test the distance metric of pixels in a 2*gridInterval x 2*gridInterval neighborhood around the cluster center.
 	// Assign them to the cluster if they are closer than their previous best cluster.
 	for clusterIndex, cluster := range this.clusters {
-		// Pre-compute the cluster's LAB values once per cluster instead of once per pixel.
-		clL, clA, clB := cluster.col.Lab()
 		for iX := -this.gridInterval; iX <= this.gridInterval; iX++ {
 			for iY := -this.gridInterval; iY <= this.gridInterval; iY++ {
-				pixelX := cluster.loc.X + iX
-				pixelY := cluster.loc.Y + iY
-				distance, err := this.distance(cluster, clL, clA, clB, pixelX, pixelY)
+				pixelX := int(cluster.x) + iX
+				pixelY := int(cluster.y) + iY
+				distance, err := this.distance(cluster, pixelX, pixelY)
 				if err != nil {
 					continue // Skip out of bounds pixels
 				}
@@ -294,9 +299,11 @@ func (this *SpSlic) recalculateClusterCenters() {
 			clusterPixelCount[i] = 1
 		}
 		count := float64(clusterPixelCount[i])
-		this.clusters[i].loc.X = int(clusterXPos[i] / clusterPixelCount[i])
-		this.clusters[i].loc.Y = int(clusterYPos[i] / clusterPixelCount[i])
-		this.clusters[i].col = colorful.Lab(clusterL[i]/count, clusterA[i]/count, clusterB[i]/count)
+		this.clusters[i].x = float64(clusterXPos[i]) / count
+		this.clusters[i].y = float64(clusterYPos[i]) / count
+		this.clusters[i].l = clusterL[i] / count
+		this.clusters[i].a = clusterA[i] / count
+		this.clusters[i].b = clusterB[i] / count
 	}
 
 }
@@ -308,6 +315,12 @@ func (this *SpSlic) buildLabCache() {
 		for x := 0; x < width; x++ {
 			c, _ := colorful.MakeColor(this.Img.At(x, y))
 			l, a, b := c.Lab()
+			// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
+			// so we scale the lab values by 100 to match the scale the compactness parameter is calibrated for.
+			l *= 100
+			a *= 100
+			b *= 100
+
 			this.labCache[y*width+x] = [3]float64{l, a, b}
 		}
 	}
@@ -345,30 +358,33 @@ func (this *SpSlic) Run() error {
 	points, this.gridInterval = util.RegularGridPoints(width, height, this.numSuperpixels)
 	this.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
-		this.clusters[index].loc = point
-		this.clusters[index].col, _ = colorful.MakeColor(this.Img.At(point.X, point.Y))
+		this.clusters[index].x = float64(point.X)
+		this.clusters[index].y = float64(point.Y)
+		this.clusters[index].l = this.labCache[point.Y*width+point.X][0]
+		this.clusters[index].a = this.labCache[point.Y*width+point.X][1]
+		this.clusters[index].b = this.labCache[point.Y*width+point.X][2]
 	}
 
 	// Move cluster centers to lowest gradient position in neighborhood.
 	// In the original paper, this is explicitly defined as a 3x3 neighborhood, but we make it adjustable.
 	for index, cluster := range this.clusters {
 		minGradient := math.Inf(1)
-		newCenter := cluster.loc
+		newCenterX := cluster.x
+		newCenterY := cluster.y
 
 		for iX := -this.initialPertubationNeighborhood; iX <= this.initialPertubationNeighborhood; iX++ {
 			for iY := -this.initialPertubationNeighborhood; iY <= this.initialPertubationNeighborhood; iY++ {
-				gradient, _ := this.gradient(cluster.loc.X+iX, cluster.loc.Y+iY)
+				gradient, _ := this.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
 				if gradient < minGradient {
 					minGradient = gradient
-					newCenter = image.Point{X: cluster.loc.X + iX, Y: cluster.loc.Y + iY}
+					newCenterX = cluster.x + float64(iX)
+					newCenterY = cluster.y + float64(iY)
 				}
 			}
 		}
-		this.clusters[index].loc = newCenter
+		this.clusters[index].x = newCenterX
+		this.clusters[index].y = newCenterY
 	}
-
-	// Pre-compute LAB values for all pixels once, before the main loop.
-	this.buildLabCache()
 
 	// The main loop of the SLIC algorithm
 
@@ -380,9 +396,6 @@ func (this *SpSlic) Run() error {
 	}
 
 	this.enforceConnectivity()
-
-	this.bestDistancesMap = nil // Free memory
-	this.labCache = nil         // Free memory
 
 	this.Result.SpCount = len(this.clusters)
 
