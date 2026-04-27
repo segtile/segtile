@@ -29,7 +29,7 @@ import (
 )
 
 type slicSpCluster struct {
-	x, y    float64
+	x, y    int
 	l, a, b float64
 }
 
@@ -55,7 +55,6 @@ type SpSlic struct {
 }
 
 func (this *SpSlic) SetDefaultParameters() {
-	// Set default parameters for the SLIC algorithm
 	this.numSuperpixels = 800
 	this.compactness = 20
 	this.initialPertubationNeighborhood = 3
@@ -105,7 +104,7 @@ func (this *SpSlic) distance(cluster slicSpCluster, pixelX int, pixelY int) (gra
 
 	// Calculate the distance in LAB and XY and combine it.
 	distanceLab := math.Sqrt(math.Pow(cluster.l-pixelL, 2) + math.Pow(cluster.a-pixelA, 2) + math.Pow(cluster.b-pixelB, 2))
-	distanceXY := math.Sqrt(math.Pow(cluster.x-float64(pixelX), 2) + math.Pow(cluster.y-float64(pixelY), 2))
+	distanceXY := math.Sqrt(math.Pow(float64(cluster.x-pixelX), 2) + math.Pow(float64(cluster.y-pixelY), 2))
 	distance := distanceLab + (this.compactness/float64(this.gridInterval))*distanceXY
 	return distance, nil
 
@@ -298,12 +297,12 @@ func (this *SpSlic) recalculateClusterCenters() {
 		if clusterPixelCount[i] < 1 {
 			clusterPixelCount[i] = 1
 		}
-		count := float64(clusterPixelCount[i])
-		this.clusters[i].x = float64(clusterXPos[i]) / count
-		this.clusters[i].y = float64(clusterYPos[i]) / count
-		this.clusters[i].l = clusterL[i] / count
-		this.clusters[i].a = clusterA[i] / count
-		this.clusters[i].b = clusterB[i] / count
+		count := clusterPixelCount[i]
+		this.clusters[i].x = int(clusterXPos[i] / count)
+		this.clusters[i].y = int(clusterYPos[i] / count)
+		this.clusters[i].l = clusterL[i] / float64(count)
+		this.clusters[i].a = clusterA[i] / float64(count)
+		this.clusters[i].b = clusterB[i] / float64(count)
 	}
 
 }
@@ -358,8 +357,8 @@ func (this *SpSlic) Run() error {
 	points, this.gridInterval = util.RegularGridPoints(width, height, this.numSuperpixels)
 	this.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
-		this.clusters[index].x = float64(point.X)
-		this.clusters[index].y = float64(point.Y)
+		this.clusters[index].x = point.X
+		this.clusters[index].y = point.Y
 		this.clusters[index].l = this.labCache[point.Y*width+point.X][0]
 		this.clusters[index].a = this.labCache[point.Y*width+point.X][1]
 		this.clusters[index].b = this.labCache[point.Y*width+point.X][2]
@@ -377,8 +376,8 @@ func (this *SpSlic) Run() error {
 				gradient, _ := this.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
 				if gradient < minGradient {
 					minGradient = gradient
-					newCenterX = cluster.x + float64(iX)
-					newCenterY = cluster.y + float64(iY)
+					newCenterX = cluster.x + iX
+					newCenterY = cluster.y + iY
 				}
 			}
 		}
