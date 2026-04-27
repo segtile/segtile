@@ -67,6 +67,9 @@ func (this *SpResult) ApproximateMask(groundTruth *image.Gray16, threshold float
 
 	// Determine which superpixels are included in the mask based on the threshold
 	for spLabel := 0; spLabel < this.SpCount; spLabel++ {
+		if spPixelCount[spLabel] == 0 {
+			continue
+		}
 		overlapRatio := float64(spOverlapCount[spLabel]) / float64(spPixelCount[spLabel])
 		overlapHistogram[int(overlapRatio*100)]++
 		if overlapRatio >= threshold {
