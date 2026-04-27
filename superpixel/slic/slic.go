@@ -17,12 +17,10 @@ Some parts of the implementation are based on the implementation in github.com/k
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"math"
 
-	vendor_slic "github.com/kurige/SLIC"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/struffel/annotation-tool/superpixel"
 	"github.com/struffel/annotation-tool/util"
@@ -48,7 +46,7 @@ type SpSlic struct {
 	clusters     []slicSpCluster // The current cluster centers, indexed by cluster label.
 
 	// State maps, all indexed by y*width+x
-	labelMap         []uint16     // For each pixel, the index of the assigned cluster.
+	labelMap         []int        // For each pixel, the index of the assigned cluster.
 	bestDistancesMap []float64    // For each pixel, the distance to the closest cluster center.
 	labCache         [][3]float64 // Pre-computed LAB values for each pixel.
 
@@ -83,6 +81,7 @@ func (this *SpSlic) SetImage(img image.Image) {
 	this.clusters = nil
 	this.gridInterval = 0
 	this.bestDistancesMap = nil
+	this.labelMap = nil
 
 	this.buildLabCache()
 
@@ -143,6 +142,8 @@ func (this *SpSlic) gradient(pixelX int, pixelY int) (float64, error) {
 // This step is not discussed in detail in the original paper which is why this function leans more on the existing implementation mentioned above.
 func (this *SpSlic) enforceConnectivity() {
 
+	// fmt.Fprintln(os.Stderr, "Enforcing connectivity ...")
+
 	// Get image dimensions
 	width := this.Img.Bounds().Dx()
 	height := this.Img.Bounds().Dy()
@@ -153,11 +154,7 @@ func (this *SpSlic) enforceConnectivity() {
 
 	// Read current labels into a flat int slice for efficient access during flood fill.
 	labels := make([]int, totalPixelCount)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			labels[y*width+x] = int(this.Result.LabelMap.Gray16At(x, y).Y)
-		}
-	}
+	copy(labels, this.labelMap)
 
 	// Templates for creating the 4-connected neighborhood of a pixel
 	dx4 := [4]int{-1, 0, 1, 0}
@@ -167,7 +164,7 @@ func (this *SpSlic) enforceConnectivity() {
 	xVector := make([]int, totalPixelCount)
 	yVector := make([]int, totalPixelCount)
 
-	oindex := 0
+	originIndex := 0
 	adjacentLabel := 0
 
 	label := 0
@@ -176,32 +173,32 @@ func (this *SpSlic) enforceConnectivity() {
 		newLabelMap[i] = -1
 	}
 
-	for j := 0; j < height; j++ {
-		for k := 0; k < width; k++ {
-			if newLabelMap[oindex] < 0 {
-				newLabelMap[oindex] = label
+	for indexHeight := range height {
+		for indexWidth := range width {
+			if newLabelMap[originIndex] < 0 {
+				newLabelMap[originIndex] = label
 
 				// Start a new segment
-				xVector[0] = k
-				yVector[0] = j
+				xVector[0] = indexWidth
+				yVector[0] = indexHeight
 
 				// Quickly find an adjacent label for use later if needed
-				for n := 0; n < 4; n++ {
+				for n := range 4 {
 					x := xVector[0] + dx4[n]
 					y := yVector[0] + dy4[n]
 					if x >= 0 && x < width && y >= 0 && y < height {
-						nindex := y*width + x
-						if newLabelMap[nindex] >= 0 {
-							adjacentLabel = newLabelMap[nindex]
+						newIndex := y*width + x
+						if newLabelMap[newIndex] >= 0 {
+							adjacentLabel = newLabelMap[newIndex]
 						}
 					}
 				}
 
 				// Flood fill: expand to all connected pixels sharing the same original label
-				originLabel := labels[oindex]
+				originLabel := labels[originIndex]
 				count := 1
 				for c := 0; c < count; c++ {
-					for n := 0; n < 4; n++ {
+					for n := range 4 {
 						x := xVector[c] + dx4[n]
 						y := yVector[c] + dy4[n]
 						if x >= 0 && x < width && y >= 0 && y < height {
@@ -217,7 +214,7 @@ func (this *SpSlic) enforceConnectivity() {
 				}
 
 				// If the component is too small, absorb it into an adjacent segment
-				if count <= minimumSpPixelCount>>2 {
+				if count <= minimumSpPixelCount {
 					for c := 0; c < count; c++ {
 						ind := yVector[c]*width + xVector[c]
 						newLabelMap[ind] = adjacentLabel
@@ -226,18 +223,12 @@ func (this *SpSlic) enforceConnectivity() {
 				}
 				label++
 			}
-			oindex++
+			originIndex++
 		}
 	}
 
 	// Write new labels back to the label map
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			this.Result.LabelMap.SetGray16(x, y, color.Gray16{Y: uint16(newLabelMap[y*width+x])})
-		}
-	}
-
-	this.Result.SpCount = label
+	copy(this.labelMap, newLabelMap)
 }
 
 func (this *SpSlic) labelPixels() {
@@ -257,7 +248,7 @@ func (this *SpSlic) labelPixels() {
 				}
 				if distance < this.bestDistancesMap[pixelY*width+pixelX] {
 					this.bestDistancesMap[pixelY*width+pixelX] = distance
-					this.Result.LabelMap.SetGray16(pixelX, pixelY, color.Gray16{Y: uint16(clusterIndex)})
+					this.labelMap[pixelY*width+pixelX] = clusterIndex
 				}
 			}
 		}
@@ -281,8 +272,8 @@ func (this *SpSlic) recalculateClusterCenters() {
 	// Sum up all pixel counts, positions, and LAB color values
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			label := this.Result.LabelMap.Gray16At(x, y).Y
-			clusterPixelCount[label] += 1
+			label := this.labelMap[y*width+x]
+			clusterPixelCount[label]++
 			clusterXPos[label] += uint64(x)
 			clusterYPos[label] += uint64(y)
 			lab := this.labCache[y*width+x]
@@ -336,7 +327,7 @@ func (this *SpSlic) resetDistances() {
 
 func (this *SpSlic) Run() error {
 
-	fmt.Println("Running SLIC superpixel algorithm...")
+	//fmt.Fprintln(os.Stderr, "Running SLIC superpixel algorithm...")
 
 	if this.Img == nil {
 		return errors.New("Image not set.")
@@ -346,11 +337,8 @@ func (this *SpSlic) Run() error {
 	width := this.GetImage().Bounds().Dx()
 	height := this.GetImage().Bounds().Dy()
 
-	// Initialize the result struct
-	this.Result = superpixel.SpResult{
-		LabelMap: image.NewGray16(image.Rect(0, 0, width, height)),
-		SpCount:  0,
-	}
+	// Initialize the internal label map
+	this.labelMap = make([]int, width*height)
 
 	// Initialize clusters
 	var points []image.Point
@@ -388,7 +376,7 @@ func (this *SpSlic) Run() error {
 	// The main loop of the SLIC algorithm
 
 	for i := 0; i < this.iterations; i++ {
-		fmt.Printf("SLIC iteration %d/%d\n", i+1, this.iterations)
+		//fmt.Fprintf(os.Stderr, "SLIC iteration %d/%d\n", i+1, this.iterations)
 		this.resetDistances()
 		this.labelPixels()
 		this.recalculateClusterCenters()
@@ -396,44 +384,24 @@ func (this *SpSlic) Run() error {
 
 	this.enforceConnectivity()
 
-	this.Result.SpCount = len(this.clusters)
-
-	fmt.Printf("SLIC finished with %d superpixels.\n", this.Result.SpCount)
-
-	return nil
-}
-
-// Kept around for now as a reference
-func (this *SpSlic) OldRun() error {
-
-	// Get image dimensions
-	width := this.GetImage().Bounds().Dx()
-	height := this.GetImage().Bounds().Dy()
-
-	// Use the library to perform SLIC segmentation
-	vendorSlic := vendor_slic.MakeSlic(this.GetImage(), this.compactness, width*height/this.numSuperpixels)
-	vendorSlic.Run(this.iterations)
-
-	// Convert the result into a Gray16 label map
-	labelmap := image.NewGray16(image.Rect(0, 0, width, height))
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			label := vendorSlic.Labels[y*width+x]
-			labelmap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
-		}
-	}
-
-	this.Result.LabelMap = labelmap
-
-	// The connectivity algorithm can produce more SP, so we need to
-	// count manually.
+	// Write the final result into this.Result
+	resultLabelMap := image.NewGray16(image.Rect(0, 0, width, height))
 	maxLabel := 0
-	for _, l := range vendorSlic.Labels {
-		if l > maxLabel {
-			maxLabel = l
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			label := this.labelMap[y*width+x]
+			if label > maxLabel {
+				maxLabel = label
+			}
+			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
 		}
 	}
-	this.Result.SpCount = maxLabel + 1
+	this.Result = superpixel.SpResult{
+		LabelMap: resultLabelMap,
+		SpCount:  maxLabel + 1,
+	}
+
+	//fmt.Fprintf(os.Stderr, "SLIC finished with %d superpixels.\n", this.Result.SpCount)
 
 	return nil
 }
