@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	_ "image/jpeg"
 	"log"
 	"math"
 	"os"
+	"strconv"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -43,7 +43,7 @@ type AppState struct {
 	canvasTag                  bool
 	currentlyAdding            bool
 	theme                      *material.Theme
-	superpixelParameterSliders map[superpixel.SpParameter]*widget.Float
+	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 
 	// Display scaling
 	imageScale   float32
@@ -98,18 +98,12 @@ func main() {
 		}
 
 		// Run the algorithm to compute the superpixels
-		err = appState.superpixelImplementation.Run()
-		if err != nil {
-			log.Fatalf("Error running superpixel algorithm: %v", err)
-		}
+		appState.recalculateSuperpixels()
 
 		// Create a new image into which the preview is rendered
-		b := appState.img_raw.Bounds()
-		dst := image.NewNRGBA(b)
-		draw.Draw(dst, b, appState.img_raw, b.Min, draw.Src)
-		appState.img_preview = dst
+		//appState.img_preview = util.CopyImage(appState.img_raw)
 		result := appState.superpixelImplementation.GetResult()
-		//appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
+		appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
 		// Initialize selection index
 		appState.selectionIndex = make([]bool, result.SpCount)
@@ -118,11 +112,18 @@ func main() {
 		appState.canvasTag = false
 		appState.currentlyAdding = false
 		appState.theme = material.NewTheme()
-		appState.superpixelParameterSliders = make(map[superpixel.SpParameter]*widget.Float)
+
+		// Initialize the map of parameter editors
+		appState.superpixelParameterEditors = make(map[superpixel.SpParameter]*widget.Editor)
 		for _, param := range appState.superpixelImplementation.GetSupportedParameters() {
-			appState.superpixelParameterSliders[param] = &widget.Float{
-				Value: 0,
+			value, _ := appState.superpixelImplementation.GetParameter(param)
+			ed := &widget.Editor{
+				SingleLine: true,
+				Submit:     true, // pressing Enter fires a SubmitEvent
+				Filter:     "0123456789.",
 			}
+			ed.SetText(fmt.Sprintf("%g", value))
+			appState.superpixelParameterEditors[param] = ed
 		}
 
 		// Run main event loop
@@ -168,10 +169,9 @@ func (appState *AppState) run(appWindow *app.Window) error {
 			ops.Reset()
 
 			gtx := app.NewContext(&ops, e)
-
-			appState.layout(gtx)
-
 			appState.handlePointer(gtx)
+			appState.handleEditors(gtx)
+			appState.layout(gtx)
 
 			e.Frame(&ops)
 		}
@@ -220,17 +220,13 @@ func (appState *AppState) layout(gtx layout.Context) {
 							label.Color = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 							return label.Layout(gtx)
 						}),
+
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									return material.Slider(appState.theme, appState.superpixelParameterSliders[param]).Layout(gtx)
-								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									valueLabel := material.Body2(appState.theme, fmt.Sprintf("%.2f", appState.superpixelParameterSliders[param].Value))
-									valueLabel.Color = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
-									return valueLabel.Layout(gtx)
-								}),
-							)
+							currentEditor := appState.superpixelParameterEditors[param]
+
+							editorStyle := material.Editor(appState.theme, currentEditor, "value")
+							editorStyle.Color = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+							return editorStyle.Layout(gtx)
 						}),
 					)
 				}
@@ -285,6 +281,30 @@ func (appState *AppState) layout(gtx layout.Context) {
 	)
 }
 
+func (appState *AppState) handleEditors(gtx layout.Context) {
+
+	recalculateSuperpixels := false
+	for param, editor := range appState.superpixelParameterEditors {
+		// Drain events and apply the value on Submit
+		for {
+			ev, ok := editor.Update(gtx)
+			if !ok {
+				break
+			}
+			if _, ok := ev.(widget.SubmitEvent); ok {
+				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
+					appState.superpixelImplementation.SetParameter(param, v)
+					fmt.Printf("Set %s to %v\n", param.String(), v)
+					recalculateSuperpixels = true
+				}
+			}
+		}
+	}
+	if recalculateSuperpixels {
+		appState.recalculateSuperpixels()
+	}
+}
+
 func (appState *AppState) handlePointer(gtx layout.Context) {
 
 	// Iterate over all pointer events that occurred since the last frame
@@ -318,7 +338,7 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 
 		// Sample the current superpixel label at the pointer position
 		label := appState.superpixelImplementation.GetResult().LabelMap.Gray16At(int(ix), int(iy)).Y
-		//fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
+		fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
 
 		// Decide the desired action based on the pointer event type and the current app state
 		if pe.Kind == pointer.Press {
@@ -362,4 +382,22 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 		}
 		appState.window.Invalidate()
 	}
+}
+
+func (appState *AppState) recalculateSuperpixels() {
+
+	fmt.Println("Calculating Superpixels...")
+
+	// Re-run the superpixel algorithm
+	err := appState.superpixelImplementation.Run()
+	if err != nil {
+		log.Fatalf("Error running superpixel algorithm: %v", err)
+	}
+
+	// Reset the current selection
+	result := appState.superpixelImplementation.GetResult()
+	appState.selectionIndex = make([]bool, result.SpCount)
+
+	appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
+
 }
