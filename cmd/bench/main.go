@@ -11,7 +11,8 @@ import (
 
 	_ "golang.org/x/image/tiff"
 
-	"github.com/struffel/annotation-tool/superpixel/slic"
+	"github.com/struffel/annotation-tool/superpixel"
+	"github.com/struffel/annotation-tool/superpixel_factory"
 	"github.com/struffel/annotation-tool/util"
 )
 
@@ -29,6 +30,9 @@ type benchmarkResult struct {
 }
 
 func main() {
+
+	// Configuration
+	const algorithmName = "slic"
 
 	// Show help
 	if len(os.Args) < 4 {
@@ -96,13 +100,15 @@ func main() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				sp := slic.SpSlic{}
+
+				// Set up superpixel algorithm
+				sp, _ := superpixel_factory.GetSuperpixelImplementationByName(algorithmName)
 				sp.SetImage(img)
 				sp.SetRecommendedParameters()
 
 				for item := range workCh {
-					sp.SetCompactness(item.compactness)
-					sp.SetNumSuperpixels(item.spCount)
+					sp.SetParameter(superpixel.Compactness, item.compactness)
+					sp.SetParameter(superpixel.Count, float64(item.spCount))
 
 					if err := sp.Run(); err != nil {
 						fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)

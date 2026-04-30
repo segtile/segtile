@@ -20,10 +20,14 @@ type SpImplementation interface {
 	// Returns an error if the parameter is not supported or if the value is invalid.
 	SetParameter(parameter SpParameter, value float64) error
 
+	// GetParameter retrieves the current value of a specific algorithm parameter.
+	// Returns an error if the parameter is not supported.
+	GetParameter(parameter SpParameter) (float64, error)
+
 	// GetSupportedParameters returns a list of parameters supported by this algorithm.
 	GetSupportedParameters() []SpParameter
 
-	// Run executes the superpixel algorithm on the set image.
+	// Run executes the superpixel algorithm on the set image with the set parameters.
 	Run() error
 
 	// GetResult returns the result of the algorithm execution.

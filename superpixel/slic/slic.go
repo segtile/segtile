@@ -69,6 +69,21 @@ func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
 	}
 }
 
+func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, error) {
+	switch parameter {
+	case superpixel.Count:
+		return float64(this.numSuperpixels), nil
+	case superpixel.Compactness:
+		return this.compactness, nil
+	case superpixel.InitialPerturbationNeighborhood:
+		return float64(this.initialPerturbationNeighborhood), nil
+	case superpixel.Iterations:
+		return float64(this.iterations), nil
+	default:
+		return 0, errors.New("SLIC does not have this parameter.")
+	}
+}
+
 func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
 	switch parameter {
 	case superpixel.Count:

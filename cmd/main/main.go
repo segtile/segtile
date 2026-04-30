@@ -20,7 +20,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/superpixel/slic"
+	"github.com/struffel/annotation-tool/superpixel_factory"
 	"github.com/struffel/annotation-tool/util"
 )
 
@@ -67,7 +67,7 @@ func main() {
 		appState.img_raw = util.ToNRGBA(util.LoadImage(arguments.ImagePath))
 
 		// Set up the superpixel algorithm
-		impl, err := getSuperpixelImplementationByName(arguments.Algorithm)
+		impl, err := superpixel_factory.GetSuperpixelImplementationByName(arguments.Algorithm)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -281,14 +281,5 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 			}
 		}
 		appState.window.Invalidate()
-	}
-}
-
-func getSuperpixelImplementationByName(name string) (superpixel.SpImplementation, error) {
-	switch name {
-	case "slic":
-		return &slic.SpSlic{}, nil
-	default:
-		return nil, fmt.Errorf("Unknown algorithm: %s", name)
 	}
 }
