@@ -19,22 +19,31 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/superpixel"
 	"github.com/struffel/annotation-tool/superpixel_factory"
 	"github.com/struffel/annotation-tool/util"
 )
 
 type AppState struct {
+
+	// Images
 	img_raw     *image.NRGBA // Original image
 	img_preview *image.NRGBA // Image with the annotations and overlays
 
+	// Superpixel module
 	superpixelImplementation superpixel.SpImplementation
 
+	// Selected superpixels
 	selectionIndex []bool
 
-	window          *app.Window
-	canvasTag       bool
-	currentlyAdding bool
+	// UI state
+	window                     *app.Window
+	canvasTag                  bool
+	currentlyAdding            bool
+	theme                      *material.Theme
+	superpixelParameterSliders map[superpixel.SpParameter]*widget.Float
 
 	// Display scaling
 	imageScale   float32
@@ -62,7 +71,7 @@ func main() {
 		)
 
 		// Create the application and load the image
-		appState := &AppState{}
+		appState := newAppState()
 		appState.window = appWindow
 		appState.img_raw = util.ToNRGBA(util.LoadImage(arguments.ImagePath))
 
@@ -74,7 +83,7 @@ func main() {
 		appState.superpixelImplementation = impl
 		appState.superpixelImplementation.SetImage(appState.img_raw)
 
-		// Set up parameters
+		// Set up SP parameters
 		appState.superpixelImplementation.SetRecommendedParameters()
 		for name, value := range arguments.Parameters {
 			param, exists := superpixel.ParseSpParameter(name)
@@ -94,7 +103,7 @@ func main() {
 			log.Fatalf("Error running superpixel algorithm: %v", err)
 		}
 
-		// Create a separate copy so img_raw is never modified
+		// Create a new image into which the preview is rendered
 		b := appState.img_raw.Bounds()
 		dst := image.NewNRGBA(b)
 		draw.Draw(dst, b, appState.img_raw, b.Min, draw.Src)
@@ -105,6 +114,17 @@ func main() {
 		// Initialize selection index
 		appState.selectionIndex = make([]bool, result.SpCount)
 
+		// Initialize UI state
+		appState.canvasTag = false
+		appState.currentlyAdding = false
+		appState.theme = material.NewTheme()
+		appState.superpixelParameterSliders = make(map[superpixel.SpParameter]*widget.Float)
+		for _, param := range appState.superpixelImplementation.GetSupportedParameters() {
+			appState.superpixelParameterSliders[param] = &widget.Float{
+				Value: 0,
+			}
+		}
+
 		// Run main event loop
 		if err := appState.run(appWindow); err != nil {
 			log.Fatal(err)
@@ -112,6 +132,10 @@ func main() {
 		os.Exit(0)
 	}()
 	app.Main()
+}
+
+func newAppState() *AppState {
+	return &AppState{}
 }
 
 func parseCommandLineArguments() CliArguments {
@@ -143,74 +167,130 @@ func (appState *AppState) run(appWindow *app.Window) error {
 			// The list of draw operations
 			ops.Reset()
 
-			layoutContext := app.NewContext(&ops, e)
+			gtx := app.NewContext(&ops, e)
 
-			appState.layout(layoutContext)
+			appState.layout(gtx)
 
-			appState.handlePointer(layoutContext)
+			appState.handlePointer(gtx)
 
 			e.Frame(&ops)
 		}
 	}
 }
 
-func (appState *AppState) layout(layoutContext layout.Context) {
+func (appState *AppState) layout(gtx layout.Context) {
 
 	// This is the size of the window
-	size := layoutContext.Constraints.Max
+	size := gtx.Constraints.Max
 
-	bgClip := clip.Rect{Max: size}.Push(layoutContext.Ops)
+	// We set up a clipping area that covers the entire window.
+	// This ensures that all drawing operations are confined to the window bounds, preventing any rendering outside the visible area.
+	bgClip := clip.Rect{Max: size}.Push(gtx.Ops)
 
-	clickArea := clip.Rect{Max: size}.Push(layoutContext.Ops)
-	event.Op(layoutContext.Ops, &appState.canvasTag)
-
-	event.Op(layoutContext.Ops, true)
-
-	paint.ColorOp{Color: color.NRGBA{R: 35, G: 35, B: 35, A: 255}}.Add(layoutContext.Ops)
-	paint.PaintOp{}.Add(layoutContext.Ops)
-	clickArea.Pop()
+	// Fill the background with a solid color (dark gray)
+	paint.ColorOp{Color: color.NRGBA{R: 35, G: 35, B: 35, A: 255}}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
 	bgClip.Pop()
 
-	if appState.img_preview != nil {
-		imageWidth := float32(appState.img_preview.Bounds().Dx())
-		imageHeight := float32(appState.img_preview.Bounds().Dy())
-		windowWidth := float32(size.X)
-		windowHeight := float32(size.Y)
+	const sidebarWidth = 220
 
-		// Scale the image without stretching
-		scaleX := windowWidth / imageWidth
-		scaleY := windowHeight / imageHeight
-		scale := scaleX
-		if scaleY < scale {
-			scale = scaleY
-		}
+	layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		// Sidebar
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
-		// Place image in center
-		offsetX := (windowWidth - imageWidth*scale) / 2
-		offsetY := (windowHeight - imageHeight*scale) / 2
+			// Set fixed width for the sidebar
+			gtx.Constraints.Min.X = sidebarWidth
+			gtx.Constraints.Max.X = sidebarWidth
 
-		// Store the transformation for event handling
-		appState.imageScale = scale
-		appState.imageOffsetX = offsetX
-		appState.imageOffsetY = offsetY
+			// Draw sidebar background
+			sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+			paint.ColorOp{Color: color.NRGBA{R: 25, G: 25, B: 25, A: 255}}.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+			sidebarClip.Pop()
 
-		// Apply the transformation
-		transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).Offset(f32.Pt(offsetX, offsetY))
-		stack := op.Affine(transformation).Push(layoutContext.Ops)
+			// Layout sliders inside the sidebar
+			inset := layout.UniformInset(unit.Dp(8))
+			return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				var parameterSliderElements []layout.FlexChild
 
-		paint.NewImageOp(appState.img_preview).Add(layoutContext.Ops)
-		paint.PaintOp{}.Add(layoutContext.Ops)
+				for _, param := range appState.superpixelImplementation.GetSupportedParameters() {
+					parameterSliderElements = append(parameterSliderElements,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							label := material.Body1(appState.theme, param.String())
+							label.Color = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+							return label.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return material.Slider(appState.theme, appState.superpixelParameterSliders[param]).Layout(gtx)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									valueLabel := material.Body2(appState.theme, fmt.Sprintf("%.2f", appState.superpixelParameterSliders[param].Value))
+									valueLabel.Color = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+									return valueLabel.Layout(gtx)
+								}),
+							)
+						}),
+					)
+				}
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, parameterSliderElements...)
+			})
+		}),
+		// Main canvas
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			canvasSize := gtx.Constraints.Max
 
-		stack.Pop()
-	}
+			// Set up click area for the canvas
+			clickArea := clip.Rect{Max: canvasSize}.Push(gtx.Ops)
+			event.Op(gtx.Ops, &appState.canvasTag)
+			event.Op(gtx.Ops, true)
+			clickArea.Pop()
+
+			if appState.img_preview != nil {
+				imageWidth := float32(appState.img_preview.Bounds().Dx())
+				imageHeight := float32(appState.img_preview.Bounds().Dy())
+				canvasWidth := float32(canvasSize.X)
+				canvasHeight := float32(canvasSize.Y)
+
+				// Scale the image without stretching
+				scaleX := canvasWidth / imageWidth
+				scaleY := canvasHeight / imageHeight
+				scale := scaleX
+				if scaleY < scale {
+					scale = scaleY
+				}
+
+				// Place image in center of canvas
+				offsetX := (canvasWidth - imageWidth*scale) / 2
+				offsetY := (canvasHeight - imageHeight*scale) / 2
+
+				// Store the transformation for event handling
+				appState.imageScale = scale
+				appState.imageOffsetX = offsetX
+				appState.imageOffsetY = offsetY
+
+				// Apply the transformation
+				transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).Offset(f32.Pt(offsetX, offsetY))
+				stack := op.Affine(transformation).Push(gtx.Ops)
+
+				paint.NewImageOp(appState.img_preview).Add(gtx.Ops)
+				paint.PaintOp{}.Add(gtx.Ops)
+
+				stack.Pop()
+			}
+
+			return layout.Dimensions{Size: canvasSize}
+		}),
+	)
 }
 
-func (appState *AppState) handlePointer(layoutContext layout.Context) {
+func (appState *AppState) handlePointer(gtx layout.Context) {
 
 	// Iterate over all pointer events that occurred since the last frame
 	for {
 
-		ev, ok := layoutContext.Event(
+		ev, ok := gtx.Event(
 			pointer.Filter{
 				Target: &appState.canvasTag,
 				Kinds:  pointer.Press | pointer.Drag,
