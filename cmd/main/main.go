@@ -45,6 +45,11 @@ type AppState struct {
 func main() {
 	go func() {
 
+		/*if len(os.Args) < 4 {
+			fmt.Println("Usage: <image_path> <superpixel_count> <compactness>")
+			os.Exit(1)
+		}*/
+
 		// Initialize app window
 		appWindow := new(app.Window)
 		appWindow.Option(

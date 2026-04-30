@@ -36,10 +36,10 @@ type SpSlic struct {
 	superpixel.SpAlgorithmData
 
 	// Specific parameters
-	numSuperpixels                 int
-	compactness                    float64
-	initialPertubationNeighborhood int
-	iterations                     int
+	numSuperpixels                  int
+	compactness                     float64
+	initialPerturbationNeighborhood int
+	iterations                      int
 
 	// State
 	gridInterval int             // Interval in which the initial cluster centers are placed.
@@ -53,9 +53,9 @@ type SpSlic struct {
 }
 
 func (this *SpSlic) SetDefaultParameters() {
-	this.numSuperpixels = 800
-	this.compactness = 20
-	this.initialPertubationNeighborhood = 3
+	this.numSuperpixels = 1000
+	this.compactness = 30
+	this.initialPerturbationNeighborhood = 5
 	this.iterations = 8
 }
 
@@ -348,8 +348,8 @@ func (this *SpSlic) initializeClusters() {
 		newCenterX := cluster.x
 		newCenterY := cluster.y
 
-		for iX := -this.initialPertubationNeighborhood; iX <= this.initialPertubationNeighborhood; iX++ {
-			for iY := -this.initialPertubationNeighborhood; iY <= this.initialPertubationNeighborhood; iY++ {
+		for iX := -this.initialPerturbationNeighborhood; iX <= this.initialPerturbationNeighborhood; iX++ {
+			for iY := -this.initialPerturbationNeighborhood; iY <= this.initialPerturbationNeighborhood; iY++ {
 				gradient := this.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
 				if gradient < minGradient {
 					minGradient = gradient

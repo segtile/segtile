@@ -75,8 +75,8 @@ func main() {
 
 		// Build work queue
 		var work []benchmarkRun
-		for compactness := 0.0; compactness <= 30.0; compactness += 2 {
-			for spCount := 25; spCount <= 2000; spCount += 50 {
+		for compactness := 0.0; compactness <= 40.0; compactness += 2 {
+			for spCount := 25; spCount <= 3000; spCount += 50 {
 				work = append(work, benchmarkRun{compactness, spCount})
 			}
 		}
