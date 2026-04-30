@@ -98,7 +98,7 @@ func main() {
 				defer wg.Done()
 				sp := slic.SpSlic{}
 				sp.SetImage(img)
-				sp.SetDefaultParameters()
+				sp.SetRecommendedParameters()
 
 				for item := range workCh {
 					sp.SetCompactness(item.compactness)

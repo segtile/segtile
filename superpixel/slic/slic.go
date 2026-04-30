@@ -22,6 +22,7 @@ import (
 	"math"
 
 	"github.com/lucasb-eyer/go-colorful"
+
 	"github.com/struffel/annotation-tool/superpixel"
 	"github.com/struffel/annotation-tool/util"
 )
@@ -52,26 +53,53 @@ type SpSlic struct {
 
 }
 
-func (this *SpSlic) SetDefaultParameters() {
+func (this *SpSlic) SetRecommendedParameters() {
 	this.numSuperpixels = 1000
 	this.compactness = 30
 	this.initialPerturbationNeighborhood = 5
 	this.iterations = 8
 }
 
-func (this *SpSlic) SetNumSuperpixels(num int) {
-	this.numSuperpixels = num
-}
-
-func (this *SpSlic) SetCompactness(compactness float64) {
-	this.compactness = compactness
-}
-
-func (this *SpSlic) SetIterations(iterations int) {
-	if iterations < 1 {
-		iterations = 1
+func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
+	return []superpixel.SpParameter{
+		superpixel.Count,
+		superpixel.Compactness,
+		superpixel.InitialPerturbationNeighborhood,
+		superpixel.Iterations,
 	}
-	this.iterations = iterations
+}
+
+func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
+	switch parameter {
+	case superpixel.Count:
+		if value < 1 {
+			return errors.New("Superpixel count must be at least 1.")
+		}
+		this.numSuperpixels = int(value)
+		return nil
+	case superpixel.Compactness:
+		if value < 0 {
+			return errors.New("Compactness can not be negative.")
+		}
+		this.compactness = value
+		return nil
+	case superpixel.InitialPerturbationNeighborhood:
+		if value < 0 {
+			return errors.New("Initial perturbation neighborhood can not be negative.")
+		}
+		this.initialPerturbationNeighborhood = int(value)
+		return nil
+	case superpixel.Iterations:
+		iterations := int(value)
+		if iterations < 1 {
+			return errors.New("Iterations must be at least 1.")
+		}
+		this.iterations = iterations
+		return nil
+	default:
+		return errors.New("SLIC does not support this parameter.")
+	}
+
 }
 
 func (this *SpSlic) SetImage(img image.Image) {

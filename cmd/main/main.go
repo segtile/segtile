@@ -28,7 +28,7 @@ type AppState struct {
 	img_raw     *image.NRGBA // Original image
 	img_preview *image.NRGBA // Image with the annotations and overlays
 
-	superpixels superpixel.SpAlgorithm
+	superpixelImplementation superpixel.SpImplementation
 
 	selectionIndex []bool
 
@@ -42,13 +42,17 @@ type AppState struct {
 	imageOffsetY float32
 }
 
+type CliArguments struct {
+	ImagePath  string
+	Algorithm  string
+	Parameters map[string]float64
+}
+
 func main() {
 	go func() {
 
-		/*if len(os.Args) < 4 {
-			fmt.Println("Usage: <image_path> <superpixel_count> <compactness>")
-			os.Exit(1)
-		}*/
+		// Load CLI arguments
+		arguments := parseCommandLineArguments()
 
 		// Initialize app window
 		appWindow := new(app.Window)
@@ -60,20 +64,42 @@ func main() {
 		// Create the application and load the image
 		appState := &AppState{}
 		appState.window = appWindow
-		appState.img_raw = util.ToNRGBA(util.LoadImage(os.Args[1]))
+		appState.img_raw = util.ToNRGBA(util.LoadImage(arguments.ImagePath))
 
-		// Perform the slic segmentation
-		appState.superpixels = &slic.SpSlic{}
-		appState.superpixels.SetDefaultParameters()
-		appState.superpixels.SetImage(appState.img_raw)
-		appState.superpixels.Run()
+		// Set up the superpixel algorithm
+		impl, err := getSuperpixelImplementationByName(arguments.Algorithm)
+		if err != nil {
+			log.Fatal(err)
+		}
+		appState.superpixelImplementation = impl
+		appState.superpixelImplementation.SetImage(appState.img_raw)
+
+		// Set up parameters
+		appState.superpixelImplementation.SetRecommendedParameters()
+		for name, value := range arguments.Parameters {
+			param, exists := superpixel.ParseSpParameter(name)
+			if !exists {
+				log.Fatalf("Unknown parameter: %s", name)
+			}
+			err := appState.superpixelImplementation.SetParameter(param, value)
+			if err != nil {
+				log.Fatalf("Error setting parameter %s=%v: %v", name, value, err)
+			}
+			fmt.Printf("Set %s to %v\n", param.String(), value)
+		}
+
+		// Run the algorithm to compute the superpixels
+		err = appState.superpixelImplementation.Run()
+		if err != nil {
+			log.Fatalf("Error running superpixel algorithm: %v", err)
+		}
 
 		// Create a separate copy so img_raw is never modified
 		b := appState.img_raw.Bounds()
 		dst := image.NewNRGBA(b)
 		draw.Draw(dst, b, appState.img_raw, b.Min, draw.Src)
 		appState.img_preview = dst
-		result := appState.superpixels.GetResult()
+		result := appState.superpixelImplementation.GetResult()
 		//appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
 		// Initialize selection index
@@ -86,6 +112,23 @@ func main() {
 		os.Exit(0)
 	}()
 	app.Main()
+}
+
+func parseCommandLineArguments() CliArguments {
+	if len(os.Args) < 3 {
+		fmt.Println("Usage: <image_path (required)> <algorithm (required)> <parameter>=<value> ...")
+		os.Exit(1)
+	}
+	parameters, err := util.ParseParameterList(os.Args[3:])
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return CliArguments{
+		ImagePath:  os.Args[1],
+		Algorithm:  os.Args[2],
+		Parameters: parameters,
+	}
 }
 
 func (appState *AppState) run(appWindow *app.Window) error {
@@ -194,8 +237,8 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 		}
 
 		// Sample the current superpixel label at the pointer position
-		label := appState.superpixels.GetResult().LabelMap.Gray16At(int(ix), int(iy)).Y
-		fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
+		label := appState.superpixelImplementation.GetResult().LabelMap.Gray16At(int(ix), int(iy)).Y
+		//fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
 
 		// Decide the desired action based on the pointer event type and the current app state
 		if pe.Kind == pointer.Press {
@@ -219,7 +262,7 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 		}
 
 		// Iterate over the annotated image and update the color of the selected superpixel
-		result := appState.superpixels.GetResult()
+		result := appState.superpixelImplementation.GetResult()
 		for x := 0; x < appState.img_raw.Bounds().Dx(); x++ {
 			for y := 0; y < appState.img_raw.Bounds().Dy(); y++ {
 
@@ -238,5 +281,14 @@ func (appState *AppState) handlePointer(layoutContext layout.Context) {
 			}
 		}
 		appState.window.Invalidate()
+	}
+}
+
+func getSuperpixelImplementationByName(name string) (superpixel.SpImplementation, error) {
+	switch name {
+	case "slic":
+		return &slic.SpSlic{}, nil
+	default:
+		return nil, fmt.Errorf("Unknown algorithm: %s", name)
 	}
 }

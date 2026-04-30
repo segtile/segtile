@@ -6,6 +6,8 @@ require gioui.org v0.9.0
 
 require (
 	gioui.org/shader v1.0.8 // indirect
+	github.com/alexflint/go-arg v1.6.1 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/kurige/SLIC v0.0.0-20140518010457-5476b4c19220 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
