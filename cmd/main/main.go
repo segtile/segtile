@@ -100,12 +100,8 @@ func main() {
 		// Run the algorithm to compute the superpixels
 		appState.recalculateSuperpixels()
 
-		// Create a new image into which the preview is rendered
-		//appState.img_preview = util.CopyImage(appState.img_raw)
-		result := appState.superpixelImplementation.GetResult()
-		appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
-
 		// Initialize selection index
+		result := appState.superpixelImplementation.GetResult()
 		appState.selectionIndex = make([]bool, result.SpCount)
 
 		// Initialize UI state
@@ -398,6 +394,6 @@ func (appState *AppState) recalculateSuperpixels() {
 	result := appState.superpixelImplementation.GetResult()
 	appState.selectionIndex = make([]bool, result.SpCount)
 
-	appState.img_preview = result.GetSuperPixelBorders(1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
+	appState.img_preview = result.GetSuperPixelBorders(appState.img_raw, 1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
 }
