@@ -8,15 +8,15 @@ const (
 	Count SpParameter = iota
 	Compactness
 	Iterations
-	InitialPerturbationNeighborhood
+	InitialPerturbationNeighborhoodRadius
 )
 
 // Parse from string
 var spParameterNameToValue = map[string]SpParameter{
-	"count":                             Count,
-	"compactness":                       Compactness,
-	"iterations":                        Iterations,
-	"initial_perturbation_neighborhood": InitialPerturbationNeighborhood,
+	"count":       Count,
+	"compactness": Compactness,
+	"iterations":  Iterations,
+	"initial_perturbation_neighborhood_radius": InitialPerturbationNeighborhoodRadius,
 }
 
 func ParseSpParameter(name string) (SpParameter, bool) {
@@ -27,10 +27,10 @@ func ParseSpParameter(name string) (SpParameter, bool) {
 // Titles
 
 var spConfigurationName = map[SpParameter]string{
-	Count:                           "Superpixel Count",
-	Compactness:                     "Compactness",
-	Iterations:                      "Iterations",
-	InitialPerturbationNeighborhood: "Initial Perturbation Neighborhood",
+	Count:                                 "Superpixel Count",
+	Compactness:                           "Compactness",
+	Iterations:                            "Iterations",
+	InitialPerturbationNeighborhoodRadius: "Initial Perturbation Neighborhood Radius",
 }
 
 func (spc SpParameter) String() string {
@@ -40,10 +40,10 @@ func (spc SpParameter) String() string {
 // Descriptions
 
 var spConfigurationDescription = map[SpParameter]string{
-	Count:                           "The desired number of superpixels.",
-	Compactness:                     "The compactness factor balances color similarity and spatial proximity. Higher values lead to more compact superpixels.",
-	Iterations:                      "The number of iterations the algorithm will run. More iterations can lead to better results but will take more time.",
-	InitialPerturbationNeighborhood: "The neighborhood size for initial perturbation of cluster centers.",
+	Count:                                 "The desired number of superpixels.",
+	Compactness:                           "The compactness factor balances color similarity and spatial proximity. Higher values lead to more compact superpixels.",
+	Iterations:                            "The number of iterations the algorithm will run. More iterations can lead to better results but will take more time.",
+	InitialPerturbationNeighborhoodRadius: "The neighborhood size (given as the radius) for initial perturbation of cluster centers.",
 }
 
 func (spc SpParameter) Description() string {
