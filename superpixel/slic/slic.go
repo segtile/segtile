@@ -37,10 +37,10 @@ type SpSlic struct {
 	superpixel.SpAlgorithmData
 
 	// Specific parameters
-	numSuperpixels                  int
-	compactness                     float64
-	initialPerturbationNeighborhood int
-	iterations                      int
+	numSuperpixels                        int
+	compactness                           float64
+	initialPerturbationNeighborhoodRadius int
+	iterations                            int
 
 	// State
 	gridInterval int             // Interval in which the initial cluster centers are placed.
@@ -56,7 +56,7 @@ type SpSlic struct {
 func (this *SpSlic) SetRecommendedParameters() {
 	this.numSuperpixels = 1000
 	this.compactness = 30
-	this.initialPerturbationNeighborhood = 5
+	this.initialPerturbationNeighborhoodRadius = 1
 	this.iterations = 8
 }
 
@@ -64,7 +64,7 @@ func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
 	return []superpixel.SpParameter{
 		superpixel.Count,
 		superpixel.Compactness,
-		superpixel.InitialPerturbationNeighborhood,
+		superpixel.InitialPerturbationNeighborhoodRadius,
 		superpixel.Iterations,
 	}
 }
@@ -75,8 +75,8 @@ func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, err
 		return float64(this.numSuperpixels), nil
 	case superpixel.Compactness:
 		return this.compactness, nil
-	case superpixel.InitialPerturbationNeighborhood:
-		return float64(this.initialPerturbationNeighborhood), nil
+	case superpixel.InitialPerturbationNeighborhoodRadius:
+		return float64(this.initialPerturbationNeighborhoodRadius), nil
 	case superpixel.Iterations:
 		return float64(this.iterations), nil
 	default:
@@ -98,11 +98,11 @@ func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64
 		}
 		this.compactness = value
 		return nil
-	case superpixel.InitialPerturbationNeighborhood:
+	case superpixel.InitialPerturbationNeighborhoodRadius:
 		if value < 0 {
-			return errors.New("Initial perturbation neighborhood can not be negative.")
+			return errors.New("Initial perturbation neighborhood radius can not be negative.")
 		}
-		this.initialPerturbationNeighborhood = int(value)
+		this.initialPerturbationNeighborhoodRadius = int(value)
 		return nil
 	case superpixel.Iterations:
 		iterations := int(value)
@@ -391,8 +391,8 @@ func (this *SpSlic) initializeClusters() {
 		newCenterX := cluster.x
 		newCenterY := cluster.y
 
-		for iX := -this.initialPerturbationNeighborhood; iX <= this.initialPerturbationNeighborhood; iX++ {
-			for iY := -this.initialPerturbationNeighborhood; iY <= this.initialPerturbationNeighborhood; iY++ {
+		for iX := -this.initialPerturbationNeighborhoodRadius; iX <= this.initialPerturbationNeighborhoodRadius; iX++ {
+			for iY := -this.initialPerturbationNeighborhoodRadius; iY <= this.initialPerturbationNeighborhoodRadius; iY++ {
 				gradient := this.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
 				if gradient < minGradient {
 					minGradient = gradient
