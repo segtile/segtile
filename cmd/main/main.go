@@ -112,12 +112,8 @@ func main() {
 			fmt.Printf("Set %s to %v\n", param.String(), value)
 		}
 
-		// Run the algorithm to compute the superpixels
+		// Run the algorithm to compute the superpixels (also initialises selectionIndex)
 		appState.recalculateSuperpixels()
-
-		// Initialize selection index
-		result := appState.superpixelImplementation.GetResult()
-		appState.selectionIndex = make([]bool, result.SpCount)
 
 		// Cache the base image as an ImageOp for efficient repeated drawing
 		appState.imgBaseOp = paint.NewImageOp(appState.currentImage)
@@ -457,15 +453,27 @@ func (appState *AppState) recalculateSuperpixels() {
 
 	fmt.Println("Calculating Superpixels...")
 
+	// Snapshot the current selection as a mask before the labels change
+	oldResult := appState.superpixelImplementation.GetResult()
+	var oldSelectionMask *image.Gray16
+	if oldResult.SpCount > 0 && len(appState.selectionIndex) > 0 {
+		oldSelectionMask = oldResult.SelectionToMask(appState.selectionIndex)
+	}
+
 	// Re-run the superpixel algorithm
 	err := appState.superpixelImplementation.Run()
 	if err != nil {
 		log.Fatalf("Error running superpixel algorithm: %v", err)
 	}
 
-	// Reset the current selection
+	// Restore the selection by matching old mask pixels to new superpixels,
+	// or reset to an empty selection when there was no previous result.
 	result := appState.superpixelImplementation.GetResult()
-	appState.selectionIndex = make([]bool, result.SpCount)
+	if oldSelectionMask != nil {
+		appState.selectionIndex = result.SelectFromMask(oldSelectionMask, 0.5)
+	} else {
+		appState.selectionIndex = make([]bool, result.SpCount)
+	}
 
 	appState.updateSelectionOutline()
 
