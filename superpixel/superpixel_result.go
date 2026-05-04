@@ -3,8 +3,6 @@ package superpixel
 import (
 	"image"
 	"image/color"
-
-	"github.com/struffel/annotation-tool/util"
 )
 
 type SpResult struct {
@@ -58,34 +56,4 @@ func (this *SpResult) ApproximateMask(groundTruth *image.Gray16, threshold float
 	}
 
 	return spMask, overlapHistogram
-}
-
-func (this *SpResult) GetSuperPixelBorders(baseImage image.Image, borderWidth int, borderColor color.Color) *image.NRGBA {
-	bounds := this.LabelMap.Bounds()
-	borderImage := util.CopyImage(baseImage) // Start with a copy of the base image for the border image
-	for x := 0; x < bounds.Dx(); x++ {
-		for y := 0; y < bounds.Dy(); y++ {
-			currentLabel := this.LabelMap.Gray16At(x, y).Y
-			// Check neighboring pixels for different labels
-			isBorder := false
-			for dx := -borderWidth; dx <= borderWidth; dx++ {
-				for dy := -borderWidth; dy <= borderWidth; dy++ {
-					nx, ny := x+dx, y+dy
-					if nx >= 0 && nx < bounds.Dx() && ny >= 0 && ny < bounds.Dy() {
-						if this.LabelMap.Gray16At(nx, ny).Y != currentLabel {
-							isBorder = true
-							break
-						}
-					}
-				}
-				if isBorder {
-					break
-				}
-			}
-			if isBorder {
-				borderImage.Set(x, y, borderColor)
-			}
-		}
-	}
-	return borderImage
 }

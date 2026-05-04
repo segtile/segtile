@@ -266,7 +266,9 @@ func (appState *AppState) layout(gtx layout.Context) {
 				transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).Offset(f32.Pt(offsetX, offsetY))
 				stack := op.Affine(transformation).Push(gtx.Ops)
 
-				paint.NewImageOp(appState.img_preview).Add(gtx.Ops)
+				imgOp := paint.NewImageOp(appState.img_preview)
+				imgOp.Filter = paint.FilterNearest
+				imgOp.Add(gtx.Ops)
 				paint.PaintOp{}.Add(gtx.Ops)
 
 				stack.Pop()
@@ -394,6 +396,7 @@ func (appState *AppState) recalculateSuperpixels() {
 	result := appState.superpixelImplementation.GetResult()
 	appState.selectionIndex = make([]bool, result.SpCount)
 
-	appState.img_preview = result.GetSuperPixelBorders(appState.img_raw, 1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
+	appState.img_preview = util.CopyImage(appState.img_raw)
+	//appState.img_preview = result.GetSuperPixelBorders(appState.img_raw, 1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
 }
