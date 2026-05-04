@@ -6,13 +6,14 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	"log"
-	"math"
 	"os"
 	"strconv"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -29,14 +30,19 @@ import (
 type AppState struct {
 
 	// Images
-	img_raw     *image.NRGBA // Original image
-	img_preview *image.NRGBA // Image with the annotations and overlays
+	currentImage *image.NRGBA // Original image
 
 	// Superpixel module
 	superpixelImplementation superpixel.SpImplementation
 
 	// Selected superpixels
-	selectionIndex []bool
+	selectionIndex          []bool
+	selectionBorderSegments [][2]f32.Point
+
+	// Render cache (rebuilt only when data changes, not every frame)
+	imgBaseOp         paint.ImageOp
+	selectionPathOps  op.Ops
+	selectionPathSpec clip.PathSpec
 
 	// UI state
 	window                     *app.Window
@@ -45,10 +51,16 @@ type AppState struct {
 	theme                      *material.Theme
 	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 
-	// Display scaling
-	imageScale   float32
-	imageOffsetX float32
-	imageOffsetY float32
+	// Hover state
+	pointerCanvasPos f32.Point
+	isPanning        bool
+	lastPanPosition  f32.Point
+	keyboardTag      bool
+	initialFocusDone bool
+
+	// View transform
+	viewScale, viewOffsetX, viewOffsetY float32
+	fitToWindow                         bool
 }
 
 type CliArguments struct {
@@ -73,7 +85,7 @@ func main() {
 		// Create the application and load the image
 		appState := newAppState()
 		appState.window = appWindow
-		appState.img_raw = util.ToNRGBA(util.LoadImage(arguments.ImagePath))
+		appState.currentImage = util.ToNRGBA(util.LoadImage(arguments.ImagePath))
 
 		// Set up the superpixel algorithm
 		impl, err := superpixel_factory.GetSuperpixelImplementationByName(arguments.Algorithm)
@@ -81,7 +93,7 @@ func main() {
 			log.Fatal(err)
 		}
 		appState.superpixelImplementation = impl
-		appState.superpixelImplementation.SetImage(appState.img_raw)
+		appState.superpixelImplementation.SetImage(appState.currentImage)
 
 		// Set up SP parameters
 		appState.superpixelImplementation.SetRecommendedParameters()
@@ -104,10 +116,9 @@ func main() {
 		result := appState.superpixelImplementation.GetResult()
 		appState.selectionIndex = make([]bool, result.SpCount)
 
-		// Initialize UI state
-		appState.canvasTag = false
-		appState.currentlyAdding = false
-		appState.theme = material.NewTheme()
+		// Cache the base image as an ImageOp for efficient repeated drawing
+		appState.imgBaseOp = paint.NewImageOp(appState.currentImage)
+		appState.imgBaseOp.Filter = paint.FilterNearest
 
 		// Initialize the map of parameter editors
 		appState.superpixelParameterEditors = make(map[superpixel.SpParameter]*widget.Editor)
@@ -116,7 +127,7 @@ func main() {
 			ed := &widget.Editor{
 				SingleLine: true,
 				Submit:     true, // pressing Enter fires a SubmitEvent
-				Filter:     "0123456789.",
+				Filter:     "0123456789",
 			}
 			ed.SetText(fmt.Sprintf("%g", value))
 			appState.superpixelParameterEditors[param] = ed
@@ -132,7 +143,12 @@ func main() {
 }
 
 func newAppState() *AppState {
-	return &AppState{}
+	return &AppState{
+		fitToWindow:     true,
+		canvasTag:       false,
+		currentlyAdding: false,
+		theme:           material.NewTheme(),
+	}
 }
 
 func parseCommandLineArguments() CliArguments {
@@ -167,6 +183,7 @@ func (appState *AppState) run(appWindow *app.Window) error {
 			gtx := app.NewContext(&ops, e)
 			appState.handlePointer(gtx)
 			appState.handleEditors(gtx)
+			appState.handleKeyboard(gtx)
 			appState.layout(gtx)
 
 			e.Frame(&ops)
@@ -233,47 +250,58 @@ func (appState *AppState) layout(gtx layout.Context) {
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			canvasSize := gtx.Constraints.Max
 
-			// Set up click area for the canvas
-			clickArea := clip.Rect{Max: canvasSize}.Push(gtx.Ops)
-			event.Op(gtx.Ops, &appState.canvasTag)
-			event.Op(gtx.Ops, true)
-			clickArea.Pop()
+			// Set clipping area to the canvas size and register it for events
+			canvasClip := clip.Rect{Max: canvasSize}.Push(gtx.Ops)
 
-			if appState.img_preview != nil {
-				imageWidth := float32(appState.img_preview.Bounds().Dx())
-				imageHeight := float32(appState.img_preview.Bounds().Dy())
+			// Register the canvas area to receive pointer and keyboard events
+			event.Op(gtx.Ops, &appState.canvasTag)
+			event.Op(gtx.Ops, &appState.keyboardTag)
+			key.InputHintOp{Tag: &appState.keyboardTag}.Add(gtx.Ops)
+
+			// Set initial keyboard focus so the F key works without requiring a click first
+			if !appState.initialFocusDone {
+				gtx.Execute(key.FocusCmd{Tag: &appState.keyboardTag})
+				appState.initialFocusDone = true
+			}
+
+			// Draw the image
+			if appState.currentImage != nil {
+				imageWidth := float32(appState.currentImage.Bounds().Dx())
+				imageHeight := float32(appState.currentImage.Bounds().Dy())
 				canvasWidth := float32(canvasSize.X)
 				canvasHeight := float32(canvasSize.Y)
 
-				// Scale the image without stretching
-				scaleX := canvasWidth / imageWidth
-				scaleY := canvasHeight / imageHeight
-				scale := scaleX
-				if scaleY < scale {
-					scale = scaleY
+				// Fit image to window on first render or when requested
+				if appState.fitToWindow {
+					scaleX := canvasWidth / imageWidth
+					scaleY := canvasHeight / imageHeight
+					appState.viewScale = scaleX
+					if scaleY < appState.viewScale {
+						appState.viewScale = scaleY
+					}
+					appState.viewOffsetX = (canvasWidth - imageWidth*appState.viewScale) / 2
+					appState.viewOffsetY = (canvasHeight - imageHeight*appState.viewScale) / 2
+					appState.fitToWindow = false
 				}
 
-				// Place image in center of canvas
-				offsetX := (canvasWidth - imageWidth*scale) / 2
-				offsetY := (canvasHeight - imageHeight*scale) / 2
+				// Build the image-to-canvas affine transform
+				transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.viewScale, appState.viewScale)).Offset(f32.Pt(appState.viewOffsetX, appState.viewOffsetY))
 
-				// Store the transformation for event handling
-				appState.imageScale = scale
-				appState.imageOffsetX = offsetX
-				appState.imageOffsetY = offsetY
-
-				// Apply the transformation
-				transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).Offset(f32.Pt(offsetX, offsetY))
+				// Draw the base image using the cached ImageOp
 				stack := op.Affine(transformation).Push(gtx.Ops)
-
-				imgOp := paint.NewImageOp(appState.img_preview)
-				imgOp.Filter = paint.FilterNearest
-				imgOp.Add(gtx.Ops)
+				appState.imgBaseOp.Add(gtx.Ops)
 				paint.PaintOp{}.Add(gtx.Ops)
-
 				stack.Pop()
+
+				// Draw selection outline using cached path spec
+				if len(appState.selectionBorderSegments) > 0 {
+					stack = op.Affine(transformation).Push(gtx.Ops)
+					drawCachedPath(gtx.Ops, appState.selectionPathSpec, 1.0/appState.viewScale, color.NRGBA{R: 255, G: 200, B: 0, A: 220})
+					stack.Pop()
+				}
 			}
 
+			canvasClip.Pop()
 			return layout.Dimensions{Size: canvasSize}
 		}),
 	)
@@ -310,8 +338,9 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 
 		ev, ok := gtx.Event(
 			pointer.Filter{
-				Target: &appState.canvasTag,
-				Kinds:  pointer.Press | pointer.Drag,
+				Target:  &appState.canvasTag,
+				Kinds:   pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll,
+				ScrollY: pointer.ScrollRange{Min: -100, Max: 100},
 			},
 		)
 		if !ok {
@@ -324,61 +353,99 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 			continue
 		}
 
+		// Track pointer position
+		appState.pointerCanvasPos = pe.Position
+
+		// Handle scroll (zoom)
+		if pe.Kind == pointer.Scroll {
+			// Use fixed 10% per notch regardless of raw scroll magnitude
+			var zoomFactor float32 = 1.1
+			if pe.Scroll.Y > 0 {
+				zoomFactor = 1.0 / 1.1
+			}
+			appState.viewOffsetX = pe.Position.X - (pe.Position.X-appState.viewOffsetX)*zoomFactor
+			appState.viewOffsetY = pe.Position.Y - (pe.Position.Y-appState.viewOffsetY)*zoomFactor
+			appState.viewScale *= zoomFactor
+			appState.fitToWindow = false
+			appState.window.Invalidate()
+			continue
+		}
+
+		// Handle middle mouse panning
+		if pe.Kind == pointer.Press && pe.Buttons&pointer.ButtonTertiary != 0 {
+			appState.isPanning = true
+			appState.lastPanPosition = pe.Position
+			continue
+		}
+		if appState.isPanning {
+			if pe.Kind == pointer.Drag {
+				appState.viewOffsetX += pe.Position.X - appState.lastPanPosition.X
+				appState.viewOffsetY += pe.Position.Y - appState.lastPanPosition.Y
+				appState.lastPanPosition = pe.Position
+				appState.fitToWindow = false
+				appState.window.Invalidate()
+			} else if pe.Kind == pointer.Release {
+				appState.isPanning = false
+			}
+			continue
+		}
+
 		// From the raw position of the pointer, calculate the position in image space
-		ix := (pe.Position.X - appState.imageOffsetX) / appState.imageScale
-		iy := (pe.Position.Y - appState.imageOffsetY) / appState.imageScale
+		ix := (pe.Position.X - appState.viewOffsetX) / appState.viewScale
+		iy := (pe.Position.Y - appState.viewOffsetY) / appState.viewScale
 
 		// Check if the position is within the bounds of the image
-		if ix < 0 || iy < 0 || int(ix) >= appState.img_raw.Bounds().Dx() || int(iy) >= appState.img_raw.Bounds().Dy() {
-			fmt.Printf("Clicked outside image bounds at (%d, %d)\n", int(ix), int(iy))
+		if ix < 0 || iy < 0 || int(ix) >= appState.currentImage.Bounds().Dx() || int(iy) >= appState.currentImage.Bounds().Dy() {
 			continue
 		}
 
 		// Sample the current superpixel label at the pointer position
 		label := appState.superpixelImplementation.GetResult().LabelMap.Gray16At(int(ix), int(iy)).Y
-		fmt.Printf("Pointer event at (%d, %d), superpixel id: %d\n", int(ix), int(iy), label)
 
 		// Decide the desired action based on the pointer event type and the current app state
 		if pe.Kind == pointer.Press {
-			// Differentiate between left-click (Button 1) and right-click (Button 3)
-			if pe.Buttons == pointer.ButtonPrimary {
-				// Left-click: enter selection mode
+			if pe.Buttons&pointer.ButtonPrimary != 0 {
 				appState.currentlyAdding = true
-			} else if pe.Buttons == pointer.ButtonSecondary {
-				// Right-click: enter deselection mode
+			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
 				appState.currentlyAdding = false
 			}
+			gtx.Execute(key.FocusCmd{Tag: &appState.keyboardTag})
 		}
 
-		// For both drag and press events, we update the selection state of the current SP based on the current mode (selection or deselection)
+		// Update the selection state of the current SP
+		selectionChanged := false
 		if appState.currentlyAdding && !appState.selectionIndex[label] {
-			// If we are in selection mode and the SP is not already selected, select it
 			appState.selectionIndex[label] = true
+			selectionChanged = true
 		} else if !appState.currentlyAdding && appState.selectionIndex[label] {
-			// If we are in deselection mode and the SP is currently selected, deselect it
 			appState.selectionIndex[label] = false
+			selectionChanged = true
 		}
 
-		// Iterate over the annotated image and update the color of the selected superpixel
-		result := appState.superpixelImplementation.GetResult()
-		for x := 0; x < appState.img_raw.Bounds().Dx(); x++ {
-			for y := 0; y < appState.img_raw.Bounds().Dy(); y++ {
-
-				if result.LabelMap.Gray16At(x, y).Y == label {
-					if appState.selectionIndex[label] {
-						// If selected, color the superpixel red
-						newColor := appState.img_raw.NRGBAAt(x, y)
-						newColor.R = uint8(math.Min(255, float64(newColor.R)+50))
-
-						appState.img_preview.Set(x, y, newColor)
-					} else {
-						// If deselected, revert to the original color
-						appState.img_preview.Set(x, y, appState.img_raw.NRGBAAt(x, y))
-					}
-				}
-			}
+		if selectionChanged {
+			appState.updateSelectionOutline()
+			appState.window.Invalidate()
 		}
-		appState.window.Invalidate()
+	}
+}
+
+func (appState *AppState) handleKeyboard(gtx layout.Context) {
+	for {
+		ev, ok := gtx.Event(
+			key.FocusFilter{Target: &appState.keyboardTag},
+			key.Filter{Focus: &appState.keyboardTag, Name: "F"},
+		)
+		if !ok {
+			break
+		}
+		ke, ok := ev.(key.Event)
+		if !ok {
+			continue
+		}
+		if ke.State == key.Press {
+			appState.fitToWindow = true
+			appState.window.Invalidate()
+		}
 	}
 }
 
@@ -396,7 +463,120 @@ func (appState *AppState) recalculateSuperpixels() {
 	result := appState.superpixelImplementation.GetResult()
 	appState.selectionIndex = make([]bool, result.SpCount)
 
-	appState.img_preview = util.CopyImage(appState.img_raw)
-	//appState.img_preview = result.GetSuperPixelBorders(appState.img_raw, 1, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
+	appState.updateSelectionOutline()
 
+}
+
+func (appState *AppState) updateSelectionOutline() {
+
+	fmt.Println("Updating selection outline ...")
+	start := time.Now().UnixMicro()
+
+	labelMap := appState.superpixelImplementation.GetResult().LabelMap
+	w := labelMap.Bounds().Dx()
+	h := labelMap.Bounds().Dy()
+	pix := labelMap.Pix
+	stride := labelMap.Stride
+	selIdx := appState.selectionIndex
+
+	borderChannel := make(chan [][2]f32.Point, 2)
+
+	go func() {
+		// Check horizontally adjacent pairs: collect vertical border segments, merging consecutive runs.
+		// Read labels directly from the raw Pix buffer (big-endian uint16) to avoid per-pixel
+		// bounds checking and interface dispatch overhead of Gray16At.
+		borders := make([][2]f32.Point, 0, w)
+		for x := 0; x < w-1; x++ {
+			runStart := -1
+			base := x * 2
+			for y := 0; y < h; y++ {
+				i := y*stride + base
+				la := uint16(pix[i])<<8 | uint16(pix[i+1])
+				lb := uint16(pix[i+2])<<8 | uint16(pix[i+3])
+				if selIdx[la] != selIdx[lb] {
+					if runStart < 0 {
+						runStart = y
+					}
+				} else {
+					if runStart >= 0 {
+						borders = append(borders, [2]f32.Point{
+							{X: float32(x + 1), Y: float32(runStart)},
+							{X: float32(x + 1), Y: float32(y)},
+						})
+						runStart = -1
+					}
+				}
+			}
+			if runStart >= 0 {
+				borders = append(borders, [2]f32.Point{
+					{X: float32(x + 1), Y: float32(runStart)},
+					{X: float32(x + 1), Y: float32(h)},
+				})
+			}
+		}
+		borderChannel <- borders
+	}()
+
+	go func() {
+		// Check vertically adjacent pairs: collect horizontal border segments, merging consecutive runs.
+		borders := make([][2]f32.Point, 0, h)
+		for y := 0; y < h-1; y++ {
+			runStart := -1
+			rowBase := y * stride
+			nextRowBase := rowBase + stride
+			for x := 0; x < w; x++ {
+				i := rowBase + x*2
+				j := nextRowBase + x*2
+				la := uint16(pix[i])<<8 | uint16(pix[i+1])
+				lb := uint16(pix[j])<<8 | uint16(pix[j+1])
+				if selIdx[la] != selIdx[lb] {
+					if runStart < 0 {
+						runStart = x
+					}
+				} else {
+					if runStart >= 0 {
+						borders = append(borders, [2]f32.Point{
+							{X: float32(runStart), Y: float32(y + 1)},
+							{X: float32(x), Y: float32(y + 1)},
+						})
+						runStart = -1
+					}
+				}
+			}
+			if runStart >= 0 {
+				borders = append(borders, [2]f32.Point{
+					{X: float32(runStart), Y: float32(y + 1)},
+					{X: float32(w), Y: float32(y + 1)},
+				})
+			}
+		}
+		borderChannel <- borders
+	}()
+
+	b1 := <-borderChannel
+	b2 := <-borderChannel
+	borders := make([][2]f32.Point, 0, len(b1)+len(b2))
+	borders = append(borders, b1...)
+	borders = append(borders, b2...)
+
+	appState.selectionBorderSegments = borders
+	appState.selectionPathSpec = buildPathSpec(&appState.selectionPathOps, borders)
+
+	end := time.Now().UnixMicro()
+	fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
+}
+
+func buildPathSpec(pathOps *op.Ops, segments [][2]f32.Point) clip.PathSpec {
+	pathOps.Reset()
+	var p clip.Path
+	p.Begin(pathOps)
+	for _, seg := range segments {
+		p.MoveTo(seg[0])
+		p.LineTo(seg[1])
+	}
+	return p.End()
+}
+
+func drawCachedPath(ops *op.Ops, spec clip.PathSpec, width float32, col color.NRGBA) {
+	paint.FillShape(ops, col, clip.Stroke{Path: spec, Width: width}.Op())
 }
