@@ -61,6 +61,9 @@ type AppState struct {
 	// View transform
 	viewScale, viewOffsetX, viewOffsetY float32
 	fitToWindow                         bool
+
+	// Display settings
+	selectionStrokeWidth float32
 }
 
 type CliArguments struct {
@@ -144,10 +147,11 @@ func main() {
 
 func newAppState() *AppState {
 	return &AppState{
-		fitToWindow:     true,
-		canvasTag:       false,
-		currentlyAdding: false,
-		theme:           material.NewTheme(),
+		fitToWindow:          true,
+		canvasTag:            false,
+		currentlyAdding:      false,
+		theme:                material.NewTheme(),
+		selectionStrokeWidth: 0.75,
 	}
 }
 
@@ -296,7 +300,7 @@ func (appState *AppState) layout(gtx layout.Context) {
 				// Draw selection outline using cached path spec
 				if len(appState.selectionBorderSegments) > 0 {
 					stack = op.Affine(transformation).Push(gtx.Ops)
-					drawCachedPath(gtx.Ops, appState.selectionPathSpec, 1.0/appState.viewScale, color.NRGBA{R: 255, G: 200, B: 0, A: 220})
+					paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
 					stack.Pop()
 				}
 			}
@@ -477,7 +481,7 @@ func (appState *AppState) updateSelectionOutline() {
 	h := labelMap.Bounds().Dy()
 	pix := labelMap.Pix
 	stride := labelMap.Stride
-	selIdx := appState.selectionIndex
+	selectionIndex := appState.selectionIndex
 
 	borderChannel := make(chan [][2]f32.Point, 2)
 
@@ -493,7 +497,7 @@ func (appState *AppState) updateSelectionOutline() {
 				i := y*stride + base
 				la := uint16(pix[i])<<8 | uint16(pix[i+1])
 				lb := uint16(pix[i+2])<<8 | uint16(pix[i+3])
-				if selIdx[la] != selIdx[lb] {
+				if selectionIndex[la] != selectionIndex[lb] {
 					if runStart < 0 {
 						runStart = y
 					}
@@ -529,7 +533,7 @@ func (appState *AppState) updateSelectionOutline() {
 				j := nextRowBase + x*2
 				la := uint16(pix[i])<<8 | uint16(pix[i+1])
 				lb := uint16(pix[j])<<8 | uint16(pix[j+1])
-				if selIdx[la] != selIdx[lb] {
+				if selectionIndex[la] != selectionIndex[lb] {
 					if runStart < 0 {
 						runStart = x
 					}
@@ -560,23 +564,17 @@ func (appState *AppState) updateSelectionOutline() {
 	borders = append(borders, b2...)
 
 	appState.selectionBorderSegments = borders
-	appState.selectionPathSpec = buildPathSpec(&appState.selectionPathOps, borders)
 
-	end := time.Now().UnixMicro()
-	fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
-}
-
-func buildPathSpec(pathOps *op.Ops, segments [][2]f32.Point) clip.PathSpec {
-	pathOps.Reset()
+	// Build the path spec for drawing the outline
+	appState.selectionPathOps.Reset()
 	var p clip.Path
-	p.Begin(pathOps)
-	for _, seg := range segments {
+	p.Begin(&appState.selectionPathOps)
+	for _, seg := range borders {
 		p.MoveTo(seg[0])
 		p.LineTo(seg[1])
 	}
-	return p.End()
-}
+	appState.selectionPathSpec = p.End()
 
-func drawCachedPath(ops *op.Ops, spec clip.PathSpec, width float32, col color.NRGBA) {
-	paint.FillShape(ops, col, clip.Stroke{Path: spec, Width: width}.Op())
+	end := time.Now().UnixMicro()
+	fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
 }
