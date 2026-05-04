@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -36,8 +35,7 @@ type AppState struct {
 	superpixelImplementation superpixel.SpImplementation
 
 	// Selected superpixels
-	selectionIndex          []bool
-	selectionBorderSegments [][2]f32.Point
+	selectionIndex []bool
 
 	// Render cache (rebuilt only when data changes, not every frame)
 	imgBaseOp         paint.ImageOp
@@ -294,11 +292,11 @@ func (appState *AppState) layout(gtx layout.Context) {
 				stack.Pop()
 
 				// Draw selection outline using cached path spec
-				if len(appState.selectionBorderSegments) > 0 {
-					stack = op.Affine(transformation).Push(gtx.Ops)
-					paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
-					stack.Pop()
-				}
+
+				stack = op.Affine(transformation).Push(gtx.Ops)
+				paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
+				stack.Pop()
+
 			}
 
 			canvasClip.Pop()
@@ -359,9 +357,11 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 		// Handle scroll (zoom)
 		if pe.Kind == pointer.Scroll {
 			// Use fixed 10% per notch regardless of raw scroll magnitude
-			var zoomFactor float32 = 1.1
+			var zoomFactor float32
 			if pe.Scroll.Y > 0 {
-				zoomFactor = 1.0 / 1.1
+				zoomFactor = 1 / 1.1
+			} else {
+				zoomFactor = 1.1
 			}
 			appState.viewOffsetX = pe.Position.X - (pe.Position.X-appState.viewOffsetX)*zoomFactor
 			appState.viewOffsetY = pe.Position.Y - (pe.Position.Y-appState.viewOffsetY)*zoomFactor
@@ -474,19 +474,18 @@ func (appState *AppState) recalculateSuperpixels() {
 	} else {
 		appState.selectionIndex = make([]bool, result.SpCount)
 	}
-
 	appState.updateSelectionOutline()
 
 }
 
 func (appState *AppState) updateSelectionOutline() {
 
-	fmt.Println("Updating selection outline ...")
-	start := time.Now().UnixMicro()
+	//fmt.Println("Updating selection outline ...")
+	//start := time.Now().UnixMicro()
 
 	labelMap := appState.superpixelImplementation.GetResult().LabelMap
-	w := labelMap.Bounds().Dx()
-	h := labelMap.Bounds().Dy()
+	width := labelMap.Bounds().Dx()
+	height := labelMap.Bounds().Dy()
 	pix := labelMap.Pix
 	stride := labelMap.Stride
 	selectionIndex := appState.selectionIndex
@@ -497,11 +496,11 @@ func (appState *AppState) updateSelectionOutline() {
 		// Check horizontally adjacent pairs: collect vertical border segments, merging consecutive runs.
 		// Read labels directly from the raw Pix buffer (big-endian uint16) to avoid per-pixel
 		// bounds checking and interface dispatch overhead of Gray16At.
-		borders := make([][2]f32.Point, 0, w)
-		for x := 0; x < w-1; x++ {
+		borders := make([][2]f32.Point, 0, width)
+		for x := 0; x < width-1; x++ {
 			runStart := -1
 			base := x * 2
-			for y := 0; y < h; y++ {
+			for y := 0; y < height; y++ {
 				i := y*stride + base
 				la := uint16(pix[i])<<8 | uint16(pix[i+1])
 				lb := uint16(pix[i+2])<<8 | uint16(pix[i+3])
@@ -522,7 +521,7 @@ func (appState *AppState) updateSelectionOutline() {
 			if runStart >= 0 {
 				borders = append(borders, [2]f32.Point{
 					{X: float32(x + 1), Y: float32(runStart)},
-					{X: float32(x + 1), Y: float32(h)},
+					{X: float32(x + 1), Y: float32(height)},
 				})
 			}
 		}
@@ -531,12 +530,12 @@ func (appState *AppState) updateSelectionOutline() {
 
 	go func() {
 		// Check vertically adjacent pairs: collect horizontal border segments, merging consecutive runs.
-		borders := make([][2]f32.Point, 0, h)
-		for y := 0; y < h-1; y++ {
+		borders := make([][2]f32.Point, 0, height)
+		for y := 0; y < height-1; y++ {
 			runStart := -1
 			rowBase := y * stride
 			nextRowBase := rowBase + stride
-			for x := 0; x < w; x++ {
+			for x := 0; x < width; x++ {
 				i := rowBase + x*2
 				j := nextRowBase + x*2
 				la := uint16(pix[i])<<8 | uint16(pix[i+1])
@@ -558,7 +557,7 @@ func (appState *AppState) updateSelectionOutline() {
 			if runStart >= 0 {
 				borders = append(borders, [2]f32.Point{
 					{X: float32(runStart), Y: float32(y + 1)},
-					{X: float32(w), Y: float32(y + 1)},
+					{X: float32(width), Y: float32(y + 1)},
 				})
 			}
 		}
@@ -571,8 +570,6 @@ func (appState *AppState) updateSelectionOutline() {
 	borders = append(borders, b1...)
 	borders = append(borders, b2...)
 
-	appState.selectionBorderSegments = borders
-
 	// Build the path spec for drawing the outline
 	appState.selectionPathOps.Reset()
 	var p clip.Path
@@ -583,6 +580,6 @@ func (appState *AppState) updateSelectionOutline() {
 	}
 	appState.selectionPathSpec = p.End()
 
-	end := time.Now().UnixMicro()
-	fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
+	//end := time.Now().UnixMicro()
+	//fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
 }
