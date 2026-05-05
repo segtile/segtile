@@ -17,8 +17,8 @@ import (
 )
 
 type benchmarkRun struct {
-	compactness float64
-	spCount     int
+	imageName  string
+	parameters []superpixel.SpParameter
 }
 
 type benchmarkResult struct {

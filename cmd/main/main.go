@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -466,7 +467,8 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 
 func (appState *AppState) recalculateSuperpixels() {
 
-	fmt.Println("Calculating Superpixels...")
+	fmt.Println("Calculating superpixels...")
+	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
 	oldResult := appState.superpixelImplementation.GetResult()
@@ -492,5 +494,8 @@ func (appState *AppState) recalculateSuperpixels() {
 	//appState.updateSelectionOutline()
 	labelMap := appState.superpixelImplementation.GetResult().LabelMap
 	appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
+
+	end := time.Now().UnixMicro()
+	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
 
 }
