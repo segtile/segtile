@@ -9,6 +9,7 @@ require (
 	github.com/alexflint/go-arg v1.6.1 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
+	github.com/hashicorp/go-set/v3 v3.0.1 // indirect
 	github.com/kurige/SLIC v0.0.0-20140518010457-5476b4c19220 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mandykoh/go-parallel v0.1.0 // indirect

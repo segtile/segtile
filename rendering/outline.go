@@ -8,7 +8,7 @@ import (
 	"gioui.org/op/clip"
 )
 
-func CalculateSelectionOutlineFromIndex(labelMap image.Gray16, selectionIndex int) (pathSpec clip.PathSpec) {
+func CalculateSelectionOutlineFromIndex(labelMap image.Gray16, selectionIndex uint16) (pathSpec clip.PathSpec) {
 	selection := make([]bool, 65536)
 	selection[selectionIndex] = true
 	return CalculateSelectionOutlineFromSlice(labelMap, selection)

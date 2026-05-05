@@ -41,6 +41,7 @@ type AppState struct {
 	// Render cache (rebuilt only when data changes, not every frame)
 	imgBaseOp         paint.ImageOp
 	selectionPathSpec clip.PathSpec
+	hoverPathSpec     clip.PathSpec
 
 	// UI state
 	window                     *app.Window
@@ -62,6 +63,7 @@ type AppState struct {
 
 	// Display settings
 	selectionStrokeWidth float32
+	hoverStrokeWidth     float32
 }
 
 type CliArguments struct {
@@ -146,6 +148,7 @@ func newAppState() *AppState {
 		currentlyAdding:      false,
 		theme:                material.NewTheme(),
 		selectionStrokeWidth: 0.75,
+		hoverStrokeWidth:     0.5,
 	}
 }
 
@@ -291,8 +294,12 @@ func (appState *AppState) layout(gtx layout.Context) {
 				paint.PaintOp{}.Add(gtx.Ops)
 				stack.Pop()
 
-				// Draw selection outline using cached path spec
+				// Draw hover outline using cached path spec
+				stack = op.Affine(transformation).Push(gtx.Ops)
+				paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
+				stack.Pop()
 
+				// Draw selection outline using cached path spec
 				stack = op.Affine(transformation).Push(gtx.Ops)
 				paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
 				stack.Pop()
@@ -337,7 +344,7 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 		ev, ok := gtx.Event(
 			pointer.Filter{
 				Target:  &appState.canvasTag,
-				Kinds:   pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll,
+				Kinds:   pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll | pointer.Move,
 				ScrollY: pointer.ScrollRange{Min: -100, Max: 100},
 			},
 		)
@@ -348,6 +355,16 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 		pe, ok := ev.(pointer.Event)
 		if !ok {
 			// Not a pointer event, ignore
+			continue
+		}
+
+		// Handle simple move
+
+		if pe.Kind == pointer.Move {
+			labelMap := appState.superpixelImplementation.GetResult().LabelMap
+			ix := int((pe.Position.X - appState.viewOffsetX) / appState.viewScale)
+			iy := int((pe.Position.Y - appState.viewOffsetY) / appState.viewScale)
+			appState.hoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(ix, iy).Y)
 			continue
 		}
 
