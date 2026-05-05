@@ -24,6 +24,14 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
             "args": ["S:\\MasterThesisData\\Datasets\\Fetal Abdominal Structures Segmentation Dataset Using Ultrasonic Images\\IMAGES\\P01_IMG1.png", "slic", "count=800", "compactness=40"]
+        },
+		{
+            "name": "Nuclei Segmentation",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main",
+            "args": ["S:\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_AdrenalGland_01.tif", "slic", "count=800", "compactness=40"]
         }
     ]
 }

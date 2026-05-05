@@ -21,6 +21,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/struffel/annotation-tool/rendering"
 	"github.com/struffel/annotation-tool/superpixel"
 	"github.com/struffel/annotation-tool/superpixel_factory"
 	"github.com/struffel/annotation-tool/util"
@@ -39,7 +40,6 @@ type AppState struct {
 
 	// Render cache (rebuilt only when data changes, not every frame)
 	imgBaseOp         paint.ImageOp
-	selectionPathOps  op.Ops
 	selectionPathSpec clip.PathSpec
 
 	// UI state
@@ -420,7 +420,8 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 		}
 
 		if selectionChanged {
-			appState.updateSelectionOutline()
+			labelMap := appState.superpixelImplementation.GetResult().LabelMap
+			appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
 			appState.window.Invalidate()
 		}
 	}
@@ -471,112 +472,8 @@ func (appState *AppState) recalculateSuperpixels() {
 	} else {
 		appState.selectionIndex = make([]bool, result.SpCount)
 	}
-	appState.updateSelectionOutline()
-
-}
-
-func (appState *AppState) updateSelectionOutline() {
-
-	//fmt.Println("Updating selection outline ...")
-	//start := time.Now().UnixMicro()
-
+	//appState.updateSelectionOutline()
 	labelMap := appState.superpixelImplementation.GetResult().LabelMap
-	width := labelMap.Bounds().Dx()
-	height := labelMap.Bounds().Dy()
-	pix := labelMap.Pix
-	stride := labelMap.Stride
-	selectionIndex := appState.selectionIndex
+	appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
 
-	borderChannel := make(chan [][2]f32.Point, 2)
-
-	go func() {
-		// Check horizontally adjacent pairs: collect vertical border segments, merging consecutive runs.
-		// Read labels directly from the raw Pix buffer (big-endian uint16) to avoid per-pixel
-		// bounds checking and interface dispatch overhead of Gray16At.
-		borders := make([][2]f32.Point, 0, width)
-		for x := 0; x < width-1; x++ {
-			runStart := -1
-			base := x * 2
-			for y := 0; y < height; y++ {
-				i := y*stride + base
-				la := uint16(pix[i])<<8 | uint16(pix[i+1])
-				lb := uint16(pix[i+2])<<8 | uint16(pix[i+3])
-				if selectionIndex[la] != selectionIndex[lb] {
-					if runStart < 0 {
-						runStart = y
-					}
-				} else {
-					if runStart >= 0 {
-						borders = append(borders, [2]f32.Point{
-							{X: float32(x + 1), Y: float32(runStart)},
-							{X: float32(x + 1), Y: float32(y)},
-						})
-						runStart = -1
-					}
-				}
-			}
-			if runStart >= 0 {
-				borders = append(borders, [2]f32.Point{
-					{X: float32(x + 1), Y: float32(runStart)},
-					{X: float32(x + 1), Y: float32(height)},
-				})
-			}
-		}
-		borderChannel <- borders
-	}()
-
-	go func() {
-		// Check vertically adjacent pairs: collect horizontal border segments, merging consecutive runs.
-		borders := make([][2]f32.Point, 0, height)
-		for y := 0; y < height-1; y++ {
-			runStart := -1
-			rowBase := y * stride
-			nextRowBase := rowBase + stride
-			for x := 0; x < width; x++ {
-				i := rowBase + x*2
-				j := nextRowBase + x*2
-				la := uint16(pix[i])<<8 | uint16(pix[i+1])
-				lb := uint16(pix[j])<<8 | uint16(pix[j+1])
-				if selectionIndex[la] != selectionIndex[lb] {
-					if runStart < 0 {
-						runStart = x
-					}
-				} else {
-					if runStart >= 0 {
-						borders = append(borders, [2]f32.Point{
-							{X: float32(runStart), Y: float32(y + 1)},
-							{X: float32(x), Y: float32(y + 1)},
-						})
-						runStart = -1
-					}
-				}
-			}
-			if runStart >= 0 {
-				borders = append(borders, [2]f32.Point{
-					{X: float32(runStart), Y: float32(y + 1)},
-					{X: float32(width), Y: float32(y + 1)},
-				})
-			}
-		}
-		borderChannel <- borders
-	}()
-
-	b1 := <-borderChannel
-	b2 := <-borderChannel
-	borders := make([][2]f32.Point, 0, len(b1)+len(b2))
-	borders = append(borders, b1...)
-	borders = append(borders, b2...)
-
-	// Build the path spec for drawing the outline
-	appState.selectionPathOps.Reset()
-	var p clip.Path
-	p.Begin(&appState.selectionPathOps)
-	for _, seg := range borders {
-		p.MoveTo(seg[0])
-		p.LineTo(seg[1])
-	}
-	appState.selectionPathSpec = p.End()
-
-	//end := time.Now().UnixMicro()
-	//fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
 }
