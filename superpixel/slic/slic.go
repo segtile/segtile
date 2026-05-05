@@ -22,6 +22,7 @@ import (
 	"math"
 
 	"github.com/lucasb-eyer/go-colorful"
+
 	"github.com/struffel/annotation-tool/superpixel"
 	"github.com/struffel/annotation-tool/util"
 )
@@ -36,10 +37,10 @@ type SpSlic struct {
 	superpixel.SpAlgorithmData
 
 	// Specific parameters
-	numSuperpixels                  int
-	compactness                     float64
-	initialPerturbationNeighborhood int
-	iterations                      int
+	numSuperpixels                        int
+	compactness                           float64
+	initialPerturbationNeighborhoodRadius int
+	iterations                            int
 
 	// State
 	gridInterval int             // Interval in which the initial cluster centers are placed.
@@ -52,26 +53,68 @@ type SpSlic struct {
 
 }
 
-func (this *SpSlic) SetDefaultParameters() {
+func (this *SpSlic) SetRecommendedParameters() {
 	this.numSuperpixels = 1000
 	this.compactness = 30
-	this.initialPerturbationNeighborhood = 5
+	this.initialPerturbationNeighborhoodRadius = 1
 	this.iterations = 8
 }
 
-func (this *SpSlic) SetNumSuperpixels(num int) {
-	this.numSuperpixels = num
-}
-
-func (this *SpSlic) SetCompactness(compactness float64) {
-	this.compactness = compactness
-}
-
-func (this *SpSlic) SetIterations(iterations int) {
-	if iterations < 1 {
-		iterations = 1
+func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
+	return []superpixel.SpParameter{
+		superpixel.Count,
+		superpixel.Compactness,
+		superpixel.InitialPerturbationNeighborhoodRadius,
+		superpixel.Iterations,
 	}
-	this.iterations = iterations
+}
+
+func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, error) {
+	switch parameter {
+	case superpixel.Count:
+		return float64(this.numSuperpixels), nil
+	case superpixel.Compactness:
+		return this.compactness, nil
+	case superpixel.InitialPerturbationNeighborhoodRadius:
+		return float64(this.initialPerturbationNeighborhoodRadius), nil
+	case superpixel.Iterations:
+		return float64(this.iterations), nil
+	default:
+		return 0, errors.New("SLIC does not have this parameter.")
+	}
+}
+
+func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
+	switch parameter {
+	case superpixel.Count:
+		if value < 1 {
+			return errors.New("Superpixel count must be at least 1.")
+		}
+		this.numSuperpixels = int(value)
+		return nil
+	case superpixel.Compactness:
+		if value < 0 {
+			return errors.New("Compactness can not be negative.")
+		}
+		this.compactness = value
+		return nil
+	case superpixel.InitialPerturbationNeighborhoodRadius:
+		if value < 0 {
+			return errors.New("Initial perturbation neighborhood radius can not be negative.")
+		}
+		this.initialPerturbationNeighborhoodRadius = int(value)
+		return nil
+	case superpixel.Iterations:
+		iterations := int(value)
+		if iterations < 1 {
+			return errors.New("Iterations must be at least 1.")
+		}
+		this.iterations = iterations
+		return nil
+	default:
+		return errors.New("SLIC does not support this parameter.")
+	}
+
 }
 
 func (this *SpSlic) SetImage(img image.Image) {
@@ -348,8 +391,8 @@ func (this *SpSlic) initializeClusters() {
 		newCenterX := cluster.x
 		newCenterY := cluster.y
 
-		for iX := -this.initialPerturbationNeighborhood; iX <= this.initialPerturbationNeighborhood; iX++ {
-			for iY := -this.initialPerturbationNeighborhood; iY <= this.initialPerturbationNeighborhood; iY++ {
+		for iX := -this.initialPerturbationNeighborhoodRadius; iX <= this.initialPerturbationNeighborhoodRadius; iX++ {
+			for iY := -this.initialPerturbationNeighborhoodRadius; iY <= this.initialPerturbationNeighborhoodRadius; iY++ {
 				gradient := this.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
 				if gradient < minGradient {
 					minGradient = gradient
