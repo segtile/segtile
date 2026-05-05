@@ -50,7 +50,7 @@ type AppState struct {
 	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 
 	// Hover state
-	pointerCanvasPos f32.Point
+
 	isPanning        bool
 	lastPanPosition  f32.Point
 	keyboardTag      bool
@@ -350,9 +350,6 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 			// Not a pointer event, ignore
 			continue
 		}
-
-		// Track pointer position
-		appState.pointerCanvasPos = pe.Position
 
 		// Handle scroll (zoom)
 		if pe.Kind == pointer.Scroll {
