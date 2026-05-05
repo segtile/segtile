@@ -126,7 +126,7 @@ func main() {
 			ed := &widget.Editor{
 				SingleLine: true,
 				Submit:     true, // pressing Enter fires a SubmitEvent
-				Filter:     "0123456789",
+				Filter:     "0123456789.",
 			}
 			ed.SetText(fmt.Sprintf("%g", value))
 			appState.superpixelParameterEditors[param] = ed
@@ -466,7 +466,7 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 
 func (appState *AppState) recalculateSuperpixels() {
 
-	fmt.Println("Calculating Superpixels...")
+	fmt.Println("Calculating superpixels...")
 
 	// Snapshot the current selection as a mask before the labels change
 	oldResult := appState.superpixelImplementation.GetResult()
@@ -492,5 +492,7 @@ func (appState *AppState) recalculateSuperpixels() {
 	//appState.updateSelectionOutline()
 	labelMap := appState.superpixelImplementation.GetResult().LabelMap
 	appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
+
+	fmt.Println("Finished calculating superpixels.")
 
 }

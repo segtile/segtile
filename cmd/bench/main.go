@@ -17,22 +17,19 @@ import (
 )
 
 type benchmarkRun struct {
-	compactness float64
-	spCount     int
+	threshold float64
+	beta      float64
 }
 
 type benchmarkResult struct {
 	imageName        string
-	spCount          int
-	compactness      float64
+	threshold        float64
+	beta             float64
 	score            float64
 	overlapHistogram []int
 }
 
 func main() {
-
-	// Configuration
-	const algorithmName = "slic"
 
 	// Show help
 	if len(os.Args) < 4 {
@@ -77,11 +74,13 @@ func main() {
 		img := util.ToNRGBA(util.LoadImage(images[index_img]))
 		groundTruthMask := util.ToGray16(util.LoadImage(masks[index_img]))
 
-		// Build work queue
+		// Configuration
+		const algorithmName = "scale_adaptive"
+
 		var work []benchmarkRun
-		for compactness := 0.0; compactness <= 40.0; compactness += 2 {
-			for spCount := 25; spCount <= 3000; spCount += 50 {
-				work = append(work, benchmarkRun{compactness, spCount})
+		for threshold := 0.0; threshold <= 10.0; threshold += 0.1 {
+			for beta := 0.0; beta <= 2.0; beta += 0.25 {
+				work = append(work, benchmarkRun{threshold, beta})
 			}
 		}
 
@@ -107,8 +106,8 @@ func main() {
 				sp.SetRecommendedParameters()
 
 				for item := range workCh {
-					sp.SetParameter(superpixel.Compactness, item.compactness)
-					sp.SetParameter(superpixel.Count, float64(item.spCount))
+					sp.SetParameter(superpixel.Threshold, item.threshold)
+					sp.SetParameter(superpixel.Beta, item.beta)
 
 					if err := sp.Run(); err != nil {
 						fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
@@ -121,7 +120,7 @@ func main() {
 
 					fmt.Fprintf(os.Stderr, ".")
 
-					resultCh <- benchmarkResult{imageName: images[index_img], spCount: item.spCount, compactness: item.compactness, score: score, overlapHistogram: overlapHistogram}
+					resultCh <- benchmarkResult{imageName: images[index_img], threshold: item.threshold, beta: item.beta, score: score, overlapHistogram: overlapHistogram}
 				}
 			}()
 		}
@@ -137,7 +136,7 @@ func main() {
 
 		newCsvLines := make([][]string, len(results))
 		for i, r := range results {
-			newCsvLines[i] = []string{fmt.Sprintf("%s", r.imageName), fmt.Sprintf("%d", r.spCount), fmt.Sprintf("%.1f", r.compactness), fmt.Sprintf("%.4f", r.score)}
+			newCsvLines[i] = []string{fmt.Sprintf("%s", r.imageName), fmt.Sprintf("%.1f", r.threshold), fmt.Sprintf("%.2f", r.beta), fmt.Sprintf("%.4f", r.score)}
 			for _, v := range r.overlapHistogram {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%d", v))
 			}
