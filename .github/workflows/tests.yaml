@@ -19,7 +19,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libvulkan-dev
 
       - name: Run tests
         run: go test ./...
