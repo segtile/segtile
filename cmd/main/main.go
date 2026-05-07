@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/f32"
@@ -49,9 +50,9 @@ type AppState struct {
 	currentlyAdding            bool
 	theme                      *material.Theme
 	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
+	renderOutlines             bool
 
 	// Hover state
-
 	isPanning        bool
 	lastPanPosition  f32.Point
 	keyboardTag      bool
@@ -101,11 +102,11 @@ func main() {
 		// Set up SP parameters
 		appState.superpixelImplementation.SetRecommendedParameters()
 		for name, value := range arguments.Parameters {
-			param, exists := superpixel.ParseSpParameter(name)
-			if !exists {
-				log.Fatalf("Unknown parameter: %s", name)
+			param, err := superpixel.ParseSpParameter(name)
+			if err != nil {
+				log.Fatalf("Error parsing parameter: %s", name)
 			}
-			err := appState.superpixelImplementation.SetParameter(param, value)
+			err = appState.superpixelImplementation.SetParameter(param, value)
 			if err != nil {
 				log.Fatalf("Error setting parameter %s=%v: %v", name, value, err)
 			}
@@ -146,6 +147,7 @@ func newAppState() *AppState {
 		fitToWindow:          true,
 		canvasTag:            false,
 		currentlyAdding:      false,
+		renderOutlines:       true,
 		theme:                material.NewTheme(),
 		selectionStrokeWidth: 0.75,
 		hoverStrokeWidth:     0.5,
@@ -295,15 +297,16 @@ func (appState *AppState) layout(gtx layout.Context) {
 				stack.Pop()
 
 				// Draw hover outline using cached path spec
-				stack = op.Affine(transformation).Push(gtx.Ops)
-				paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
-				stack.Pop()
+				if appState.renderOutlines {
+					stack = op.Affine(transformation).Push(gtx.Ops)
+					paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
+					stack.Pop()
 
-				// Draw selection outline using cached path spec
-				stack = op.Affine(transformation).Push(gtx.Ops)
-				paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
-				stack.Pop()
-
+					// Draw selection outline using cached path spec
+					stack = op.Affine(transformation).Push(gtx.Ops)
+					paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
+					stack.Pop()
+				}
 			}
 
 			canvasClip.Pop()
@@ -449,6 +452,8 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 		ev, ok := gtx.Event(
 			key.FocusFilter{Target: &appState.keyboardTag},
 			key.Filter{Focus: &appState.keyboardTag, Name: "F"},
+			key.Filter{Focus: &appState.keyboardTag, Name: "C"},
+			key.Filter{Focus: &appState.keyboardTag, Name: "D"},
 		)
 		if !ok {
 			break
@@ -457,9 +462,31 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 		if !ok {
 			continue
 		}
-		if ke.State == key.Press {
+
+		// [F]it to window
+		if ke.State == key.Press && ke.Name == "F" {
 			appState.fitToWindow = true
 			appState.window.Invalidate()
+		}
+
+		// [C]lear selection
+		if ke.State == key.Press && ke.Name == "C" {
+			for i := range appState.selectionIndex {
+				appState.selectionIndex[i] = false
+			}
+			appState.selectionPathSpec = rendering.GetEmptySelectionOutline()
+			appState.window.Invalidate()
+		}
+
+		// [D]isable preview (while held)
+		if ke.Name == "D" {
+			if ke.State == key.Press {
+				appState.renderOutlines = false
+				appState.window.Invalidate()
+			} else if ke.State == key.Release {
+				appState.renderOutlines = true
+				appState.window.Invalidate()
+			}
 		}
 	}
 }
@@ -467,6 +494,7 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 func (appState *AppState) recalculateSuperpixels() {
 
 	fmt.Println("Calculating superpixels...")
+	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
 	oldResult := appState.superpixelImplementation.GetResult()
@@ -493,6 +521,7 @@ func (appState *AppState) recalculateSuperpixels() {
 	labelMap := appState.superpixelImplementation.GetResult().LabelMap
 	appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
 
-	fmt.Println("Finished calculating superpixels.")
+	end := time.Now().UnixMicro()
+	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
 
 }

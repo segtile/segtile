@@ -20,6 +20,8 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"runtime"
+	"sync"
 
 	"github.com/lucasb-eyer/go-colorful"
 
@@ -274,26 +276,46 @@ func (this *SpSlic) enforceConnectivity() {
 func (this *SpSlic) labelPixels() {
 
 	width := this.Img.Bounds().Dx()
+	height := this.Img.Bounds().Dy()
+	workers := runtime.NumCPU()
 
-	// For every cluster, test the distance metric of pixels in a 2*gridInterval x 2*gridInterval neighborhood around the cluster center.
-	// Assign them to the cluster if they are closer than their previous best cluster.
-	for clusterIndex, cluster := range this.clusters {
-		for iX := -this.gridInterval; iX <= this.gridInterval; iX++ {
-			for iY := -this.gridInterval; iY <= this.gridInterval; iY++ {
-				pixelX := int(cluster.x) + iX
-				pixelY := int(cluster.y) + iY
-				distance, err := this.distance(cluster, pixelX, pixelY)
-				if err != nil {
-					continue // Skip out of bounds pixels
-				}
-				if distance < this.bestDistancesMap[pixelY*width+pixelX] {
-					index := pixelY*width + pixelX
-					this.bestDistancesMap[index] = distance
-					this.labelMap[index] = clusterIndex
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	// Process the image in bands
+	for w := range workers {
+		bandStart := w * height / workers
+		bandEnd := (w + 1) * height / workers
+
+		go func(rowStart, rowEnd int) {
+			defer wg.Done()
+
+			// For every cluster, test the distance metric of pixels in a 2*gridInterval x 2*gridInterval neighborhood around the cluster center.
+			// Assign them to the cluster if they are closer than their previous best cluster.
+			for clusterIndex, cluster := range this.clusters {
+				for iX := -this.gridInterval; iX <= this.gridInterval; iX++ {
+					pixelX := cluster.x + iX
+					// Clamp the iY range so this goroutine only touches rows in its band.
+					iYMin := max(-this.gridInterval, rowStart-cluster.y)
+					iYMax := min(this.gridInterval, rowEnd-1-cluster.y)
+					for iY := iYMin; iY <= iYMax; iY++ {
+						pixelY := cluster.y + iY
+						distance, err := this.distance(cluster, pixelX, pixelY)
+						if err != nil {
+							continue // Skip out of bounds pixels
+						}
+						index := pixelY*width + pixelX
+						if distance < this.bestDistancesMap[index] {
+							this.bestDistancesMap[index] = distance
+							this.labelMap[index] = clusterIndex
+						}
+					}
 				}
 			}
-		}
+		}(bandStart, bandEnd)
 	}
+
+	wg.Wait()
 }
 
 func (this *SpSlic) recalculateClusterCenters() {
@@ -338,23 +360,38 @@ func (this *SpSlic) recalculateClusterCenters() {
 	}
 
 }
+
 func (this *SpSlic) buildLabCache() {
 	width := this.Img.Bounds().Dx()
 	height := this.Img.Bounds().Dy()
 	this.labCache = make([][3]float64, width*height)
-	for y := range height {
-		for x := range width {
-			c, _ := colorful.MakeColor(this.Img.At(x, y))
-			l, a, b := c.Lab()
-			// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
-			// so we scale the lab values by 100 to match the scale the compactness parameter is calibrated for.
-			l *= 100
-			a *= 100
-			b *= 100
 
-			this.labCache[y*width+x] = [3]float64{l, a, b}
-		}
+	workers := runtime.NumCPU()
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for w := range workers {
+		bandStart := w * height / workers
+		bandEnd := (w + 1) * height / workers
+
+		go func(rowStart, rowEnd int) {
+			defer wg.Done()
+			for y := rowStart; y < rowEnd; y++ {
+				for x := 0; x < width; x++ {
+					c, _ := colorful.MakeColor(this.Img.At(x, y))
+					l, a, b := c.Lab()
+					// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
+					// so we scale the lab values by 100 to match the scale the compactness parameter is calibrated for.
+					l *= 100
+					a *= 100
+					b *= 100
+					this.labCache[y*width+x] = [3]float64{l, a, b}
+				}
+			}
+		}(bandStart, bandEnd)
 	}
+
+	wg.Wait()
 }
 
 func (this *SpSlic) resetDistances() {
@@ -443,10 +480,7 @@ func (this *SpSlic) Run() error {
 			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
 		}
 	}
-	this.Result = superpixel.SpResult{
-		LabelMap: resultLabelMap,
-		SpCount:  maxLabel + 1,
-	}
+	this.Result = superpixel.MakeSpResult(resultLabelMap)
 
 	// Clean up
 	this.labelMap = nil

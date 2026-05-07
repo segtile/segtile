@@ -14,6 +14,13 @@ func CalculateSelectionOutlineFromIndex(labelMap image.Gray16, selectionIndex ui
 	return CalculateSelectionOutlineFromSlice(labelMap, selection)
 }
 
+func GetEmptySelectionOutline() (pathSpec clip.PathSpec) {
+	selectionPathOps := new(op.Ops)
+	var p clip.Path
+	p.Begin(selectionPathOps)
+	return p.End()
+}
+
 func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool) (pathSpec clip.PathSpec) {
 
 	//fmt.Println("Updating selection outline ...")
