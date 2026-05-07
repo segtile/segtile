@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 
 	_ "golang.org/x/image/tiff"
@@ -124,9 +125,16 @@ func main() {
 	writer.Comma = ';'
 	defer writer.Flush()
 
+	// Establish a stable sorted order for parameters in the CSV output
+	parameterKeys := make([]superpixel.SpParameter, 0, len(runParameters[0]))
+	for param := range runParameters[0] {
+		parameterKeys = append(parameterKeys, param)
+	}
+	sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
+
 	// Prepare the header
 	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Dice Score"}
-	for param := range runParameters[0] {
+	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
 	}
 	for i := 0; i <= 100; i++ {
@@ -218,8 +226,8 @@ func main() {
 		for i, r := range results {
 			imageName := filepath.Base(r.imagePath)
 			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%.4f", r.score)}
-			for _, parameterValue := range r.parameters {
-				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", parameterValue))
+			for _, param := range parameterKeys {
+				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
 			}
 			for _, v := range r.overlapHistogram {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%d", v))
