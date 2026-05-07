@@ -50,9 +50,9 @@ type AppState struct {
 	currentlyAdding            bool
 	theme                      *material.Theme
 	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
+	renderOutlines             bool
 
 	// Hover state
-
 	isPanning        bool
 	lastPanPosition  f32.Point
 	keyboardTag      bool
@@ -147,6 +147,7 @@ func newAppState() *AppState {
 		fitToWindow:          true,
 		canvasTag:            false,
 		currentlyAdding:      false,
+		renderOutlines:       true,
 		theme:                material.NewTheme(),
 		selectionStrokeWidth: 0.75,
 		hoverStrokeWidth:     0.5,
@@ -296,15 +297,16 @@ func (appState *AppState) layout(gtx layout.Context) {
 				stack.Pop()
 
 				// Draw hover outline using cached path spec
-				stack = op.Affine(transformation).Push(gtx.Ops)
-				paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
-				stack.Pop()
+				if appState.renderOutlines {
+					stack = op.Affine(transformation).Push(gtx.Ops)
+					paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
+					stack.Pop()
 
-				// Draw selection outline using cached path spec
-				stack = op.Affine(transformation).Push(gtx.Ops)
-				paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
-				stack.Pop()
-
+					// Draw selection outline using cached path spec
+					stack = op.Affine(transformation).Push(gtx.Ops)
+					paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
+					stack.Pop()
+				}
 			}
 
 			canvasClip.Pop()
@@ -450,6 +452,8 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 		ev, ok := gtx.Event(
 			key.FocusFilter{Target: &appState.keyboardTag},
 			key.Filter{Focus: &appState.keyboardTag, Name: "F"},
+			key.Filter{Focus: &appState.keyboardTag, Name: "C"},
+			key.Filter{Focus: &appState.keyboardTag, Name: "D"},
 		)
 		if !ok {
 			break
@@ -458,9 +462,31 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 		if !ok {
 			continue
 		}
-		if ke.State == key.Press {
+
+		// [F]it to window
+		if ke.State == key.Press && ke.Name == "F" {
 			appState.fitToWindow = true
 			appState.window.Invalidate()
+		}
+
+		// [C]lear selection
+		if ke.State == key.Press && ke.Name == "C" {
+			for i := range appState.selectionIndex {
+				appState.selectionIndex[i] = false
+			}
+			appState.selectionPathSpec = rendering.GetEmptySelectionOutline()
+			appState.window.Invalidate()
+		}
+
+		// [D]isable preview (while held)
+		if ke.Name == "D" {
+			if ke.State == key.Press {
+				appState.renderOutlines = false
+				appState.window.Invalidate()
+			} else if ke.State == key.Release {
+				appState.renderOutlines = true
+				appState.window.Invalidate()
+			}
 		}
 	}
 }
