@@ -102,11 +102,11 @@ func main() {
 		// Set up SP parameters
 		appState.superpixelImplementation.SetRecommendedParameters()
 		for name, value := range arguments.Parameters {
-			param, exists := superpixel.ParseSpParameter(name)
-			if !exists {
-				log.Fatalf("Unknown parameter: %s", name)
+			param, err := superpixel.ParseSpParameter(name)
+			if err != nil {
+				log.Fatalf("Error parsing parameter: %s", name)
 			}
-			err := appState.superpixelImplementation.SetParameter(param, value)
+			err = appState.superpixelImplementation.SetParameter(param, value)
 			if err != nil {
 				log.Fatalf("Error setting parameter %s=%v: %v", name, value, err)
 			}
