@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Run Go Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +20,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libvulkan-dev libx11-dev libxi-dev libxext-dev libegl-dev libgles-dev libxcursor-dev libxrandr-dev libxinerama-dev
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libvulkan-dev libx11-dev libx11-xcb-dev libxi-dev libxext-dev libegl-dev libgles-dev libxcursor-dev libxrandr-dev libxinerama-dev libxfixes-dev
 
       - name: Run tests
         run: go test ./...
