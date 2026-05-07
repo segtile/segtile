@@ -1,6 +1,9 @@
 package superpixel
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type SpParameter int
 
@@ -19,9 +22,12 @@ var spParameterNameToValue = map[string]SpParameter{
 	"initial_perturbation_neighborhood_radius": InitialPerturbationNeighborhoodRadius,
 }
 
-func ParseSpParameter(name string) (SpParameter, bool) {
+func ParseSpParameter(name string) (SpParameter, error) {
 	param, exists := spParameterNameToValue[strings.ToLower(name)]
-	return param, exists
+	if !exists {
+		return 0, fmt.Errorf("Invalid superpixel parameter: %s", name)
+	}
+	return param, nil
 }
 
 // Titles
