@@ -108,8 +108,8 @@ type SpScaleAdaptive struct {
 }
 
 func (sp *SpScaleAdaptive) SetRecommendedParameters() {
-	sp.threshold = 200
-	sp.beta = 0.85
+	sp.threshold = 50
+	sp.beta = 1
 }
 
 func (sp *SpScaleAdaptive) GetSupportedParameters() []superpixel.SpParameter {
