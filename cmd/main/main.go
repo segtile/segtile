@@ -47,10 +47,9 @@ type AppState struct {
 	// UI state
 	window                     *app.Window
 	canvasTag                  bool
-	currentlyAdding            bool
 	theme                      *material.Theme
 	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
-	renderOutlines             bool
+	renderSelectionOutlines    bool
 
 	// Hover state
 	isPanning        bool
@@ -144,13 +143,12 @@ func main() {
 
 func newAppState() *AppState {
 	return &AppState{
-		fitToWindow:          true,
-		canvasTag:            false,
-		currentlyAdding:      false,
-		renderOutlines:       true,
-		theme:                material.NewTheme(),
-		selectionStrokeWidth: 0.75,
-		hoverStrokeWidth:     0.5,
+		fitToWindow:             true,
+		canvasTag:               false,
+		renderSelectionOutlines: true,
+		theme:                   material.NewTheme(),
+		selectionStrokeWidth:    0.75,
+		hoverStrokeWidth:        0.5,
 	}
 }
 
@@ -297,11 +295,11 @@ func (appState *AppState) layout(gtx layout.Context) {
 				stack.Pop()
 
 				// Draw hover outline using cached path spec
-				if appState.renderOutlines {
-					stack = op.Affine(transformation).Push(gtx.Ops)
-					paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
-					stack.Pop()
+				stack = op.Affine(transformation).Push(gtx.Ops)
+				paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
+				stack.Pop()
 
+				if appState.renderSelectionOutlines {
 					// Draw selection outline using cached path spec
 					stack = op.Affine(transformation).Push(gtx.Ops)
 					paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
@@ -344,6 +342,7 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 	// Iterate over all pointer events that occurred since the last frame
 	for {
 
+		// Filter for all events that should be handled
 		ev, ok := gtx.Event(
 			pointer.Filter{
 				Target:  &appState.canvasTag,
@@ -361,15 +360,17 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 			continue
 		}
 
-		// Handle simple move
+		// Always set the keyboard focus to the canvas when hovering on it, so that key commands work without requiring an extra click
+		gtx.Execute(key.FocusCmd{Tag: &appState.keyboardTag})
 
-		if pe.Kind == pointer.Move {
-			labelMap := appState.superpixelImplementation.GetResult().LabelMap
-			ix := int((pe.Position.X - appState.viewOffsetX) / appState.viewScale)
-			iy := int((pe.Position.Y - appState.viewOffsetY) / appState.viewScale)
-			appState.hoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(ix, iy).Y)
-			continue
-		}
+		// From the raw position of the pointer, calculate the position in image space
+		imageX := (pe.Position.X - appState.viewOffsetX) / appState.viewScale
+		imageY := (pe.Position.Y - appState.viewOffsetY) / appState.viewScale
+
+		// Check if the position is within the bounds of the image
+		inImageBounds := imageX >= 0 && imageY >= 0 && int(imageX) < appState.currentImage.Bounds().Dx() && int(imageY) < appState.currentImage.Bounds().Dy()
+
+		// We start with actions that always fire, even if the cursor is outside the image bounds
 
 		// Handle scroll (zoom)
 		if pe.Kind == pointer.Scroll {
@@ -407,42 +408,38 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 			continue
 		}
 
-		// From the raw position of the pointer, calculate the position in image space
-		ix := (pe.Position.X - appState.viewOffsetX) / appState.viewScale
-		iy := (pe.Position.Y - appState.viewOffsetY) / appState.viewScale
-
-		// Check if the position is within the bounds of the image
-		if ix < 0 || iy < 0 || int(ix) >= appState.currentImage.Bounds().Dx() || int(iy) >= appState.currentImage.Bounds().Dy() {
-			continue
-		}
-
-		// Sample the current superpixel label at the pointer position
-		label := appState.superpixelImplementation.GetResult().LabelMap.Gray16At(int(ix), int(iy)).Y
-
-		// Decide the desired action based on the pointer event type and the current app state
-		if pe.Kind == pointer.Press {
-			if pe.Buttons&pointer.ButtonPrimary != 0 {
-				appState.currentlyAdding = true
-			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-				appState.currentlyAdding = false
+		// Handle simple move and update the hover preview
+		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
+			if inImageBounds {
+				labelMap := appState.superpixelImplementation.GetResult().LabelMap
+				appState.hoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(int(imageX), int(imageY)).Y)
+			} else {
+				appState.hoverPathSpec = rendering.GetEmptySelectionOutline()
 			}
-			gtx.Execute(key.FocusCmd{Tag: &appState.keyboardTag})
 		}
 
-		// Update the selection state of the current SP
-		selectionChanged := false
-		if appState.currentlyAdding && !appState.selectionIndex[label] {
-			appState.selectionIndex[label] = true
-			selectionChanged = true
-		} else if !appState.currentlyAdding && appState.selectionIndex[label] {
-			appState.selectionIndex[label] = false
-			selectionChanged = true
-		}
+		//  Handle primary/secondary click for de-/selection
 
-		if selectionChanged {
+		if inImageBounds {
+			// Sample the current superpixel label at the pointer position
 			labelMap := appState.superpixelImplementation.GetResult().LabelMap
-			appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
-			appState.window.Invalidate()
+			label := labelMap.Gray16At(int(imageX), int(imageY)).Y
+
+			// Toggle selection based on primary/secondary button and update the selection outline if it changed
+			selectionChanged := false
+			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.selectionIndex[label] {
+				appState.selectionIndex[label] = true
+				selectionChanged = true
+			} else if pe.Buttons&pointer.ButtonSecondary != 0 && appState.selectionIndex[label] {
+				appState.selectionIndex[label] = false
+				selectionChanged = true
+			}
+
+			if selectionChanged {
+				labelMap := appState.superpixelImplementation.GetResult().LabelMap
+				appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.selectionIndex)
+				appState.window.Invalidate()
+			}
 		}
 	}
 }
@@ -481,10 +478,10 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 		// [D]isable preview (while held)
 		if ke.Name == "D" {
 			if ke.State == key.Press {
-				appState.renderOutlines = false
+				appState.renderSelectionOutlines = false
 				appState.window.Invalidate()
 			} else if ke.State == key.Release {
-				appState.renderOutlines = true
+				appState.renderSelectionOutlines = true
 				appState.window.Invalidate()
 			}
 		}
