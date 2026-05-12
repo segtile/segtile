@@ -133,7 +133,7 @@ func main() {
 	sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
 
 	// Prepare the header
-	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Dice Score"}
+	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Dice Coefficient"}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
 	}
