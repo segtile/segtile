@@ -24,11 +24,12 @@ type benchmarkRun struct {
 }
 
 type benchmarkResult struct {
-	imagePath        string
-	actualSpCount    int
-	parameters       map[superpixel.SpParameter]float64
-	score            float64
-	overlapHistogram []int
+	imagePath               string
+	actualSpCount           int
+	parameters              map[superpixel.SpParameter]float64
+	diceCoefficient         float64
+	averageBoundaryDistance float64
+	overlapHistogram        []int
 }
 
 func buildRunParameterSets(parameterRanges []util.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
@@ -133,7 +134,7 @@ func main() {
 	sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
 
 	// Prepare the header
-	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Dice Coefficient"}
+	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Dice Coefficient", "Average Boundary Distance"}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
 	}
@@ -194,18 +195,20 @@ func main() {
 					// Get the result and compare it to the baseline mask
 					spResult := sp.GetResult()
 					approximatedMask, overlapHistogram := spResult.ApproximateMask(groundTruthMask, 0.5)
-					score, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
+					diceCoefficient, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
+					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")
 
 					// Send the result out
 					resultCh <- benchmarkResult{
-						imagePath:        images[index_img],
-						parameters:       item.parameters,
-						actualSpCount:    spResult.SpCount,
-						score:            score,
-						overlapHistogram: overlapHistogram}
+						imagePath:               images[index_img],
+						parameters:              item.parameters,
+						actualSpCount:           spResult.SpCount,
+						diceCoefficient:         diceCoefficient,
+						averageBoundaryDistance: averageBoundaryDistance,
+						overlapHistogram:        overlapHistogram}
 				}
 			}()
 		}
@@ -225,7 +228,7 @@ func main() {
 
 		for i, r := range results {
 			imageName := filepath.Base(r.imagePath)
-			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%.4f", r.score)}
+			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%.4f", r.diceCoefficient), fmt.Sprintf("%.4f", r.averageBoundaryDistance)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
 			}
