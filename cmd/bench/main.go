@@ -203,19 +203,19 @@ func main() {
 					diceCoefficient, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
 					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
 
-					//diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
-					//normalizedAverageBoundaryDistance := averageBoundaryDistance / diagonalLength
+					diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
+					expectedSuperpixelLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
+					normalizedAverageBoundaryDistance := averageBoundaryDistance / expectedSuperpixelLength
 
 					selectedNonBorderingSpCount := selectedSpCount - selectedBorderingSpCount
 					//selectedSpRatio := float64(selectedSpCount) / float64(spResult.SpCount)
 
 					magicScore := 0.0
-					if selectedSpCount != 0 {
-						borderNonBorderRatio := float64(selectedNonBorderingSpCount) / float64(selectedSpCount)
-						desiredBorderNonBorderRatio := 1 - (float64(selectedSpCount) / float64(spResult.SpCount))
-						ratioScore := 1 - math.Abs(borderNonBorderRatio-desiredBorderNonBorderRatio)
-						magicScore = ratioScore * ratioScore * diceCoefficient
-
+					if selectedSpCount > 0 {
+						borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
+						desiredBorderPortionOfSelection := 1 - (float64(selectedSpCount) / float64(spResult.SpCount))
+						ratioScore := 1 - math.Abs(borderPortionOfSelection-desiredBorderPortionOfSelection)
+						magicScore = ratioScore * diceCoefficient * (1 - normalizedAverageBoundaryDistance)
 					}
 
 					// Print progress indicator
