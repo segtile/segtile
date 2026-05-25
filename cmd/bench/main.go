@@ -204,8 +204,8 @@ func main() {
 					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
 
 					diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
-					expectedSuperpixelLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
-					normalizedAverageBoundaryDistance := averageBoundaryDistance / expectedSuperpixelLength
+					expectedSuperpixelDiagonalLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
+					normalizedAverageBoundaryDistance := averageBoundaryDistance / expectedSuperpixelDiagonalLength
 
 					selectedNonBorderingSpCount := selectedSpCount - selectedBorderingSpCount
 					//selectedSpRatio := float64(selectedSpCount) / float64(spResult.SpCount)
