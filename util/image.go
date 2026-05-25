@@ -75,7 +75,7 @@ func CopyImage(src image.Image) *image.NRGBA {
 	return dst
 }
 
-// Determines the relative portion of boundary pixels in maskOriginal that are within epsilon distance of any boundary pixel in maskApproximated.
+// AverageBoundaryDistance computes the average distance from each boundary pixel in maskOriginal to the nearest boundary pixel in maskApproximated.
 func AverageBoundaryDistance(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 	if maskOriginal.Bounds() != maskApproximated.Bounds() {
 		return 0, fmt.Errorf("Masks must have the same dimensions")
@@ -87,27 +87,27 @@ func AverageBoundaryDistance(maskOriginal, maskApproximated *image.Gray16) (floa
 
 	// Collect boundary pixel positions for both masks
 	type point struct{ x, y int }
-	var boundaries1, boundaries2 []point
+	var boundariesOriginal, boundariesApproximated []point
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			if maskOriginal.Gray16At(x, y).Y > 0 && (maskOriginal.Gray16At(x-1, y).Y == 0 || maskOriginal.Gray16At(x+1, y).Y == 0 || maskOriginal.Gray16At(x, y-1).Y == 0 || maskOriginal.Gray16At(x, y+1).Y == 0) {
-				boundaries1 = append(boundaries1, point{x, y})
+				boundariesOriginal = append(boundariesOriginal, point{x, y})
 			}
 			if maskApproximated.Gray16At(x, y).Y > 0 && (maskApproximated.Gray16At(x-1, y).Y == 0 || maskApproximated.Gray16At(x+1, y).Y == 0 || maskApproximated.Gray16At(x, y-1).Y == 0 || maskApproximated.Gray16At(x, y+1).Y == 0) {
-				boundaries2 = append(boundaries2, point{x, y})
+				boundariesApproximated = append(boundariesApproximated, point{x, y})
 			}
 		}
 	}
 
-	if len(boundaries1) == 0 || len(boundaries2) == 0 {
+	if len(boundariesOriginal) == 0 || len(boundariesApproximated) == 0 {
 		return 0, nil
 	}
 
-	// Check each boundary pixel in mask1 against all boundary pixels in mask2
+	// Check each boundary pixel in maskOriginal against all boundary pixels in maskApproximated
 	bestDistancesSum := 0.0
-	for _, p := range boundaries1 {
+	for _, p := range boundariesOriginal {
 		bestDistance2 := maxDistance2 // Max possible distance squared
-		for _, q := range boundaries2 {
+		for _, q := range boundariesApproximated {
 			deltaX := float64(p.x - q.x)
 			deltaY := float64(p.y - q.y)
 			distance2 := deltaX*deltaX + deltaY*deltaY
@@ -118,7 +118,7 @@ func AverageBoundaryDistance(maskOriginal, maskApproximated *image.Gray16) (floa
 		bestDistancesSum += math.Sqrt(bestDistance2)
 	}
 
-	return bestDistancesSum / float64(len(boundaries1)), nil
+	return bestDistancesSum / float64(len(boundariesOriginal)), nil
 }
 
 func DiceCoefficient(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
