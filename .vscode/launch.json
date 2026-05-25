@@ -41,6 +41,22 @@
             "program": "${workspaceFolder}/cmd/main",
             "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_AdrenalGland_01.tif", "slic", "count=800", "compactness=40"]
         },
+        {
+            "name": "EBHI-Normal",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main",
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-001.png", "slic", "count=800", "compactness=40"]
+        },
+        {
+            "name": "SpermHeads",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main",
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\SpermHeads\\IMAGES\\test_1.png", "slic", "count=800", "compactness=40"]
+        },
 		{
             "name": "Synthetic",
             "type": "go",
