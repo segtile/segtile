@@ -149,3 +149,42 @@ func DiceCoefficient(maskOriginal, maskApproximated *image.Gray16) (float64, err
 
 	return float64(2*intersection) / float64(union), nil
 }
+
+func JaccardIndex(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
+	if maskOriginal.Bounds() != maskApproximated.Bounds() {
+		return 0, fmt.Errorf("Masks must have the same dimensions")
+	}
+
+	var intersection, union int
+	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
+		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
+			p1 := maskOriginal.Gray16At(x, y)
+			p2 := maskApproximated.Gray16At(x, y)
+			if p1.Y > 0 && p2.Y > 0 {
+				intersection++
+			}
+			if p1.Y > 0 || p2.Y > 0 {
+				union++
+			}
+		}
+	}
+
+	if union == 0 {
+		return 0, nil
+	}
+
+	return float64(intersection) / float64(union), nil
+}
+
+func EdgePixels(mask *image.Gray16) int {
+	bounds := mask.Bounds()
+	count := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if mask.Gray16At(x, y).Y > 0 && (mask.Gray16At(x-1, y).Y == 0 || mask.Gray16At(x+1, y).Y == 0 || mask.Gray16At(x, y-1).Y == 0 || mask.Gray16At(x, y+1).Y == 0) {
+				count++
+			}
+		}
+	}
+	return count
+}

@@ -15,7 +15,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png", "slic", "count=800", "compactness=40"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png", "slic", "count=600", "compactness=40"]
         },
 		{
             "name": "Ultrasound Fetus Segmentation",
@@ -31,7 +31,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (54).png", "slic", "count=800", "compactness=40"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (113).png", "slic", "count=440", "compactness=80"]
         },
 		{
             "name": "Nuclei Segmentation",
@@ -63,7 +63,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024315.jpg", "slic", "count=800", "compactness=40"]
+            "args": ["S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024315.jpg", "slic", "count=200", "compactness=0"]
         },
 		{
             "name": "Pulmonary Vascular",
