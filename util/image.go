@@ -176,12 +176,15 @@ func JaccardIndex(maskOriginal, maskApproximated *image.Gray16) (float64, error)
 	return float64(intersection) / float64(union), nil
 }
 
-func EdgePixels(mask *image.Gray16) int {
-	bounds := mask.Bounds()
+// Counts the length of all edges in the image without counting the same edge twice
+// by only accounting for the brighter value
+func TotalEdgeLength(image *image.Gray16) int {
+	bounds := image.Bounds()
 	count := 0
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			if mask.Gray16At(x, y).Y > 0 && (mask.Gray16At(x-1, y).Y == 0 || mask.Gray16At(x+1, y).Y == 0 || mask.Gray16At(x, y-1).Y == 0 || mask.Gray16At(x, y+1).Y == 0) {
+			value := image.Gray16At(x, y).Y
+			if image.Gray16At(x-1, y).Y < value || image.Gray16At(x+1, y).Y < value || image.Gray16At(x, y-1).Y < value || image.Gray16At(x, y+1).Y < value {
 				count++
 			}
 		}

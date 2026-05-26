@@ -207,14 +207,18 @@ func main() {
 					spResult := sp.GetResult()
 					threshold := 0.5
 					approximatedMask, overlapHistogram, selectedSpCount, selectedBorderingSpCount := spResult.ApproximateMask(groundTruthMask, threshold)
+					//labelMaskEdgeLength := util.TotalEdgeLength(spResult.LabelMap)
 					diceCoefficient, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
 					// For testing!
 					//diceCoefficient, _ := util.JaccardIndex(groundTruthMask, approximatedMask)
 					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
 
-					groundTruthBoundaryLength := util.EdgePixels(groundTruthMask)
-					approximatedBoundaryLength := util.EdgePixels(approximatedMask)
-					boundaryLengthScore := 1 - math.Abs(float64(groundTruthBoundaryLength-approximatedBoundaryLength))/float64(groundTruthBoundaryLength)
+					groundTruthBoundaryLength := util.TotalEdgeLength(groundTruthMask)
+					approximatedBoundaryLength := util.TotalEdgeLength(approximatedMask)
+					//boundaryLengthDifference := math.Abs(float64(groundTruthBoundaryLength) - float64(approximatedBoundaryLength))
+					//usedBoundaryPortion := float64(approximatedBoundaryLength) / float64(labelMaskEdgeLength)
+					//desiredBoundaryPortion := math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 1)
+					boundaryLengthScore := 1 - math.Abs(float64(groundTruthBoundaryLength)/float64(approximatedBoundaryLength)-1)
 
 					diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
 					expectedSuperpixelDiagonalLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
