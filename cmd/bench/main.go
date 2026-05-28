@@ -237,43 +237,31 @@ func main() {
 
 					threshold := 0.5
 					approximatedMask, overlapHistogram, selectedSpCount, selectedBorderingSpCount := spResult.ApproximateMask(groundTruthMask, threshold)
-					//labelMaskEdgeLength := util.TotalEdgeLength(spResult.LabelMap)
 
-					//accuracyScore := 1.0
-
+					// Dice Coefficient ("Accuracy Score")
 					accuracyScore, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
 
-					//groundTruthBoundaryLength := util.TotalEdgeLength(groundTruthMask)
-					groundTruthCompactness := util.Compactness(groundTruthMask)
-					superpixelCompactness := util.CompactnessPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-					groundTruthFillRatio := util.FillRatioOfBoundingBox(groundTruthMask)
-					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-					//approximatedBoundaryLength := util.TotalEdgeLength(approximatedMask)
-					//boundaryLengthDifference := math.Abs(float64(groundTruthBoundaryLength) - float64(approximatedBoundaryLength))
-					//usedBoundaryPortion := float64(approximatedBoundaryLength) / float64(labelMaskEdgeLength)
-					//desiredBoundaryPortion := math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 1)
-					shapeScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
-
-					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
-
-					//diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
-					//expectedSuperpixelDiagonalLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
-					//normalizedAverageBoundaryDistance := averageBoundaryDistance / expectedSuperpixelDiagonalLength
-					//accuracyScore := 1.0 / (1.0 + math.Sqrt(averageBoundaryDistance))
-					//accuracyScore, _ := util.BoundaryDistanceScore(groundTruthMask, approximatedMask)
-
-					selectedNonBorderingSpCount := selectedSpCount - selectedBorderingSpCount
-					//selectedSpRatio := float64(selectedSpCount) / float64(spResult.SpCount)
-
-					magicScore := 0.0
+					// Number of Superpixels ("Ratio Score")
 					ratioScore := 0.0
-					//boundaryDistanceScore := 0.0
 					if selectedSpCount > 0 {
 						borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
 						desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
 						ratioScore = 1 - math.Abs(borderPortionOfSelection-desiredBorderPortionOfSelection)
-						magicScore = ratioScore * shapeScore
 					}
+
+					// Compactness ("Shape Score")
+					groundTruthCompactness := util.Compactness(groundTruthMask)
+					superpixelCompactness := util.CompactnessPerSuperpixel(spResult.LabelMap, spResult.SpCount)
+					groundTruthFillRatio := util.FillRatioOfBoundingBox(groundTruthMask)
+					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
+					shapeScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
+
+					// Combination ("Magic Score")
+					magicScore := accuracyScore * ratioScore * shapeScore
+
+					// Misc
+					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
+					selectedNonBorderingSpCount := selectedSpCount - selectedBorderingSpCount
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")
