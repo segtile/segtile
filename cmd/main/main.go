@@ -428,7 +428,13 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			selectionChanged := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.selectionIndex[label] {
-				appState.selectionIndex[label] = true
+				if pe.Modifiers&key.ModShift != 0 {
+					// If shift is held, perform a flood fill selection
+					appState.selectionIndex = util.SuperpixelFloodFillSelection(labelMap, int(imageX), int(imageY), appState.selectionIndex)
+				} else {
+					// Perform a normal selection of a single superpixel
+					appState.selectionIndex[label] = true
+				}
 				selectionChanged = true
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 && appState.selectionIndex[label] {
 				appState.selectionIndex[label] = false

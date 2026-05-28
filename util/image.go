@@ -243,3 +243,61 @@ func CompactnessPerSuperpixel(labelMap *image.Gray16, spCount int) float64 {
 	}
 	return totalCompactness / float64(spCount)
 }
+func LabelMapNeighborhoods(labelMap *image.Gray16) map[uint16][]uint16 {
+
+	bounds := labelMap.Bounds()
+	neighbors := make(map[uint16]map[uint16]struct{})
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			currentLabel := labelMap.Gray16At(x, y).Y
+			if currentLabel == 0 {
+				continue
+			}
+			if _, exists := neighbors[currentLabel]; !exists {
+				neighbors[currentLabel] = make(map[uint16]struct{})
+			}
+
+			// Check 4-neighborhoods
+			for _, offset := range []struct{ dx, dy int }{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+				nx, ny := x+offset.dx, y+offset.dy
+				if nx >= bounds.Min.X && nx < bounds.Max.X && ny >= bounds.Min.Y && ny < bounds.Max.Y {
+					neighborLabel := labelMap.Gray16At(nx, ny).Y
+					if neighborLabel != 0 && neighborLabel != currentLabel {
+						neighbors[currentLabel][neighborLabel] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	// Convert neighbor sets to slices
+	result := make(map[uint16][]uint16)
+	for label, neighborSet := range neighbors {
+		for neighbor := range neighborSet {
+			result[label] = append(result[label], neighbor)
+		}
+	}
+
+	return result
+}
+
+// When clicking on an unselected superpixel, add all connected and still unselected superpixels to the selection
+func SuperpixelFloodFillSelection(labelMap *image.Gray16, x, y int, selectionIndex []bool) (newSelectionIndex []bool) {
+	targetLabel := labelMap.Gray16At(x, y).Y
+	if targetLabel == 0 || selectionIndex[targetLabel] {
+		return selectionIndex
+	}
+	neighbors := LabelMapNeighborhoods(labelMap)
+	queue := []uint16{targetLabel}
+	newSelectionIndex = make([]bool, len(selectionIndex))
+	copy(newSelectionIndex, selectionIndex)
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if !newSelectionIndex[current] {
+			newSelectionIndex[current] = true
+			queue = append(queue, neighbors[current]...)
+		}
+	}
+	return newSelectionIndex
+}
