@@ -7,7 +7,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\IMAGES\\TCGA_CS_4941_19960909_14.tif", "slic", "count=800", "compactness=40"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\IMAGES\\TCGA_CS_4941_19960909_14.tif", "slic", "count=420", "compactness=26"]
         },
 		{
             "name": "Lung Segmentation",
@@ -15,7 +15,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png", "slic", "count=600", "compactness=40"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png", "slic", "count=600", "compactness=140"]
         },
 		{
             "name": "Ultrasound Fetus Segmentation",
@@ -31,7 +31,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (113).png", "slic", "count=440", "compactness=80"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (123).png", "slic", "count=220", "compactness=10"]
         },
 		{
             "name": "Nuclei Segmentation",

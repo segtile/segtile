@@ -191,3 +191,55 @@ func TotalEdgeLength(image *image.Gray16) int {
 	}
 	return count
 }
+
+// Returns the number of pixels in the mask that are covered
+func CoveredArea(mask *image.Gray16) int {
+	bounds := mask.Bounds()
+
+	covered := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if mask.Gray16At(x, y).Y > 0 {
+				covered++
+			}
+		}
+	}
+
+	return covered
+}
+
+func Compactness(mask *image.Gray16) float64 {
+	area := float64(CoveredArea(mask))
+	edgeLength := float64(TotalEdgeLength(mask))
+	if area == 0 {
+		return 0
+	}
+	return (edgeLength * edgeLength) / (4 * math.Pi * area)
+}
+
+// Returns the average compactness of all superpixels in the label map
+func CompactnessPerSuperpixel(labelMap *image.Gray16, spCount int) float64 {
+	spPixelCount := make([]int, spCount)
+	spEdgeLength := make([]int, spCount)
+	bounds := labelMap.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			spLabel := labelMap.Gray16At(x, y).Y
+			spPixelCount[spLabel]++
+			value := labelMap.Gray16At(x, y).Y
+			if labelMap.Gray16At(x-1, y).Y < value || labelMap.Gray16At(x+1, y).Y < value || labelMap.Gray16At(x, y-1).Y < value || labelMap.Gray16At(x, y+1).Y < value {
+				spEdgeLength[spLabel]++
+			}
+		}
+	}
+
+	var totalCompactness float64
+	for i := 0; i < spCount; i++ {
+		if spPixelCount[i] > 0 {
+			area := float64(spPixelCount[i])
+			edgeLength := float64(spEdgeLength[i])
+			totalCompactness += (edgeLength * edgeLength) / (4 * math.Pi * area)
+		}
+	}
+	return totalCompactness / float64(spCount)
+}

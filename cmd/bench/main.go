@@ -25,19 +25,20 @@ type benchmarkRun struct {
 }
 
 type benchmarkResult struct {
-	imagePath                         string
-	actualSpCount                     int
-	parameters                        map[superpixel.SpParameter]float64
-	diceCoefficient                   float64
-	averageBoundaryDistance           float64
-	selectedNonBorderingSpCount       int
-	selectedBorderingSpCount          int
-	magicScore                        float64
-	ratioScore                        float64
-	boundaryDistanceScore             float64
-	normalizedAverageBoundaryDistance float64
-	boundaryLengthScore               float64
-	overlapHistogram                  []int
+	imagePath                   string
+	actualSpCount               int
+	parameters                  map[superpixel.SpParameter]float64
+	diceCoefficient             float64
+	averageBoundaryDistance     float64
+	selectedNonBorderingSpCount int
+	selectedBorderingSpCount    int
+	magicScore                  float64
+	ratioScore                  float64
+	boundaryDistanceScore       float64
+	shapeScore                  float64
+	groundTruthCompactness      float64
+	superpixelCompactness       float64
+	overlapHistogram            []int
 }
 
 func buildRunParameterSets(parameterRanges []util.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
@@ -145,7 +146,21 @@ func main() {
 	sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
 
 	// Prepare the header
-	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Selected Non-Bordering Superpixel Count", "Selected Bordering Superpixel Count", "Dice Coefficient", "Average Boundary Distance", "Normalized Average Boundary Distance", "Ratio Score", "Boundary Distance Score", "Boundary Length Score", "Magic Score"}
+	csvHeader := []string{
+		"ImageName",
+		"Algorithm",
+		"Actual Superpixel Count",
+		"Selected Non-Bordering Superpixel Count",
+		"Selected Bordering Superpixel Count",
+		"Dice Coefficient",
+		"Average Boundary Distance",
+		"Ratio Score",
+		"Boundary Distance Score",
+		"Shape Score",
+		"Magic Score",
+		"Ground Truth Compactness",
+		"Superpixel Compactness",
+	}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
 	}
@@ -162,6 +177,20 @@ func main() {
 		// Load images
 		img := util.ToNRGBA(util.LoadImage(images[index_img]))
 		groundTruthMask := util.ToGray16(util.LoadImage(masks[index_img]))
+
+		// Test if ground truth mask contains at least one non-zero pixel
+		hasNonZeroPixel := false
+		for y := groundTruthMask.Bounds().Min.Y; y < groundTruthMask.Bounds().Max.Y && !hasNonZeroPixel; y++ {
+			for x := groundTruthMask.Bounds().Min.X; x < groundTruthMask.Bounds().Max.X && !hasNonZeroPixel; x++ {
+				if groundTruthMask.Gray16At(x, y).Y > 0 {
+					hasNonZeroPixel = true
+				}
+			}
+		}
+		if !hasNonZeroPixel {
+			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this image.\n", masks[index_img])
+			continue
+		}
 
 		// Build list of benchmark run tasks
 		var work []benchmarkRun
@@ -203,26 +232,31 @@ func main() {
 						return
 					}
 
-					// Get the result and compare it to the baseline mask
+					// Get the result
 					spResult := sp.GetResult()
+
+					// METRICS
+
 					threshold := 0.5
 					approximatedMask, overlapHistogram, selectedSpCount, selectedBorderingSpCount := spResult.ApproximateMask(groundTruthMask, threshold)
 					//labelMaskEdgeLength := util.TotalEdgeLength(spResult.LabelMap)
-					diceCoefficient, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
+					//diceCoefficient, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
 					// For testing!
-					//diceCoefficient, _ := util.JaccardIndex(groundTruthMask, approximatedMask)
+					diceCoefficient, _ := util.JaccardIndex(groundTruthMask, approximatedMask)
 					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
 
-					groundTruthBoundaryLength := util.TotalEdgeLength(groundTruthMask)
-					approximatedBoundaryLength := util.TotalEdgeLength(approximatedMask)
+					//groundTruthBoundaryLength := util.TotalEdgeLength(groundTruthMask)
+					groundTruthCompactness := util.Compactness(groundTruthMask)
+					superpixelCompactness := util.CompactnessPerSuperpixel(spResult.LabelMap, spResult.SpCount)
+					//approximatedBoundaryLength := util.TotalEdgeLength(approximatedMask)
 					//boundaryLengthDifference := math.Abs(float64(groundTruthBoundaryLength) - float64(approximatedBoundaryLength))
 					//usedBoundaryPortion := float64(approximatedBoundaryLength) / float64(labelMaskEdgeLength)
 					//desiredBoundaryPortion := math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 1)
-					boundaryLengthScore := 1 - math.Abs(float64(groundTruthBoundaryLength)/float64(approximatedBoundaryLength)-1)
+					shapeScore := math.Exp(-math.Abs(groundTruthCompactness - superpixelCompactness))
 
-					diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
-					expectedSuperpixelDiagonalLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
-					normalizedAverageBoundaryDistance := averageBoundaryDistance / expectedSuperpixelDiagonalLength
+					//diagonalLength := math.Sqrt(float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dx() + groundTruthMask.Bounds().Dy()*groundTruthMask.Bounds().Dy()))
+					//expectedSuperpixelDiagonalLength := diagonalLength / math.Sqrt(float64(spResult.SpCount))
+					//normalizedAverageBoundaryDistance := averageBoundaryDistance / diagonalLength
 
 					selectedNonBorderingSpCount := selectedSpCount - selectedBorderingSpCount
 					//selectedSpRatio := float64(selectedSpCount) / float64(spResult.SpCount)
@@ -234,8 +268,7 @@ func main() {
 						borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
 						desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
 						ratioScore = 1 - math.Abs(borderPortionOfSelection-desiredBorderPortionOfSelection)
-						boundaryDistanceScore = (1 - normalizedAverageBoundaryDistance) // * (1 - normalizedAverageBoundaryDistance)
-						magicScore = ratioScore * diceCoefficient * boundaryDistanceScore * boundaryLengthScore
+						magicScore = ratioScore * diceCoefficient * shapeScore
 					}
 
 					// Print progress indicator
@@ -243,19 +276,19 @@ func main() {
 
 					// Send the result out
 					resultCh <- benchmarkResult{
-						imagePath:                         images[index_img],
-						parameters:                        item.parameters,
-						actualSpCount:                     spResult.SpCount,
-						selectedNonBorderingSpCount:       selectedNonBorderingSpCount,
-						selectedBorderingSpCount:          selectedBorderingSpCount,
-						diceCoefficient:                   diceCoefficient,
-						averageBoundaryDistance:           averageBoundaryDistance,
-						normalizedAverageBoundaryDistance: normalizedAverageBoundaryDistance,
-						ratioScore:                        ratioScore,
-						boundaryLengthScore:               boundaryLengthScore,
-						boundaryDistanceScore:             boundaryDistanceScore,
-						magicScore:                        magicScore,
-						overlapHistogram:                  overlapHistogram}
+						imagePath:                   images[index_img],
+						parameters:                  item.parameters,
+						actualSpCount:               spResult.SpCount,
+						selectedNonBorderingSpCount: selectedNonBorderingSpCount,
+						selectedBorderingSpCount:    selectedBorderingSpCount,
+						diceCoefficient:             diceCoefficient,
+						averageBoundaryDistance:     averageBoundaryDistance,
+						ratioScore:                  ratioScore,
+						shapeScore:                  shapeScore,
+						boundaryDistanceScore:       boundaryDistanceScore,
+						magicScore:                  magicScore,
+						groundTruthCompactness:      groundTruthCompactness,
+						superpixelCompactness:       superpixelCompactness, overlapHistogram: overlapHistogram}
 				}
 			}()
 		}
@@ -275,7 +308,7 @@ func main() {
 
 		for i, r := range results {
 			imageName := filepath.Base(r.imagePath)
-			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%d", r.selectedNonBorderingSpCount), fmt.Sprintf("%d", r.selectedBorderingSpCount), fmt.Sprintf("%.4f", r.diceCoefficient), fmt.Sprintf("%.4f", r.averageBoundaryDistance), fmt.Sprintf("%.4f", r.normalizedAverageBoundaryDistance), fmt.Sprintf("%.4f", r.ratioScore), fmt.Sprintf("%.4f", r.boundaryDistanceScore), fmt.Sprintf("%.4f", r.boundaryLengthScore), fmt.Sprintf("%.4f", r.magicScore)}
+			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%d", r.selectedNonBorderingSpCount), fmt.Sprintf("%d", r.selectedBorderingSpCount), fmt.Sprintf("%.4f", r.diceCoefficient), fmt.Sprintf("%.4f", r.averageBoundaryDistance), fmt.Sprintf("%.4f", r.ratioScore), fmt.Sprintf("%.4f", r.boundaryDistanceScore), fmt.Sprintf("%.4f", r.shapeScore), fmt.Sprintf("%.4f", r.magicScore), fmt.Sprintf("%.4f", r.groundTruthCompactness), fmt.Sprintf("%.4f", r.superpixelCompactness)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
 			}
