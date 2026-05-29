@@ -35,8 +35,6 @@ type benchmarkResult struct {
 	magicScore                  float64
 	ratioScore                  float64
 	shapeScore                  float64
-	groundTruthCompactness      float64
-	superpixelCompactness       float64
 	overlapHistogram            []int
 }
 
@@ -156,8 +154,6 @@ func main() {
 		"Ratio Score",
 		"Shape Score",
 		"Magic Score",
-		"Ground Truth Compactness",
-		"Superpixel Compactness",
 	}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
@@ -250,8 +246,6 @@ func main() {
 					}
 
 					// Compactness ("Shape Score")
-					groundTruthCompactness := util.Compactness(groundTruthMask)
-					superpixelCompactness := util.CompactnessPerSuperpixel(spResult.LabelMap, spResult.SpCount)
 					groundTruthFillRatio := util.FillRatioOfBoundingBox(groundTruthMask)
 					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
 					shapeScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
@@ -278,8 +272,7 @@ func main() {
 						ratioScore:                  ratioScore,
 						shapeScore:                  shapeScore,
 						magicScore:                  magicScore,
-						groundTruthCompactness:      groundTruthCompactness,
-						superpixelCompactness:       superpixelCompactness, overlapHistogram: overlapHistogram}
+						overlapHistogram:            overlapHistogram}
 				}
 			}()
 		}
@@ -299,7 +292,17 @@ func main() {
 
 		for i, r := range results {
 			imageName := filepath.Base(r.imagePath)
-			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%d", r.selectedNonBorderingSpCount), fmt.Sprintf("%d", r.selectedBorderingSpCount), fmt.Sprintf("%.4f", r.accuracyScore), fmt.Sprintf("%.4f", r.averageBoundaryDistance), fmt.Sprintf("%.4f", r.ratioScore), fmt.Sprintf("%.4f", r.shapeScore), fmt.Sprintf("%.4f", r.magicScore), fmt.Sprintf("%.4f", r.groundTruthCompactness), fmt.Sprintf("%.4f", r.superpixelCompactness)}
+			newCsvLines[i] = []string{
+				fmt.Sprintf("%s", imageName),
+				fmt.Sprintf("%s", algorithmName),
+				fmt.Sprintf("%d", r.actualSpCount),
+				fmt.Sprintf("%d", r.selectedNonBorderingSpCount),
+				fmt.Sprintf("%d", r.selectedBorderingSpCount),
+				fmt.Sprintf("%.4f", r.accuracyScore),
+				fmt.Sprintf("%.4f", r.averageBoundaryDistance),
+				fmt.Sprintf("%.4f", r.ratioScore),
+				fmt.Sprintf("%.4f", r.shapeScore),
+				fmt.Sprintf("%.4f", r.magicScore)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
 			}
