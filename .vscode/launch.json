@@ -34,6 +34,14 @@
             "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (40).png", "slic", "count=220", "compactness=25"]
         },
 		{
+            "name": "Retina",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/main",
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Retina\\IMAGES\\0.png", "slic", "count=9000", "compactness=0"]
+        },
+		{
             "name": "Nuclei Segmentation",
             "type": "go",
             "request": "launch",
