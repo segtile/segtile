@@ -167,7 +167,7 @@ func BoundaryDistanceScore(maskOriginal, maskApproximated *image.Gray16) (float6
 	return bestDistancesSum / float64(len(boundariesOriginal)), nil
 }
 
-func DiceCoefficient(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
+func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 	if maskOriginal.Bounds() != maskApproximated.Bounds() {
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}

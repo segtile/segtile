@@ -28,13 +28,13 @@ type benchmarkResult struct {
 	imagePath                   string
 	actualSpCount               int
 	parameters                  map[superpixel.SpParameter]float64
-	accuracyScore               float64
+	f1Score                     float64
 	averageBoundaryDistance     float64
 	selectedNonBorderingSpCount int
 	selectedBorderingSpCount    int
-	magicScore                  float64
-	ratioScore                  float64
-	shapeScore                  float64
+	labelingCalibrationScore    float64
+	densityCalibrationScore     float64
+	regularityCalibrationScore  float64
 	overlapHistogram            []int
 }
 
@@ -149,11 +149,11 @@ func main() {
 		"Actual Superpixel Count",
 		"Selected Non-Bordering Superpixel Count",
 		"Selected Bordering Superpixel Count",
-		"Accuracy Score",
+		"F1 Score",
 		"Average Boundary Distance",
-		"Ratio Score",
-		"Shape Score",
-		"Magic Score",
+		"Density Calibration Score",
+		"Regularity Calibration Score",
+		"Labeling Calibration Score",
 	}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
@@ -229,29 +229,28 @@ func main() {
 					// Get the result
 					spResult := sp.GetResult()
 
-					// METRICS
-
+					// Create Metrics
 					threshold := 0.5
 					approximatedMask, overlapHistogram, selectedSpCount, selectedBorderingSpCount := spResult.ApproximateMask(groundTruthMask, threshold)
 
-					// Dice Coefficient ("Accuracy Score")
-					accuracyScore, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
+					// F1 Score
+					f1Score, _ := util.F1Score(groundTruthMask, approximatedMask)
 
-					// Number of Superpixels ("Ratio Score")
-					ratioScore := 0.0
+					// Density Calibration Score
+					densityCalibrationScore := 0.0
 					if selectedSpCount > 0 {
 						borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
 						desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
-						ratioScore = 1 - math.Abs(borderPortionOfSelection-desiredBorderPortionOfSelection)
+						densityCalibrationScore = 1 - math.Abs(borderPortionOfSelection-desiredBorderPortionOfSelection)
 					}
 
-					// Compactness ("Shape Score")
+					// Regularity Calibration Score
 					groundTruthFillRatio := util.FillRatioOfOwnBoundingBox(groundTruthMask)
 					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-					shapeScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
+					regularityCalibrationScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
 
-					// Combination ("Magic Score")
-					magicScore := accuracyScore * ratioScore * shapeScore
+					// Final Labeling Calibration Score
+					labelingCalibrationScore := f1Score * densityCalibrationScore * regularityCalibrationScore
 
 					// Misc
 					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
@@ -267,12 +266,14 @@ func main() {
 						actualSpCount:               spResult.SpCount,
 						selectedNonBorderingSpCount: selectedNonBorderingSpCount,
 						selectedBorderingSpCount:    selectedBorderingSpCount,
-						accuracyScore:               accuracyScore,
 						averageBoundaryDistance:     averageBoundaryDistance,
-						ratioScore:                  ratioScore,
-						shapeScore:                  shapeScore,
-						magicScore:                  magicScore,
-						overlapHistogram:            overlapHistogram}
+
+						f1Score:                    f1Score,
+						densityCalibrationScore:    densityCalibrationScore,
+						regularityCalibrationScore: regularityCalibrationScore,
+						labelingCalibrationScore:   labelingCalibrationScore,
+
+						overlapHistogram: overlapHistogram}
 				}
 			}()
 		}
@@ -298,11 +299,11 @@ func main() {
 				fmt.Sprintf("%d", r.actualSpCount),
 				fmt.Sprintf("%d", r.selectedNonBorderingSpCount),
 				fmt.Sprintf("%d", r.selectedBorderingSpCount),
-				fmt.Sprintf("%.4f", r.accuracyScore),
+				fmt.Sprintf("%.4f", r.f1Score),
 				fmt.Sprintf("%.4f", r.averageBoundaryDistance),
-				fmt.Sprintf("%.4f", r.ratioScore),
-				fmt.Sprintf("%.4f", r.shapeScore),
-				fmt.Sprintf("%.4f", r.magicScore)}
+				fmt.Sprintf("%.4f", r.densityCalibrationScore),
+				fmt.Sprintf("%.4f", r.regularityCalibrationScore),
+				fmt.Sprintf("%.4f", r.labelingCalibrationScore)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
 			}
