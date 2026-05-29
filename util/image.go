@@ -254,7 +254,7 @@ func Area(mask *image.Gray16) int {
 	return covered
 }
 
-func FillRatioOfBoundingBox(mask *image.Gray16) float64 {
+func FillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
 	bounds := mask.Bounds()
 	minX, minY := bounds.Max.X, bounds.Max.Y
 	maxX, maxY := bounds.Min.X, bounds.Min.Y

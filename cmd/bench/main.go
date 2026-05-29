@@ -246,7 +246,7 @@ func main() {
 					}
 
 					// Compactness ("Shape Score")
-					groundTruthFillRatio := util.FillRatioOfBoundingBox(groundTruthMask)
+					groundTruthFillRatio := util.FillRatioOfOwnBoundingBox(groundTruthMask)
 					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
 					shapeScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
 
