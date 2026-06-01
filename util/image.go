@@ -358,15 +358,15 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 	return neighbors
 }
 
-func CountBorderingSuperpixels(labelMap *image.Gray16, selectionIndex []bool) (selectedSpCount int, selectedBorderingSpCount int) {
+func CountBorderingSuperpixels(labelMap *image.Gray16, selection []bool) (selectedSpCount int, selectedBorderingSpCount int) {
 
-	neighbors := LabelMapNeighborhoods(labelMap, len(selectionIndex))
+	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
 
-	for spLabel, selected := range selectionIndex {
+	for spLabel, selected := range selection {
 		if selected {
 			selectedSpCount++
 			for _, neighbor := range neighbors[spLabel] {
-				if !selectionIndex[neighbor] {
+				if !selection[neighbor] {
 					selectedBorderingSpCount++
 					break
 				}
@@ -378,24 +378,24 @@ func CountBorderingSuperpixels(labelMap *image.Gray16, selectionIndex []bool) (s
 }
 
 // When clicking on an unselected superpixel, add all connected and still unselected superpixels to the selection
-func SuperpixelFloodFillSelection(labelMap *image.Gray16, x, y int, selectionIndex []bool) (newSelectionIndex []bool) {
+func SuperpixelFloodFillSelection(labelMap *image.Gray16, x, y int, selection []bool) (newSelection []bool) {
 	targetLabel := labelMap.Gray16At(x, y).Y
-	if targetLabel == 0 || selectionIndex[targetLabel] {
-		return selectionIndex
+	if targetLabel == 0 || selection[targetLabel] {
+		return selection
 	}
-	neighbors := LabelMapNeighborhoods(labelMap, len(selectionIndex))
+	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
 	queue := []uint16{targetLabel}
-	newSelectionIndex = make([]bool, len(selectionIndex))
-	copy(newSelectionIndex, selectionIndex)
+	newSelection = make([]bool, len(selection))
+	copy(newSelection, selection)
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
-		if !newSelectionIndex[current] {
-			newSelectionIndex[current] = true
+		if !newSelection[current] {
+			newSelection[current] = true
 			queue = append(queue, neighbors[current]...)
 		}
 	}
-	return newSelectionIndex
+	return newSelection
 }
 
 func HasNonZeroPixels(img *image.Gray16) bool {
