@@ -237,21 +237,17 @@ func main() {
 					f1Score, _ := util.F1Score(groundTruthMask, approximatedMask)
 
 					// Density Calibration Score
-					// TODO: Taking ratio to the power of 0.5 is a heuristic that seems to work well, but could be further investigated and justified
-
 					densityCalibrationScore := 0.0
 					if selectedSpCount > 0 {
 						borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
 						desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
-						// TODO: Subtraction of two relative values is not mathematically elegant.
-						densityCalibrationScore = 1 - math.Abs(borderPortionOfSelection-desiredBorderPortionOfSelection)
+						densityCalibrationScore = math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
 					}
 
 					// Regularity Calibration Score
 					groundTruthFillRatio := util.FillRatioOfOwnBoundingBox(groundTruthMask)
 					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-					// TODO: Subtraction of two relative values is not mathematically elegant.
-					regularityCalibrationScore := 1 - math.Abs(groundTruthFillRatio-superpixelFillRatio)
+					regularityCalibrationScore := math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
 
 					// Final Labeling Calibration Score
 					labelingCalibrationScore := f1Score * densityCalibrationScore * regularityCalibrationScore
