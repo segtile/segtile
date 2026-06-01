@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/struffel/annotation-tool/superpixel"
 	"golang.org/x/image/tiff"
 )
 
@@ -326,10 +327,11 @@ func FillRatioOfOwnBoundingBoxPerSuperpixel(labelMap *image.Gray16, spCount int)
 	return totalFillRatio / float64(spCount)
 }
 
-func LabelMapNeighborhoods(labelMap *image.Gray16) map[uint16][]uint16 {
+// Computes for each superpixel which other superpixels are its neighbors (i.e. share a border with it)
+func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 
 	bounds := labelMap.Bounds()
-	neighbors := make(map[uint16]map[uint16]struct{})
+	neighbors := make([][]uint16, spCount)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -337,8 +339,8 @@ func LabelMapNeighborhoods(labelMap *image.Gray16) map[uint16][]uint16 {
 			if currentLabel == 0 {
 				continue
 			}
-			if _, exists := neighbors[currentLabel]; !exists {
-				neighbors[currentLabel] = make(map[uint16]struct{})
+			if neighbors[currentLabel] == nil {
+				neighbors[currentLabel] = make([]uint16, 0)
 			}
 
 			// Check 4-neighborhoods
@@ -347,21 +349,32 @@ func LabelMapNeighborhoods(labelMap *image.Gray16) map[uint16][]uint16 {
 				if nx >= bounds.Min.X && nx < bounds.Max.X && ny >= bounds.Min.Y && ny < bounds.Max.Y {
 					neighborLabel := labelMap.Gray16At(nx, ny).Y
 					if neighborLabel != 0 && neighborLabel != currentLabel {
-						neighbors[currentLabel][neighborLabel] = struct{}{}
+						neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
 					}
 				}
 			}
 		}
 	}
-	// Convert neighbor sets to slices
-	result := make(map[uint16][]uint16)
-	for label, neighborSet := range neighbors {
-		for neighbor := range neighborSet {
-			result[label] = append(result[label], neighbor)
-		}
-	}
+	return neighbors
+}
 
-	return result
+func CountBorderingSuperpixels(labelMap *image.Gray16, selectionIndex []bool) (selectedSpCount int, selectedBorderingSpCount int) {
+
+	neighbors := LabelMapNeighborhoods(labelMap, len(selectionIndex))
+
+	for spLabel, selected := range selectionIndex {
+		if selected {
+			selectedSpCount++
+			for _, neighbor := range neighbors[spLabel] {
+				if !selectionIndex[neighbor] {
+					selectedBorderingSpCount++
+					break
+				}
+			}
+		}
+
+	}
+	return selectedSpCount, selectedBorderingSpCount
 }
 
 // When clicking on an unselected superpixel, add all connected and still unselected superpixels to the selection
@@ -370,7 +383,7 @@ func SuperpixelFloodFillSelection(labelMap *image.Gray16, x, y int, selectionInd
 	if targetLabel == 0 || selectionIndex[targetLabel] {
 		return selectionIndex
 	}
-	neighbors := LabelMapNeighborhoods(labelMap)
+	neighbors := LabelMapNeighborhoods(labelMap, len(selectionIndex))
 	queue := []uint16{targetLabel}
 	newSelectionIndex = make([]bool, len(selectionIndex))
 	copy(newSelectionIndex, selectionIndex)
@@ -383,4 +396,49 @@ func SuperpixelFloodFillSelection(labelMap *image.Gray16, x, y int, selectionInd
 		}
 	}
 	return newSelectionIndex
+}
+
+func HasNonZeroPixels(img *image.Gray16) bool {
+	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+			if img.Gray16At(x, y).Y > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.SpResult) (labelingCalibrationScore float64,
+	f1Score float64, densityCalibrationScore float64, regularityCalibrationScore float64, averageBoundaryDistance float64, selectedSpCount int, selectedBorderingSpCount int) {
+
+	// Create Metrics
+	threshold := 0.5
+	selectionFromMask := spResult.SelectFromMask(groundTruthMask, threshold)
+	approximatedMask := spResult.SelectionToMask(selectionFromMask)
+	selectedSpCount, selectedBorderingSpCount = CountBorderingSuperpixels(spResult.LabelMap, selectionFromMask)
+
+	// F1 Score
+	f1Score, _ = F1Score(groundTruthMask, approximatedMask)
+
+	// Density Calibration Score
+	densityCalibrationScore = 0.0
+	if selectedSpCount > 0 {
+		borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
+		desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
+		densityCalibrationScore = math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
+	}
+
+	// Regularity Calibration Score
+	groundTruthFillRatio := FillRatioOfOwnBoundingBox(groundTruthMask)
+	superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
+	regularityCalibrationScore = math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+
+	// Final Labeling Calibration Score
+	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
+
+	// Bonus: Average Boundary Distance
+	averageBoundaryDistance, _ = AverageBoundaryDistance(groundTruthMask, approximatedMask)
+
+	return labelingCalibrationScore, f1Score, densityCalibrationScore, regularityCalibrationScore, averageBoundaryDistance, selectedSpCount, selectedBorderingSpCount
 }

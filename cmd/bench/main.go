@@ -5,7 +5,6 @@ import (
 	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
-	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -25,17 +24,16 @@ type benchmarkRun struct {
 }
 
 type benchmarkResult struct {
-	imagePath                   string
-	actualSpCount               int
-	parameters                  map[superpixel.SpParameter]float64
-	f1Score                     float64
-	averageBoundaryDistance     float64
-	selectedNonBorderingSpCount int
-	selectedBorderingSpCount    int
-	labelingCalibrationScore    float64
-	densityCalibrationScore     float64
-	regularityCalibrationScore  float64
-	overlapHistogram            []int
+	imagePath                  string
+	actualSpCount              int
+	parameters                 map[superpixel.SpParameter]float64
+	f1Score                    float64
+	averageBoundaryDistance    float64
+	selectedSpCount            int
+	selectedBorderingSpCount   int
+	labelingCalibrationScore   float64
+	densityCalibrationScore    float64
+	regularityCalibrationScore float64
 }
 
 func buildRunParameterSets(parameterRanges []util.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
@@ -147,19 +145,16 @@ func main() {
 		"ImageName",
 		"Algorithm",
 		"Actual Superpixel Count",
-		"Selected Non-Bordering Superpixel Count",
+		"Selected Superpixel Count",
 		"Selected Bordering Superpixel Count",
-		"F1 Score",
 		"Average Boundary Distance",
+		"F1 Score",
 		"Density Calibration Score",
 		"Regularity Calibration Score",
 		"Labeling Calibration Score",
 	}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
-	}
-	for i := 0; i <= 100; i++ {
-		csvHeader = append(csvHeader, fmt.Sprintf("OverlapPercentage_%d", i))
 	}
 	writer.Write(csvHeader)
 	writer.Flush()
@@ -172,17 +167,15 @@ func main() {
 		img := util.ToNRGBA(util.LoadImage(images[index_img]))
 		groundTruthMask := util.ToGray16(util.LoadImage(masks[index_img]))
 
-		// Test if ground truth mask contains at least one non-zero pixel
-		hasNonZeroPixel := false
-		for y := groundTruthMask.Bounds().Min.Y; y < groundTruthMask.Bounds().Max.Y && !hasNonZeroPixel; y++ {
-			for x := groundTruthMask.Bounds().Min.X; x < groundTruthMask.Bounds().Max.X && !hasNonZeroPixel; x++ {
-				if groundTruthMask.Gray16At(x, y).Y > 0 {
-					hasNonZeroPixel = true
-				}
-			}
+		// Ensure that the image and mask have the same dimensions
+		if img.Bounds() != groundTruthMask.Bounds() {
+			fmt.Fprintf(os.Stderr, "Warning: Image and mask dimensions do not match for %s and %s. Skipping this pair.\n", images[index_img], masks[index_img])
+			continue
 		}
-		if !hasNonZeroPixel {
-			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this image.\n", masks[index_img])
+
+		// Test if ground truth mask contains at least one non-zero pixel
+		if !util.HasNonZeroPixels(groundTruthMask) {
+			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this pair.\n", masks[index_img])
 			continue
 		}
 
@@ -229,51 +222,31 @@ func main() {
 					// Get the result
 					spResult := sp.GetResult()
 
-					// Create Metrics
-					threshold := 0.5
-					approximatedMask, overlapHistogram, selectedSpCount, selectedBorderingSpCount := spResult.ApproximateMask(groundTruthMask, threshold)
-
-					// F1 Score
-					f1Score, _ := util.F1Score(groundTruthMask, approximatedMask)
-
-					// Density Calibration Score
-					densityCalibrationScore := 0.0
-					if selectedSpCount > 0 {
-						borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
-						desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
-						densityCalibrationScore = math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
-					}
-
-					// Regularity Calibration Score
-					groundTruthFillRatio := util.FillRatioOfOwnBoundingBox(groundTruthMask)
-					superpixelFillRatio := util.FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-					regularityCalibrationScore := math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
-
-					// Final Labeling Calibration Score
-					labelingCalibrationScore := f1Score * densityCalibrationScore * regularityCalibrationScore
-
-					// Misc
-					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
-					selectedNonBorderingSpCount := selectedSpCount - selectedBorderingSpCount
+					labelingCalibrationScore,
+						f1Score,
+						densityCalibrationScore,
+						regularityCalibrationScore,
+						averageBoundaryDistance,
+						selectedSpCount,
+						selectedBorderingSpCount := util.SuperpixelEvaluation(groundTruthMask, spResult)
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")
 
 					// Send the result out
 					resultCh <- benchmarkResult{
-						imagePath:                   images[index_img],
-						parameters:                  item.parameters,
-						actualSpCount:               spResult.SpCount,
-						selectedNonBorderingSpCount: selectedNonBorderingSpCount,
-						selectedBorderingSpCount:    selectedBorderingSpCount,
-						averageBoundaryDistance:     averageBoundaryDistance,
+						imagePath:                images[index_img],
+						parameters:               item.parameters,
+						actualSpCount:            spResult.SpCount,
+						selectedSpCount:          selectedSpCount,
+						selectedBorderingSpCount: selectedBorderingSpCount,
+						averageBoundaryDistance:  averageBoundaryDistance,
 
 						f1Score:                    f1Score,
 						densityCalibrationScore:    densityCalibrationScore,
 						regularityCalibrationScore: regularityCalibrationScore,
 						labelingCalibrationScore:   labelingCalibrationScore,
-
-						overlapHistogram: overlapHistogram}
+					}
 				}
 			}()
 		}
@@ -297,18 +270,15 @@ func main() {
 				fmt.Sprintf("%s", imageName),
 				fmt.Sprintf("%s", algorithmName),
 				fmt.Sprintf("%d", r.actualSpCount),
-				fmt.Sprintf("%d", r.selectedNonBorderingSpCount),
+				fmt.Sprintf("%d", r.selectedSpCount),
 				fmt.Sprintf("%d", r.selectedBorderingSpCount),
-				fmt.Sprintf("%.4f", r.f1Score),
 				fmt.Sprintf("%.4f", r.averageBoundaryDistance),
+				fmt.Sprintf("%.4f", r.f1Score),
 				fmt.Sprintf("%.4f", r.densityCalibrationScore),
 				fmt.Sprintf("%.4f", r.regularityCalibrationScore),
 				fmt.Sprintf("%.4f", r.labelingCalibrationScore)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
-			}
-			for _, v := range r.overlapHistogram {
-				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%d", v))
 			}
 		}
 

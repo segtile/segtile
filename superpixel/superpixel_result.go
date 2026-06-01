@@ -1,6 +1,7 @@
 package superpixel
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	//"github.com/hashicorp/go-set/v3"
@@ -116,21 +117,17 @@ func (this *SpResult) SelectFromMask(mask *image.Gray16, threshold float64) []bo
 	return selection
 }
 
-// ApproximateMask creates a mask by approximating the ground truth with the superpixels.
-// A superpixel is included in the mask if its overlap with the ground truth exceeds the given threshold.
-// E.G. A threshold of 0.5 indicates that 50% of the SP's pixels must also be contained in the mask.
-// Returns:
-// -
-func (this *SpResult) ApproximateMask(groundTruth *image.Gray16, threshold float64) (approximatedMask *image.Gray16, overlapHistogram []int, totalSelectedSpCount int, borderingSpCount int) {
+// OverlapHistogram computes a histogram of the overlap ratios between the superpixels and the given ground truth mask.
+// The histogram has 101 bins corresponding to overlap ratios from 0% to 100% (inclusive).
+// Each bin counts how many superpixels have an overlap ratio that falls within that percentage range.
+func (this *SpResult) OverlapHistogram(groundTruth *image.Gray16, threshold float64) ([]int, error) {
+
 	if this.LabelMap.Bounds() != groundTruth.Bounds() {
-		panic("Ground truth and superpixel label map must have the same dimensions")
+		return nil, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
-	// Build the overlap histogram
-
 	spPixelCount, spOverlapCount := this.computeOverlapCounts(groundTruth)
-	overlapHistogram = make([]int, 101)
-	selection := make([]bool, this.SpCount)
+	overlapHistogram := make([]int, 101)
 
 	for spLabel := 0; spLabel < this.SpCount; spLabel++ {
 		if spPixelCount[spLabel] == 0 {
@@ -138,43 +135,6 @@ func (this *SpResult) ApproximateMask(groundTruth *image.Gray16, threshold float
 		}
 		overlapRatio := float64(spOverlapCount[spLabel]) / float64(spPixelCount[spLabel])
 		overlapHistogram[int(overlapRatio*100)]++
-		if overlapRatio >= threshold {
-			selection[spLabel] = true
-			totalSelectedSpCount++
-		}
 	}
-
-	// Use the final approximated mask to count how many superpixels are border SPs and how many are contained SPs
-	approximatedMask = this.SelectionToMask(selection)
-
-	bounds := approximatedMask.Bounds()
-	bX := bounds.Max.X
-	bY := bounds.Max.Y
-
-	borderingSpSelection := make([]bool, this.SpCount)
-
-	for x := 0; x < approximatedMask.Bounds().Dx(); x++ {
-		for y := 0; y < approximatedMask.Bounds().Dy(); y++ {
-			isBorderPixel := false
-			if approximatedMask.Gray16At(x, y).Y > 0 {
-				// Check 4-neighborhood for background pixels
-				if x > 0 && x < bX-1 && y > 0 && y < bY-1 {
-					if approximatedMask.Gray16At(x-1, y).Y == 0 || approximatedMask.Gray16At(x+1, y).Y == 0 || approximatedMask.Gray16At(x, y-1).Y == 0 || approximatedMask.Gray16At(x, y+1).Y == 0 {
-						isBorderPixel = true
-					}
-				}
-			}
-			if isBorderPixel {
-				borderingSpSelection[this.LabelMap.Gray16At(x, y).Y] = true
-			}
-		}
-	}
-
-	for i := 0; i < this.SpCount; i++ {
-		if borderingSpSelection[i] {
-			borderingSpCount++
-		}
-	}
-
-	return approximatedMask, overlapHistogram, totalSelectedSpCount, borderingSpCount
+	return overlapHistogram, nil
 }
