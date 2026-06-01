@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
@@ -10,7 +11,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"math/rand"
+
 	"github.com/struffel/annotation-tool/superpixel"
+
 	"golang.org/x/image/tiff"
 )
 
@@ -255,6 +259,64 @@ func Area(mask *image.Gray16) int {
 	return covered
 }
 
+// Identifies connected components of non-zero pixels in the mask and assigns each component a unique label in the output image.
+// The value 0 is used as the background, 1 for the first island, 2 for the second, and so on.
+// It also returns the total number of connected components (islands) found.
+func FindIslands(mask *image.Gray16) (islandMap *image.Gray16, islandCount uint16) {
+
+	islandMap = image.NewGray16(mask.Bounds())
+	bounds := mask.Bounds()
+	visited := make([][]bool, bounds.Dy())
+
+	for y := range visited {
+		visited[y] = make([]bool, bounds.Dx())
+	}
+
+	islandLabel := uint16(1)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if mask.Gray16At(x, y).Y > 0 && !visited[y][x] {
+				// Start a new island
+				queue := []struct{ x, y int }{{x, y}}
+				visited[y][x] = true
+				islandMap.SetGray16(x, y, color.Gray16{Y: islandLabel})
+				for len(queue) > 0 {
+					current := queue[0]
+					queue = queue[1:]
+					// Check 4-neighborhood
+					for _, offset := range []struct{ dx, dy int }{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+						newX, newY := current.x+offset.dx, current.y+offset.dy
+						if newX >= bounds.Min.X && newX < bounds.Max.X && newY >= bounds.Min.Y && newY < bounds.Max.Y {
+							if mask.Gray16At(newX, newY).Y > 0 && !visited[newY][newX] {
+								visited[newY][newX] = true
+								islandMap.SetGray16(newX, newY, color.Gray16{Y: islandLabel})
+								queue = append(queue, struct{ x, y int }{newX, newY})
+							}
+						}
+					}
+				}
+				islandLabel++
+			}
+		}
+	}
+	return islandMap, islandLabel - 1
+}
+
+// SelectIsland creates a new mask where only the pixels belonging to the specified island label are set.
+func SelectIsland(islandMap *image.Gray16, islandLabel uint16) *image.Gray16 {
+	bounds := islandMap.Bounds()
+	selectedIsland := image.NewGray16(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if islandMap.Gray16At(x, y).Y == islandLabel {
+				selectedIsland.SetGray16(x, y, color.Gray16{Y: 65535})
+			}
+		}
+	}
+	return selectedIsland
+}
+
 func FillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
 	bounds := mask.Bounds()
 	minX, minY := bounds.Max.X, bounds.Max.Y
@@ -409,39 +471,72 @@ func HasNonZeroPixels(img *image.Gray16) bool {
 	return false
 }
 
-func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.SpResult) (labelingCalibrationScore float64,
+func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.SpResult, maxIslands int) (labelingCalibrationScore float64,
 	f1Score float64, densityCalibrationScore float64, regularityCalibrationScore float64, averageBoundaryDistance float64, selectedSpCount int, selectedBorderingSpCount int) {
 
-	// Create Metrics
-	threshold := 0.5
-	selectionFromMask := spResult.SelectFromMask(groundTruthMask, threshold)
-	approximatedMask := spResult.SelectionToMask(selectionFromMask)
-	selectedSpCount, selectedBorderingSpCount = CountBorderingSuperpixels(spResult.LabelMap, selectionFromMask)
+	groundTruthIslands, groundTruthIslandCount := FindIslands(groundTruthMask)
 
-	// F1 Score
-	f1Score, _ = F1Score(groundTruthMask, approximatedMask)
-
-	// Density Calibration Score
+	// Prepare metrics
+	f1Score = 0.0
 	densityCalibrationScore = 0.0
-	if selectedSpCount > 0 {
-		borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
-		desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
-		densityCalibrationScore = math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
+	regularityCalibrationScore = 0.0
+	labelingCalibrationScore = 0.0
+	averageBoundaryDistance = 0.0
+
+	// Build a list of all island labels
+	islandLabels := make([]uint16, groundTruthIslandCount)
+	for i := uint16(0); i < groundTruthIslandCount; i++ {
+		islandLabels[i] = i + 1
 	}
 
-	// Regularity Calibration Score
-	groundTruthFillRatio := FillRatioOfOwnBoundingBox(groundTruthMask)
-	superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-	regularityCalibrationScore = 0.0
-	if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
-		regularityCalibrationScore = math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+	// Shuffle the island labels and pick up to 10 for evaluation
+	rand.Shuffle(len(islandLabels), func(i, j int) {
+		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
+	})
+	if len(islandLabels) > maxIslands {
+		islandLabels = islandLabels[:maxIslands]
 	}
+
+	for _, islandLabel := range islandLabels {
+
+		currentGroundTruthIsland := SelectIsland(groundTruthIslands, islandLabel)
+
+		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
+		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+
+		selectedSpCount, selectedBorderingSpCount = CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+
+		// F1 Score
+		currentF1Score, _ := F1Score(currentGroundTruthIsland, currentApproximatedMask)
+		f1Score += currentF1Score
+
+		// Density Calibration Score
+		if selectedSpCount > 0 {
+			borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
+			desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
+			densityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
+		}
+
+		// Regularity Calibration Score
+		groundTruthFillRatio := FillRatioOfOwnBoundingBox(currentGroundTruthIsland)
+		superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
+		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
+			regularityCalibrationScore += math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+		}
+
+		// Bonus: Average Boundary Distance
+		currentAverageBoundaryDistance, _ := AverageBoundaryDistance(currentGroundTruthIsland, currentApproximatedMask)
+		averageBoundaryDistance += currentAverageBoundaryDistance
+
+	}
+
+	f1Score /= float64(len(islandLabels))
+	densityCalibrationScore /= float64(len(islandLabels))
+	regularityCalibrationScore /= float64(len(islandLabels))
+	averageBoundaryDistance /= float64(len(islandLabels))
 
 	// Final Labeling Calibration Score
 	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
-
-	// Bonus: Average Boundary Distance
-	averageBoundaryDistance, _ = AverageBoundaryDistance(groundTruthMask, approximatedMask)
 
 	return labelingCalibrationScore, f1Score, densityCalibrationScore, regularityCalibrationScore, averageBoundaryDistance, selectedSpCount, selectedBorderingSpCount
 }

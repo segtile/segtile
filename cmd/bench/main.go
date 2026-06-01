@@ -228,7 +228,7 @@ func main() {
 						regularityCalibrationScore,
 						averageBoundaryDistance,
 						selectedSpCount,
-						selectedBorderingSpCount := util.SuperpixelEvaluation(groundTruthMask, spResult)
+						selectedBorderingSpCount := util.SuperpixelEvaluation(groundTruthMask, spResult, 5)
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")

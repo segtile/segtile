@@ -31,7 +31,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (40).png", "slic", "count=220", "compactness=25"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (40).png", "slic", "count=300", "compactness=25"]
         },
 		{
             "name": "Retina",
@@ -47,7 +47,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_AdrenalGland_01.tif", "slic", "count=800", "compactness=40"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_AdrenalGland_01.tif", "slic", "count=6500", "compactness=50"]
         },
         {
             "name": "EBHI-Normal",
@@ -55,7 +55,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-001.png", "slic", "count=800", "compactness=40"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-001.png", "slic", "count=150", "compactness=58"]
         },
         {
             "name": "SpermHeads",
