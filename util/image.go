@@ -432,7 +432,10 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	// Regularity Calibration Score
 	groundTruthFillRatio := FillRatioOfOwnBoundingBox(groundTruthMask)
 	superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
-	regularityCalibrationScore = math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+	regularityCalibrationScore = 0.0
+	if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
+		regularityCalibrationScore = math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+	}
 
 	// Final Labeling Calibration Score
 	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
