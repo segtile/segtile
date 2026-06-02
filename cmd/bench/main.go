@@ -154,7 +154,7 @@ func main() {
 		"Labeling Calibration Score",
 	}
 	for _, param := range parameterKeys {
-		csvHeader = append(csvHeader, param.String())
+		csvHeader = append(csvHeader, param.Title())
 	}
 	writer.Write(csvHeader)
 	writer.Flush()

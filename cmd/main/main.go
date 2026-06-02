@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -22,16 +23,31 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/sqweek/dialog"
+	projectconfig "github.com/struffel/annotation-tool/config"
 	"github.com/struffel/annotation-tool/rendering"
 	"github.com/struffel/annotation-tool/superpixel"
 	"github.com/struffel/annotation-tool/superpixel_factory"
 	"github.com/struffel/annotation-tool/util"
 )
 
+// projectResult carries the outcome of a background project-load dialog.
+type projectResult struct {
+	cfg       *projectconfig.ProjectConfig
+	outputDir string
+	err       error
+}
+
 type AppState struct {
+
+	// Project
+	config     *projectconfig.ProjectConfig
+	outputDir  string
+	imageFiles []string
 
 	// Images
 	currentImage *image.NRGBA // Original image
+	currentIndex int
 
 	// Superpixel module
 	superpixelImplementation superpixel.SpImplementation
@@ -50,6 +66,12 @@ type AppState struct {
 	theme                      *material.Theme
 	superpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 	renderSelectionOutlines    bool
+	prevButton                 widget.Clickable
+	nextButton                 widget.Clickable
+	openProjectButton          widget.Clickable
+	newProjectButton           widget.Clickable
+	projectLoading             bool
+	projectLoadResult          chan projectResult
 
 	// Hover state
 	isPanning        bool
@@ -66,73 +88,28 @@ type AppState struct {
 	hoverStrokeWidth     float32
 }
 
-type CliArguments struct {
-	ImagePath  string
-	Algorithm  string
-	Parameters map[string]float64
-}
-
 func main() {
+	configPath := parseConfigPath()
 	go func() {
-
-		// Load CLI arguments
-		arguments := parseCommandLineArguments()
-
-		// Initialize app window
 		appWindow := new(app.Window)
 		appWindow.Option(
 			app.Title("Annotation Tool"),
 			app.Size(unit.Dp(1280), unit.Dp(900)),
 		)
 
-		// Create the application and load the image
 		appState := newAppState()
 		appState.window = appWindow
-		appState.currentImage = util.ToNRGBA(util.LoadImage(arguments.ImagePath))
 
-		// Set up the superpixel algorithm
-		impl, err := superpixel_factory.GetSuperpixelImplementationByName(arguments.Algorithm)
-		if err != nil {
-			log.Fatal(err)
-		}
-		appState.superpixelImplementation = impl
-		appState.superpixelImplementation.SetImage(appState.currentImage)
-
-		// Set up SP parameters
-		appState.superpixelImplementation.SetRecommendedParameters()
-		for name, value := range arguments.Parameters {
-			param, err := superpixel.ParseSpParameter(name)
+		// If a config was provided on the CLI, load the project immediately.
+		if configPath != "" {
+			cfg, err := projectconfig.Load(configPath)
 			if err != nil {
-				log.Fatalf("Error parsing parameter: %s", name)
+				log.Printf("Warning: failed to load config %q: %v", configPath, err)
+			} else {
+				appState.applyProject(cfg, filepath.Dir(configPath))
 			}
-			err = appState.superpixelImplementation.SetParameter(param, value)
-			if err != nil {
-				log.Fatalf("Error setting parameter %s=%v: %v", name, value, err)
-			}
-			fmt.Printf("Set %s to %v\n", param.String(), value)
 		}
 
-		// Run the algorithm to compute the superpixels (also initialises selectionIndex)
-		appState.recalculateSuperpixels()
-
-		// Cache the base image as an ImageOp for efficient repeated drawing
-		appState.imgBaseOp = paint.NewImageOp(appState.currentImage)
-		appState.imgBaseOp.Filter = paint.FilterNearest
-
-		// Initialize the map of parameter editors
-		appState.superpixelParameterEditors = make(map[superpixel.SpParameter]*widget.Editor)
-		for _, param := range appState.superpixelImplementation.GetSupportedParameters() {
-			value, _ := appState.superpixelImplementation.GetParameter(param)
-			ed := &widget.Editor{
-				SingleLine: true,
-				Submit:     true, // pressing Enter fires a SubmitEvent
-				Filter:     "0123456789",
-			}
-			ed.SetText(fmt.Sprintf("%g", value))
-			appState.superpixelParameterEditors[param] = ed
-		}
-
-		// Run main event loop
 		if err := appState.run(appWindow); err != nil {
 			log.Fatal(err)
 		}
@@ -141,32 +118,172 @@ func main() {
 	app.Main()
 }
 
+// parseConfigPath returns the optional config file path from the CLI.
+func parseConfigPath() string {
+	if len(os.Args) >= 2 {
+		return os.Args[1]
+	}
+	return ""
+}
+
+// showOpenProjectDialogs prompts the user to pick an existing config file.
+// Must be called from a background goroutine.
+func showOpenProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
+	path, err := dialog.File().
+		Title("Open Configuration File").
+		Filter("YAML config", "yaml", "yml").
+		Load()
+	if err != nil {
+		return nil, "", err // includes dialog.ErrCancelled
+	}
+	cfg, err := projectconfig.Load(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to load config %q: %w", path, err)
+	}
+	return cfg, filepath.Dir(path), nil
+}
+
+// showNewProjectDialogs prompts the user to select an input directory and then
+// an output directory, then initialises a new project.
+// Must be called from a background goroutine.
+func showNewProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
+	inputDir, err := dialog.Directory().
+		Title("Select Input Directory (raw images)").Browse()
+	if err != nil {
+		return nil, "", err
+	}
+
+	outputDir, err := dialog.Directory().
+		Title("Select Output Directory (stores masks and config)").Browse()
+	if err != nil {
+		return nil, "", err
+	}
+
+	impl, err := superpixel_factory.GetSuperpixelImplementationByName("slic")
+	if err != nil {
+		return nil, "", err
+	}
+	impl.SetRecommendedParameters()
+	params := make(map[string]float64)
+	for _, p := range impl.GetSupportedParameters() {
+		v, _ := impl.GetParameter(p)
+		params[p.Key()] = v
+	}
+	spCfg := projectconfig.SuperpixelConfig{Algorithm: "slic", Parameters: params}
+
+	cfg, err := projectconfig.InitNew(outputDir, inputDir, spCfg)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to initialize project: %w", err)
+	}
+	return cfg, outputDir, nil
+}
+
 func newAppState() *AppState {
+	impl, _ := superpixel_factory.GetSuperpixelImplementationByName("slic")
+	impl.SetRecommendedParameters()
+	editors := make(map[superpixel.SpParameter]*widget.Editor)
+	for _, param := range impl.GetSupportedParameters() {
+		value, _ := impl.GetParameter(param)
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789"}
+		ed.SetText(fmt.Sprintf("%g", value))
+		editors[param] = ed
+	}
 	return &AppState{
-		fitToWindow:             true,
-		canvasTag:               false,
-		renderSelectionOutlines: true,
-		theme:                   material.NewTheme(),
-		selectionStrokeWidth:    0.75,
-		hoverStrokeWidth:        0.5,
+		fitToWindow:                true,
+		renderSelectionOutlines:    true,
+		theme:                      material.NewTheme(),
+		selectionStrokeWidth:       0.75,
+		hoverStrokeWidth:           0.5,
+		superpixelImplementation:   impl,
+		superpixelParameterEditors: editors,
+		projectLoadResult:          make(chan projectResult, 1),
 	}
 }
 
-func parseCommandLineArguments() CliArguments {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: <image_path (required)> <algorithm (required)> <parameter>=<value> ...")
-		os.Exit(1)
+// applyProject configures the AppState for the given project, saves any current mask,
+// and loads the first image.
+func (appState *AppState) applyProject(cfg *projectconfig.ProjectConfig, outputDir string) {
+	if appState.currentImage != nil {
+		appState.saveCurrentMask()
+		appState.currentImage = nil
 	}
-	parameters, err := util.ParseParameterList(os.Args[3:])
+
+	impl, err := superpixel_factory.GetSuperpixelImplementationByName(cfg.Superpixel.Algorithm)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Printf("Unknown algorithm %q: %v", cfg.Superpixel.Algorithm, err)
+		return
 	}
-	return CliArguments{
-		ImagePath:  os.Args[1],
-		Algorithm:  os.Args[2],
-		Parameters: parameters,
+	impl.SetRecommendedParameters()
+	for k, v := range cfg.Superpixel.Parameters {
+		param, err := superpixel.ParseSpParameter(k)
+		if err != nil {
+			continue
+		}
+		impl.SetParameter(param, v)
 	}
+	appState.superpixelImplementation = impl
+
+	editors := make(map[superpixel.SpParameter]*widget.Editor)
+	for _, param := range impl.GetSupportedParameters() {
+		value, _ := impl.GetParameter(param)
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789"}
+		ed.SetText(fmt.Sprintf("%g", value))
+		editors[param] = ed
+	}
+	appState.superpixelParameterEditors = editors
+
+	imageFiles, err := util.ListFiles(cfg.InputDirectory)
+	if err != nil || len(imageFiles) == 0 {
+		log.Printf("Could not list input directory %q: %v", cfg.InputDirectory, err)
+		return
+	}
+
+	appState.config = cfg
+	appState.outputDir = outputDir
+	appState.imageFiles = imageFiles
+	appState.currentIndex = 0
+	appState.loadImageAtIndex(0)
+}
+
+// triggerOpenProject spawns a background goroutine to open an existing project.
+// Results are delivered via projectLoadResult for the event loop to apply.
+func (appState *AppState) triggerOpenProject() {
+	if appState.projectLoading {
+		return
+	}
+	appState.projectLoading = true
+	go func() {
+		cfg, outputDir, err := showOpenProjectDialogs()
+		appState.projectLoadResult <- projectResult{cfg: cfg, outputDir: outputDir, err: err}
+		appState.window.Invalidate()
+	}()
+}
+
+// triggerNewProject spawns a background goroutine to create a new project.
+// Results are delivered via projectLoadResult for the event loop to apply.
+func (appState *AppState) triggerNewProject() {
+	if appState.projectLoading {
+		return
+	}
+	appState.projectLoading = true
+	go func() {
+		cfg, outputDir, err := showNewProjectDialogs()
+		appState.projectLoadResult <- projectResult{cfg: cfg, outputDir: outputDir, err: err}
+		appState.window.Invalidate()
+	}()
+}
+
+// applyProjectResult processes a result returned by a background dialog goroutine.
+func (appState *AppState) applyProjectResult(r projectResult) {
+	appState.projectLoading = false
+	if r.err == dialog.ErrCancelled || r.cfg == nil {
+		return
+	}
+	if r.err != nil {
+		log.Printf("Failed to open project: %v", r.err)
+		return
+	}
+	appState.applyProject(r.cfg, r.outputDir)
 }
 
 func (appState *AppState) run(appWindow *app.Window) error {
@@ -180,6 +297,13 @@ func (appState *AppState) run(appWindow *app.Window) error {
 		case app.FrameEvent:
 			// The list of draw operations
 			ops.Reset()
+
+			// Apply any pending project result delivered by a background dialog goroutine.
+			select {
+			case result := <-appState.projectLoadResult:
+				appState.applyProjectResult(result)
+			default:
+			}
 
 			gtx := app.NewContext(&ops, e)
 			appState.handlePointer(gtx)
@@ -225,12 +349,12 @@ func (appState *AppState) layout(gtx layout.Context) {
 			// Layout sliders inside the sidebar
 			inset := layout.UniformInset(unit.Dp(8))
 			return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				var parameterSliderElements []layout.FlexChild
+				var children []layout.FlexChild
 
 				for _, param := range appState.superpixelImplementation.GetSupportedParameters() {
-					parameterSliderElements = append(parameterSliderElements,
+					children = append(children,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							label := material.Body1(appState.theme, param.String())
+							label := material.Body1(appState.theme, param.Title())
 							label.Color = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 							return label.Layout(gtx)
 						}),
@@ -244,7 +368,52 @@ func (appState *AppState) layout(gtx layout.Context) {
 						}),
 					)
 				}
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, parameterSliderElements...)
+
+				// Spacer between param editors and navigation controls.
+				children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
+
+				// Image counter label.
+				if len(appState.imageFiles) > 0 {
+					counter := fmt.Sprintf("%d / %d  —  %s",
+						appState.currentIndex+1,
+						len(appState.imageFiles),
+						filepath.Base(appState.imageFiles[appState.currentIndex]),
+					)
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body2(appState.theme, counter)
+						lbl.Color = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
+						return lbl.Layout(gtx)
+					}))
+				}
+
+				// Prev / Next navigation buttons.
+				children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							// Consume any pending click before optionally disabling.
+							if appState.prevButton.Clicked(gtx) && appState.currentIndex > 0 {
+								appState.loadImageAtIndex(appState.currentIndex - 1)
+							}
+							if appState.currentIndex == 0 {
+								gtx = gtx.Disabled()
+							}
+							return material.Button(appState.theme, &appState.prevButton, "← Prev").Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							if appState.nextButton.Clicked(gtx) && appState.currentIndex < len(appState.imageFiles)-1 {
+								appState.loadImageAtIndex(appState.currentIndex + 1)
+							}
+							if appState.currentIndex >= len(appState.imageFiles)-1 {
+								gtx = gtx.Disabled()
+							}
+							return material.Button(appState.theme, &appState.nextButton, "Next →").Layout(gtx)
+						}),
+					)
+				}))
+
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 			})
 		}),
 		// Main canvas
@@ -265,46 +434,109 @@ func (appState *AppState) layout(gtx layout.Context) {
 				appState.initialFocusDone = true
 			}
 
-			// Draw the image
-			if appState.currentImage != nil {
-				imageWidth := float32(appState.currentImage.Bounds().Dx())
-				imageHeight := float32(appState.currentImage.Bounds().Dy())
-				canvasWidth := float32(canvasSize.X)
-				canvasHeight := float32(canvasSize.Y)
+			if appState.config == nil {
+				// No project loaded: show centered New Project / Open Project buttons.
+				promptText := "Create a new project or open an existing one."
+				if appState.projectLoading {
+					promptText = "Loading project…"
+				}
+				layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Body1(appState.theme, promptText)
+							lbl.Color = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
+							return lbl.Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if appState.newProjectButton.Clicked(gtx) {
+								appState.triggerNewProject()
+							}
+							if appState.projectLoading {
+								gtx = gtx.Disabled()
+							}
+							gtx.Constraints.Min.X = gtx.Dp(220)
+							return material.Button(appState.theme, &appState.newProjectButton, "New Project").Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if appState.openProjectButton.Clicked(gtx) {
+								appState.triggerOpenProject()
+							}
+							if appState.projectLoading {
+								gtx = gtx.Disabled()
+							}
+							gtx.Constraints.Min.X = gtx.Dp(220)
+							return material.Button(appState.theme, &appState.openProjectButton, "Open Project").Layout(gtx)
+						}),
+					)
+				})
+			} else {
+				// Project loaded: draw the image.
+				if appState.currentImage != nil {
+					imageWidth := float32(appState.currentImage.Bounds().Dx())
+					imageHeight := float32(appState.currentImage.Bounds().Dy())
+					canvasWidth := float32(canvasSize.X)
+					canvasHeight := float32(canvasSize.Y)
 
-				// Fit image to window on first render or when requested
-				if appState.fitToWindow {
-					scaleX := canvasWidth / imageWidth
-					scaleY := canvasHeight / imageHeight
-					appState.viewScale = scaleX
-					if scaleY < appState.viewScale {
-						appState.viewScale = scaleY
+					// Fit image to window on first render or when requested
+					if appState.fitToWindow {
+						scaleX := canvasWidth / imageWidth
+						scaleY := canvasHeight / imageHeight
+						appState.viewScale = scaleX
+						if scaleY < appState.viewScale {
+							appState.viewScale = scaleY
+						}
+						appState.viewOffsetX = (canvasWidth - imageWidth*appState.viewScale) / 2
+						appState.viewOffsetY = (canvasHeight - imageHeight*appState.viewScale) / 2
+						appState.fitToWindow = false
 					}
-					appState.viewOffsetX = (canvasWidth - imageWidth*appState.viewScale) / 2
-					appState.viewOffsetY = (canvasHeight - imageHeight*appState.viewScale) / 2
-					appState.fitToWindow = false
-				}
 
-				// Build the image-to-canvas affine transform
-				transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.viewScale, appState.viewScale)).Offset(f32.Pt(appState.viewOffsetX, appState.viewOffsetY))
+					// Build the image-to-canvas affine transform
+					transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.viewScale, appState.viewScale)).Offset(f32.Pt(appState.viewOffsetX, appState.viewOffsetY))
 
-				// Draw the base image using the cached ImageOp
-				stack := op.Affine(transformation).Push(gtx.Ops)
-				appState.imgBaseOp.Add(gtx.Ops)
-				paint.PaintOp{}.Add(gtx.Ops)
-				stack.Pop()
-
-				// Draw hover outline using cached path spec
-				stack = op.Affine(transformation).Push(gtx.Ops)
-				paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
-				stack.Pop()
-
-				if appState.renderSelectionOutlines {
-					// Draw selection outline using cached path spec
-					stack = op.Affine(transformation).Push(gtx.Ops)
-					paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
+					// Draw the base image using the cached ImageOp
+					stack := op.Affine(transformation).Push(gtx.Ops)
+					appState.imgBaseOp.Add(gtx.Ops)
+					paint.PaintOp{}.Add(gtx.Ops)
 					stack.Pop()
+
+					// Draw hover outline using cached path spec
+					stack = op.Affine(transformation).Push(gtx.Ops)
+					paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 200, B: 255, A: 220}, clip.Stroke{Path: appState.hoverPathSpec, Width: appState.hoverStrokeWidth / appState.viewScale}.Op())
+					stack.Pop()
+
+					if appState.renderSelectionOutlines {
+						// Draw selection outline using cached path spec
+						stack = op.Affine(transformation).Push(gtx.Ops)
+						paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 220}, clip.Stroke{Path: appState.selectionPathSpec, Width: appState.selectionStrokeWidth / appState.viewScale}.Op())
+						stack.Pop()
+					}
 				}
+
+				// Small New Project / Open Project buttons overlaid at the top-left corner.
+				layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						if appState.projectLoading {
+							gtx = gtx.Disabled()
+						}
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if appState.newProjectButton.Clicked(gtx) {
+									appState.triggerNewProject()
+								}
+								return material.Button(appState.theme, &appState.newProjectButton, "New Project").Layout(gtx)
+							}),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if appState.openProjectButton.Clicked(gtx) {
+									appState.triggerOpenProject()
+								}
+								return material.Button(appState.theme, &appState.openProjectButton, "Open Project").Layout(gtx)
+							}),
+						)
+					})
+				})
 			}
 
 			canvasClip.Pop()
@@ -315,7 +547,7 @@ func (appState *AppState) layout(gtx layout.Context) {
 
 func (appState *AppState) handleEditors(gtx layout.Context) {
 
-	recalculateSuperpixels := false
+	recalculate := false
 	for param, editor := range appState.superpixelParameterEditors {
 		// Drain events and apply the value on Submit
 		for {
@@ -326,14 +558,27 @@ func (appState *AppState) handleEditors(gtx layout.Context) {
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
 					appState.superpixelImplementation.SetParameter(param, v)
-					fmt.Printf("Set %s to %v\n", param.String(), v)
-					recalculateSuperpixels = true
+					fmt.Printf("Set %s to %v\n", param.Title(), v)
+					recalculate = true
 				}
 			}
 		}
 	}
-	if recalculateSuperpixels {
-		appState.recalculateSuperpixels()
+	if recalculate {
+		if appState.currentImage != nil {
+			appState.recalculateSuperpixels()
+		}
+
+		// Persist updated parameters to config.
+		if appState.config != nil {
+			for _, p := range appState.superpixelImplementation.GetSupportedParameters() {
+				v, _ := appState.superpixelImplementation.GetParameter(p)
+				appState.config.Superpixel.Parameters[p.Key()] = v
+			}
+			if err := projectconfig.Save(appState.config, appState.outputDir); err != nil {
+				fmt.Println("Warning: could not save config:", err)
+			}
+		}
 	}
 }
 
@@ -357,6 +602,11 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 		pe, ok := ev.(pointer.Event)
 		if !ok {
 			// Not a pointer event, ignore
+			continue
+		}
+
+		// No image loaded — skip all image-space pointer logic.
+		if appState.currentImage == nil {
 			continue
 		}
 
@@ -457,6 +707,7 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 			key.Filter{Focus: &appState.keyboardTag, Name: "F"},
 			key.Filter{Focus: &appState.keyboardTag, Name: "C"},
 			key.Filter{Focus: &appState.keyboardTag, Name: "D"},
+			key.Filter{Focus: &appState.keyboardTag, Name: key.NameTab, Optional: key.ModShift},
 		)
 		if !ok {
 			break
@@ -489,6 +740,19 @@ func (appState *AppState) handleKeyboard(gtx layout.Context) {
 			} else if ke.State == key.Release {
 				appState.renderSelectionOutlines = true
 				appState.window.Invalidate()
+			}
+		}
+
+		// Tab → next image, Shift+Tab → previous image
+		if ke.State == key.Press && ke.Name == key.NameTab {
+			if ke.Modifiers.Contain(key.ModShift) {
+				if appState.currentIndex > 0 {
+					appState.loadImageAtIndex(appState.currentIndex - 1)
+				}
+			} else {
+				if appState.currentIndex < len(appState.imageFiles)-1 {
+					appState.loadImageAtIndex(appState.currentIndex + 1)
+				}
 			}
 		}
 	}
@@ -527,4 +791,69 @@ func (appState *AppState) recalculateSuperpixels() {
 	end := time.Now().UnixMicro()
 	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
 
+}
+
+// loadImageAtIndex saves the current mask (if any), loads the image at index i,
+// runs the superpixel algorithm, and restores any previously saved mask.
+func (appState *AppState) loadImageAtIndex(i int) {
+	if appState.currentImage != nil {
+		appState.saveCurrentMask()
+	}
+
+	appState.currentImage = util.ToNRGBA(util.LoadImage(appState.imageFiles[i]))
+	appState.superpixelImplementation.SetImage(appState.currentImage)
+	appState.recalculateSuperpixels()
+
+	// Restore selection from an existing mask file, if present.
+	maskPath := appState.maskPathForIndex(i)
+	if _, err := os.Stat(maskPath); err == nil {
+		existingMask := util.ToGray16(util.LoadImage(maskPath))
+		result := appState.superpixelImplementation.GetResult()
+		appState.selectionIndex = result.SelectFromMask(existingMask, 0.5)
+		appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(
+			*result.LabelMap,
+			appState.selectionIndex,
+		)
+	}
+
+	// Rebuild image paint op.
+	appState.imgBaseOp = paint.NewImageOp(appState.currentImage)
+	appState.imgBaseOp.Filter = paint.FilterNearest
+
+	// Reset view and hover.
+	appState.fitToWindow = true
+	appState.hoverPathSpec = rendering.GetEmptySelectionOutline()
+
+	// Sync editor text to current parameter values.
+	for _, param := range appState.superpixelImplementation.GetSupportedParameters() {
+		if ed, ok := appState.superpixelParameterEditors[param]; ok {
+			value, _ := appState.superpixelImplementation.GetParameter(param)
+			ed.SetText(fmt.Sprintf("%g", value))
+		}
+	}
+
+	appState.currentIndex = i
+	if appState.window != nil {
+		appState.window.Invalidate()
+	}
+}
+
+// saveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
+func (appState *AppState) saveCurrentMask() {
+	result := appState.superpixelImplementation.GetResult()
+	if result.SpCount == 0 {
+		return
+	}
+	mask := result.SelectionToMask(appState.selectionIndex)
+	outPath := appState.maskPathForIndex(appState.currentIndex)
+	util.SaveImage(outPath, mask)
+}
+
+// maskPathForIndex returns the output PNG path for image at index i.
+// The base name of the source file is kept but the extension is replaced with .png.
+func (appState *AppState) maskPathForIndex(i int) string {
+	base := filepath.Base(appState.imageFiles[i])
+	ext := filepath.Ext(base)
+	name := base[:len(base)-len(ext)] + ".png"
+	return filepath.Join(appState.outputDir, name)
 }
