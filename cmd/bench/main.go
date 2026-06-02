@@ -55,12 +55,7 @@ func buildRunParameterSets(parameterRanges []util.ParameterRange) ([]map[superpi
 		rangeValues := pR.Values()
 		for i := 0; i < numResults; i++ {
 			valueIndex := (i / step) % len(rangeValues)
-			parameter, err := superpixel.ParseSpParameter(pR.Name)
-			if err != nil {
-				err := fmt.Errorf("Error parsing superpixel parameter: %v", err)
-				return nil, err
-			}
-			runConfigurations[i][parameter] = rangeValues[valueIndex]
+			runConfigurations[i][superpixel.SpParameter(pR.Name)] = rangeValues[valueIndex]
 		}
 		step *= len(rangeValues)
 	}

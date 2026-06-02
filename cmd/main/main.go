@@ -167,7 +167,7 @@ func showNewProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
 	params := make(map[string]float64)
 	for _, p := range impl.GetSupportedParameters() {
 		v, _ := impl.GetParameter(p)
-		params[p.Key()] = v
+		params[string(p)] = v
 	}
 	spCfg := projectconfig.SuperpixelConfig{Algorithm: "slic", Parameters: params}
 
@@ -215,11 +215,7 @@ func (appState *AppState) applyProject(cfg *projectconfig.ProjectConfig, outputD
 	}
 	impl.SetRecommendedParameters()
 	for k, v := range cfg.Superpixel.Parameters {
-		param, err := superpixel.ParseSpParameter(k)
-		if err != nil {
-			continue
-		}
-		impl.SetParameter(param, v)
+		impl.SetParameter(superpixel.SpParameter(k), v)
 	}
 	appState.superpixelImplementation = impl
 
@@ -573,7 +569,7 @@ func (appState *AppState) handleEditors(gtx layout.Context) {
 		if appState.config != nil {
 			for _, p := range appState.superpixelImplementation.GetSupportedParameters() {
 				v, _ := appState.superpixelImplementation.GetParameter(p)
-				appState.config.Superpixel.Parameters[p.Key()] = v
+				appState.config.Superpixel.Parameters[string(p)] = v
 			}
 			if err := projectconfig.Save(appState.config, appState.outputDir); err != nil {
 				fmt.Println("Warning: could not save config:", err)

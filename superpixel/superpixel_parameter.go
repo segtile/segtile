@@ -2,16 +2,15 @@ package superpixel
 
 import (
 	"fmt"
-	"strings"
 )
 
-type SpParameter int
+type SpParameter string
 
 const (
-	Count SpParameter = iota
-	Compactness
-	Iterations
-	InitialPerturbationNeighborhoodRadius
+	Count                                 SpParameter = "count"
+	Compactness                           SpParameter = "compactness"
+	Iterations                            SpParameter = "iterations"
+	InitialPerturbationNeighborhoodRadius SpParameter = "initial_perturbation_neighborhood_radius"
 )
 
 // Titles
@@ -26,7 +25,7 @@ func (this SpParameter) Title() string {
 	case InitialPerturbationNeighborhoodRadius:
 		return "Initial Perturbation Neighborhood Radius"
 	default:
-		return fmt.Sprintf("Unnamed Superpixel Parameter (%d)", this)
+		return fmt.Sprintf("Unnamed Superpixel Parameter (%s)", this)
 	}
 }
 
@@ -42,31 +41,6 @@ func (this SpParameter) Description() string {
 	case InitialPerturbationNeighborhoodRadius:
 		return "The neighborhood size (given as the radius) for initial perturbation of cluster centers."
 	default:
-		return fmt.Sprintf("No description for this parameter. (%d)", this)
+		return fmt.Sprintf("Parameter without description. (%s)", this)
 	}
-}
-
-// Keys
-var spParameterKey = map[SpParameter]string{
-	Count:                                 "count",
-	Compactness:                           "compactness",
-	Iterations:                            "iterations",
-	InitialPerturbationNeighborhoodRadius: "initial_perturbation_neighborhood_radius",
-}
-
-// Key returns the lowercase serialization key for use in config files.
-func (this SpParameter) Key() string {
-	if key, exists := spParameterKey[this]; exists {
-		return key
-	}
-	return fmt.Sprintf("unknown_key_%d", this)
-}
-
-func ParseSpParameter(name string) (SpParameter, error) {
-	for param, key := range spParameterKey {
-		if key == strings.ToLower(name) {
-			return param, nil
-		}
-	}
-	return 0, fmt.Errorf("Invalid superpixel parameter: %s", name)
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	//"github.com/hashicorp/go-set/v3"
 )
 
 // SpResult encapsulates the result of a superpixel segmentation, including the label map and the count of superpixels.
