@@ -47,7 +47,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_AdrenalGland_01.tif", "slic", "count=6500", "compactness=50"]
+            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_Pleura_02.tif", "slic", "count=5000", "compactness=40"]
         },
         {
             "name": "EBHI-Normal",
@@ -71,7 +71,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024315.jpg", "slic", "count=180", "compactness=30"]
+            "args": ["S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024317.jpg", "slic", "count=180", "compactness=30"]
         },
 		{
             "name": "Pulmonary Vascular",
