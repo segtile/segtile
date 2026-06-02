@@ -1,4 +1,4 @@
-package settings
+package app_config
 
 import (
 	"os"
