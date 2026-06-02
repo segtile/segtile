@@ -24,12 +24,16 @@ type benchmarkRun struct {
 }
 
 type benchmarkResult struct {
-	imagePath               string
-	actualSpCount           int
-	parameters              map[superpixel.SpParameter]float64
-	diceCoefficient         float64
-	averageBoundaryDistance float64
-	overlapHistogram        []int
+	imagePath                  string
+	actualSpCount              int
+	parameters                 map[superpixel.SpParameter]float64
+	f1Score                    float64
+	averageBoundaryDistance    float64
+	selectedSpCount            int
+	selectedBorderingSpCount   int
+	labelingCalibrationScore   float64
+	densityCalibrationScore    float64
+	regularityCalibrationScore float64
 }
 
 func buildRunParameterSets(parameterRanges []util.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
@@ -98,6 +102,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Shuffle the order of images and masks in the same way to avoid biasing results if the process is interrupted before completion
+	util.ShuffleInUnison(images, masks)
+
 	// Build parameter ranges
 	parameterRanges, err := util.ParseParameterRanges(os.Args[5:])
 	if err != nil {
@@ -134,12 +141,20 @@ func main() {
 	sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
 
 	// Prepare the header
-	csvHeader := []string{"ImageName", "Algorithm", "Actual Superpixel Count", "Dice Coefficient", "Average Boundary Distance"}
+	csvHeader := []string{
+		"ImageName",
+		"Algorithm",
+		"Actual Superpixel Count",
+		"Selected Superpixel Count",
+		"Selected Bordering Superpixel Count",
+		"Average Boundary Distance",
+		"F1 Score",
+		"Density Calibration Score",
+		"Regularity Calibration Score",
+		"Labeling Calibration Score",
+	}
 	for _, param := range parameterKeys {
 		csvHeader = append(csvHeader, param.String())
-	}
-	for i := 0; i <= 100; i++ {
-		csvHeader = append(csvHeader, fmt.Sprintf("OverlapPercentage_%d", i))
 	}
 	writer.Write(csvHeader)
 	writer.Flush()
@@ -152,6 +167,18 @@ func main() {
 		img := util.ToNRGBA(util.LoadImage(images[index_img]))
 		groundTruthMask := util.ToGray16(util.LoadImage(masks[index_img]))
 
+		// Ensure that the image and mask have the same dimensions
+		if img.Bounds() != groundTruthMask.Bounds() {
+			fmt.Fprintf(os.Stderr, "Warning: Image and mask dimensions do not match for %s and %s. Skipping this pair.\n", images[index_img], masks[index_img])
+			continue
+		}
+
+		// Test if ground truth mask contains at least one non-zero pixel
+		if !util.HasNonZeroPixels(groundTruthMask) {
+			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this pair.\n", masks[index_img])
+			continue
+		}
+
 		// Build list of benchmark run tasks
 		var work []benchmarkRun
 		for _, config := range runParameters {
@@ -159,7 +186,7 @@ func main() {
 		}
 
 		// Process work in parallel
-		numWorkers := runtime.NumCPU()
+		numWorkers := runtime.NumCPU() / 2
 		workCh := make(chan benchmarkRun, len(work))
 		for _, w := range work {
 			workCh <- w
@@ -192,23 +219,34 @@ func main() {
 						return
 					}
 
-					// Get the result and compare it to the baseline mask
+					// Get the result
 					spResult := sp.GetResult()
-					approximatedMask, overlapHistogram := spResult.ApproximateMask(groundTruthMask, 0.5)
-					diceCoefficient, _ := util.DiceCoefficient(groundTruthMask, approximatedMask)
-					averageBoundaryDistance, _ := util.AverageBoundaryDistance(groundTruthMask, approximatedMask)
+
+					labelingCalibrationScore,
+						f1Score,
+						densityCalibrationScore,
+						regularityCalibrationScore,
+						averageBoundaryDistance,
+						selectedSpCount,
+						selectedBorderingSpCount := util.SuperpixelEvaluation(groundTruthMask, spResult, 5)
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")
 
 					// Send the result out
 					resultCh <- benchmarkResult{
-						imagePath:               images[index_img],
-						parameters:              item.parameters,
-						actualSpCount:           spResult.SpCount,
-						diceCoefficient:         diceCoefficient,
-						averageBoundaryDistance: averageBoundaryDistance,
-						overlapHistogram:        overlapHistogram}
+						imagePath:                images[index_img],
+						parameters:               item.parameters,
+						actualSpCount:            spResult.SpCount,
+						selectedSpCount:          selectedSpCount,
+						selectedBorderingSpCount: selectedBorderingSpCount,
+						averageBoundaryDistance:  averageBoundaryDistance,
+
+						f1Score:                    f1Score,
+						densityCalibrationScore:    densityCalibrationScore,
+						regularityCalibrationScore: regularityCalibrationScore,
+						labelingCalibrationScore:   labelingCalibrationScore,
+					}
 				}
 			}()
 		}
@@ -228,12 +266,19 @@ func main() {
 
 		for i, r := range results {
 			imageName := filepath.Base(r.imagePath)
-			newCsvLines[i] = []string{fmt.Sprintf("%s", imageName), fmt.Sprintf("%s", algorithmName), fmt.Sprintf("%d", r.actualSpCount), fmt.Sprintf("%.4f", r.diceCoefficient), fmt.Sprintf("%.4f", r.averageBoundaryDistance)}
+			newCsvLines[i] = []string{
+				fmt.Sprintf("%s", imageName),
+				fmt.Sprintf("%s", algorithmName),
+				fmt.Sprintf("%d", r.actualSpCount),
+				fmt.Sprintf("%d", r.selectedSpCount),
+				fmt.Sprintf("%d", r.selectedBorderingSpCount),
+				fmt.Sprintf("%.4f", r.averageBoundaryDistance),
+				fmt.Sprintf("%.4f", r.f1Score),
+				fmt.Sprintf("%.4f", r.densityCalibrationScore),
+				fmt.Sprintf("%.4f", r.regularityCalibrationScore),
+				fmt.Sprintf("%.4f", r.labelingCalibrationScore)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
-			}
-			for _, v := range r.overlapHistogram {
-				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%d", v))
 			}
 		}
 

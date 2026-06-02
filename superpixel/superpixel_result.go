@@ -1,6 +1,7 @@
 package superpixel
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	//"github.com/hashicorp/go-set/v3"
@@ -116,18 +117,17 @@ func (this *SpResult) SelectFromMask(mask *image.Gray16, threshold float64) []bo
 	return selection
 }
 
-// ApproximateMask creates a mask by approximating the ground truth with the superpixels.
-// A superpixel is included in the mask if its overlap with the ground truth exceeds the given threshold.
-// E.G. A threshold of 0.5 indicates that 50% of the SP's pixels must also be contained in the mask.
-// Additionally returns the overlap ratios for each superpixel.
-func (this *SpResult) ApproximateMask(groundTruth *image.Gray16, threshold float64) (*image.Gray16, []int) {
+// OverlapHistogram computes a histogram of the overlap ratios between the superpixels and the given ground truth mask.
+// The histogram has 101 bins corresponding to overlap ratios from 0% to 100% (inclusive).
+// Each bin counts how many superpixels have an overlap ratio that falls within that percentage range.
+func (this *SpResult) OverlapHistogram(groundTruth *image.Gray16, threshold float64) ([]int, error) {
+
 	if this.LabelMap.Bounds() != groundTruth.Bounds() {
-		panic("Ground truth and superpixel label map must have the same dimensions")
+		return nil, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
 	spPixelCount, spOverlapCount := this.computeOverlapCounts(groundTruth)
 	overlapHistogram := make([]int, 101)
-	selection := make([]bool, this.SpCount)
 
 	for spLabel := 0; spLabel < this.SpCount; spLabel++ {
 		if spPixelCount[spLabel] == 0 {
@@ -135,10 +135,6 @@ func (this *SpResult) ApproximateMask(groundTruth *image.Gray16, threshold float
 		}
 		overlapRatio := float64(spOverlapCount[spLabel]) / float64(spPixelCount[spLabel])
 		overlapHistogram[int(overlapRatio*100)]++
-		if overlapRatio >= threshold {
-			selection[spLabel] = true
-		}
 	}
-
-	return this.SelectionToMask(selection), overlapHistogram
+	return overlapHistogram, nil
 }
