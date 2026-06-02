@@ -24,16 +24,17 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/sqweek/dialog"
-	projectconfig "github.com/struffel/annotation-tool/config"
-	"github.com/struffel/annotation-tool/rendering"
-	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/superpixel_factory"
-	"github.com/struffel/annotation-tool/util"
+	"github.com/struffel/annotation-tool/internal/io_utils"
+	"github.com/struffel/annotation-tool/internal/rendering"
+	"github.com/struffel/annotation-tool/internal/settings"
+	"github.com/struffel/annotation-tool/internal/superpixel_interaction"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
 // projectResult carries the outcome of a background project-load dialog.
 type projectResult struct {
-	cfg       *projectconfig.ProjectConfig
+	cfg       *settings.ProjectSettings
 	outputDir string
 	err       error
 }
@@ -41,7 +42,7 @@ type projectResult struct {
 type AppState struct {
 
 	// Project
-	config     *projectconfig.ProjectConfig
+	settings   *settings.ProjectSettings
 	outputDir  string
 	imageFiles []string
 
@@ -102,7 +103,7 @@ func main() {
 
 		// If a config was provided on the CLI, load the project immediately.
 		if configPath != "" {
-			cfg, err := projectconfig.Load(configPath)
+			cfg, err := settings.Load(configPath)
 			if err != nil {
 				log.Printf("Warning: failed to load config %q: %v", configPath, err)
 			} else {
@@ -128,7 +129,7 @@ func parseConfigPath() string {
 
 // showOpenProjectDialogs prompts the user to pick an existing config file.
 // Must be called from a background goroutine.
-func showOpenProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
+func showOpenProjectDialogs() (*settings.ProjectSettings, string, error) {
 	path, err := dialog.File().
 		Title("Open Configuration File").
 		Filter("YAML config", "yaml", "yml").
@@ -136,7 +137,7 @@ func showOpenProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
 	if err != nil {
 		return nil, "", err // includes dialog.ErrCancelled
 	}
-	cfg, err := projectconfig.Load(path)
+	cfg, err := settings.Load(path)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to load config %q: %w", path, err)
 	}
@@ -146,7 +147,7 @@ func showOpenProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
 // showNewProjectDialogs prompts the user to select an input directory and then
 // an output directory, then initialises a new project.
 // Must be called from a background goroutine.
-func showNewProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
+func showNewProjectDialogs() (*settings.ProjectSettings, string, error) {
 	inputDir, err := dialog.Directory().
 		Title("Select Input Directory (raw images)").Browse()
 	if err != nil {
@@ -169,9 +170,9 @@ func showNewProjectDialogs() (*projectconfig.ProjectConfig, string, error) {
 		v, _ := impl.GetParameter(p)
 		params[string(p)] = v
 	}
-	spCfg := projectconfig.SuperpixelConfig{Algorithm: "slic", Parameters: params}
+	spCfg := settings.SuperpixelSettings{Algorithm: "slic", Parameters: params}
 
-	cfg, err := projectconfig.InitNew(outputDir, inputDir, spCfg)
+	cfg, err := settings.InitNew(outputDir, inputDir, spCfg)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to initialize project: %w", err)
 	}
@@ -202,7 +203,7 @@ func newAppState() *AppState {
 
 // applyProject configures the AppState for the given project, saves any current mask,
 // and loads the first image.
-func (appState *AppState) applyProject(cfg *projectconfig.ProjectConfig, outputDir string) {
+func (appState *AppState) applyProject(cfg *settings.ProjectSettings, outputDir string) {
 	if appState.currentImage != nil {
 		appState.saveCurrentMask()
 		appState.currentImage = nil
@@ -228,13 +229,13 @@ func (appState *AppState) applyProject(cfg *projectconfig.ProjectConfig, outputD
 	}
 	appState.superpixelParameterEditors = editors
 
-	imageFiles, err := util.ListFiles(cfg.InputDirectory)
+	imageFiles, err := io_utils.ListFiles(cfg.InputDirectory)
 	if err != nil || len(imageFiles) == 0 {
 		log.Printf("Could not list input directory %q: %v", cfg.InputDirectory, err)
 		return
 	}
 
-	appState.config = cfg
+	appState.settings = cfg
 	appState.outputDir = outputDir
 	appState.imageFiles = imageFiles
 	appState.currentIndex = 0
@@ -430,7 +431,7 @@ func (appState *AppState) layout(gtx layout.Context) {
 				appState.initialFocusDone = true
 			}
 
-			if appState.config == nil {
+			if appState.settings == nil {
 				// No project loaded: show centered New Project / Open Project buttons.
 				promptText := "Create a new project or open an existing one."
 				if appState.projectLoading {
@@ -566,12 +567,12 @@ func (appState *AppState) handleEditors(gtx layout.Context) {
 		}
 
 		// Persist updated parameters to config.
-		if appState.config != nil {
+		if appState.settings != nil {
 			for _, p := range appState.superpixelImplementation.GetSupportedParameters() {
 				v, _ := appState.superpixelImplementation.GetParameter(p)
-				appState.config.Superpixel.Parameters[string(p)] = v
+				appState.settings.Superpixel.Parameters[string(p)] = v
 			}
-			if err := projectconfig.Save(appState.config, appState.outputDir); err != nil {
+			if err := settings.Save(appState.settings, appState.outputDir); err != nil {
 				fmt.Println("Warning: could not save config:", err)
 			}
 		}
@@ -676,7 +677,7 @@ func (appState *AppState) handlePointer(gtx layout.Context) {
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.selectionIndex[label] {
 				if pe.Modifiers&key.ModShift != 0 {
 					// If shift is held, perform a flood fill selection
-					appState.selectionIndex = util.SuperpixelFloodFillSelection(labelMap, int(imageX), int(imageY), appState.selectionIndex)
+					appState.selectionIndex = superpixel_interaction.SuperpixelFloodFillSelection(labelMap, int(imageX), int(imageY), appState.selectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.selectionIndex[label] = true
@@ -796,14 +797,14 @@ func (appState *AppState) loadImageAtIndex(i int) {
 		appState.saveCurrentMask()
 	}
 
-	appState.currentImage = util.ToNRGBA(util.LoadImage(appState.imageFiles[i]))
+	appState.currentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.imageFiles[i]))
 	appState.superpixelImplementation.SetImage(appState.currentImage)
 	appState.recalculateSuperpixels()
 
 	// Restore selection from an existing mask file, if present.
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
-		existingMask := util.ToGray16(util.LoadImage(maskPath))
+		existingMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
 		result := appState.superpixelImplementation.GetResult()
 		appState.selectionIndex = result.SelectFromMask(existingMask, 0.5)
 		appState.selectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(
@@ -842,7 +843,7 @@ func (appState *AppState) saveCurrentMask() {
 	}
 	mask := result.SelectionToMask(appState.selectionIndex)
 	outPath := appState.maskPathForIndex(appState.currentIndex)
-	util.SaveImage(outPath, mask)
+	io_utils.SaveImage(outPath, mask)
 }
 
 // maskPathForIndex returns the output PNG path for image at index i.

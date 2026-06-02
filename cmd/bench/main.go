@@ -13,9 +13,13 @@ import (
 
 	_ "golang.org/x/image/tiff"
 
-	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/superpixel_factory"
-	"github.com/struffel/annotation-tool/util"
+	"github.com/struffel/annotation-tool/internal/cli"
+	util "github.com/struffel/annotation-tool/internal/cli"
+	"github.com/struffel/annotation-tool/internal/evaluation"
+	"github.com/struffel/annotation-tool/internal/io_utils"
+	"github.com/struffel/annotation-tool/internal/utils"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
 type benchmarkRun struct {
@@ -36,7 +40,7 @@ type benchmarkResult struct {
 	regularityCalibrationScore float64
 }
 
-func buildRunParameterSets(parameterRanges []util.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
+func buildRunParameterSets(parameterRanges []cli.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
 	// Determine how many results there will be
 	numResults := 1
 	for _, pR := range parameterRanges {
@@ -80,13 +84,13 @@ func main() {
 	}
 
 	// Read image directory and GT mask directory
-	images, err := util.ListFiles(os.Args[1])
+	images, err := io_utils.ListFiles(os.Args[1])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing image files: %v\n", err)
 		os.Exit(1)
 	}
 
-	masks, err := util.ListFiles(os.Args[2])
+	masks, err := io_utils.ListFiles(os.Args[2])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing mask files: %v\n", err)
 		os.Exit(1)
@@ -98,7 +102,7 @@ func main() {
 	}
 
 	// Shuffle the order of images and masks in the same way to avoid biasing results if the process is interrupted before completion
-	util.ShuffleInUnison(images, masks)
+	utils.ShuffleInUnison(images, masks)
 
 	// Build parameter ranges
 	parameterRanges, err := util.ParseParameterRanges(os.Args[5:])
@@ -159,8 +163,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Processing image %d/%d: %s with mask %s\n", index_img+1, len(images), images[index_img], masks[index_img])
 
 		// Load images
-		img := util.ToNRGBA(util.LoadImage(images[index_img]))
-		groundTruthMask := util.ToGray16(util.LoadImage(masks[index_img]))
+		img := io_utils.ToNRGBA(io_utils.LoadImage(images[index_img]))
+		groundTruthMask := io_utils.ToGray16(io_utils.LoadImage(masks[index_img]))
 
 		// Ensure that the image and mask have the same dimensions
 		if img.Bounds() != groundTruthMask.Bounds() {
@@ -169,7 +173,7 @@ func main() {
 		}
 
 		// Test if ground truth mask contains at least one non-zero pixel
-		if !util.HasNonZeroPixels(groundTruthMask) {
+		if !evaluation.HasNonZeroPixels(groundTruthMask) {
 			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this pair.\n", masks[index_img])
 			continue
 		}
@@ -223,7 +227,7 @@ func main() {
 						regularityCalibrationScore,
 						averageBoundaryDistance,
 						selectedSpCount,
-						selectedBorderingSpCount := util.SuperpixelEvaluation(groundTruthMask, spResult, 5)
+						selectedBorderingSpCount := evaluation.SuperpixelEvaluation(groundTruthMask, spResult, 5)
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")
