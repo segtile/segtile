@@ -2,52 +2,112 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "[BENCH] Brain MRI",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/bench",
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\IMAGES\\",
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\MASKS\\",
+                "\\\\lennart\\Sync\\MasterThesisData\\BenchmarkResults\\SLIC\\BrainMRI.csv",
+                "slic",
+                "count=20,1000,20",
+                "compactness=0,50,5"
+            ]
+        },
+        {
             "name": "Brain MRI",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\IMAGES\\TCGA_CS_4941_19960909_14.tif", "slic", "count=420", "compactness=26"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\IMAGES\\TCGA_CS_4941_19960909_14.tif",
+                "slic",
+                "count=420",
+                "compactness=5"
+            ]
         },
-		{
+        {
+            "name": "[BENCH] Lung Segmentation",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/bench",
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES\\",
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\MASKS\\",
+                "\\\\lennart\\Sync\\MasterThesisData\\BenchmarkResults\\SLIC\\LungSegmentation.csv",
+                "slic",
+                "count=50,2000,50",
+                "compactness=0,50,5"
+            ]
+        },
+        {
             "name": "Lung Segmentation",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png", "slic", "count=500", "compactness=10"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png",
+                "slic",
+                "count=500",
+                "compactness=10"
+            ]
         },
-		{
+        {
             "name": "Ultrasound Fetus Segmentation",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Fetal Abdominal Structures Segmentation Dataset Using Ultrasonic Images\\IMAGES\\P01_IMG1.png", "slic", "count=800", "compactness=40"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Fetal Abdominal Structures Segmentation Dataset Using Ultrasonic Images\\IMAGES\\P01_IMG1.png",
+                "slic",
+                "count=800",
+                "compactness=40"
+            ]
         },
-		{
+        {
             "name": "Ultrasound Breast",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (40).png", "slic", "count=300", "compactness=25"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (40).png",
+                "slic",
+                "count=300",
+                "compactness=25"
+            ]
         },
-		{
+        {
             "name": "Retina",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Retina\\IMAGES\\0.png", "slic", "count=9000", "compactness=0"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Retina\\IMAGES\\0.png",
+                "slic",
+                "count=9000",
+                "compactness=0"
+            ]
         },
-		{
+        {
             "name": "Nuclei Segmentation",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_Pleura_02.tif", "slic", "count=5000", "compactness=40"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_Pleura_02.tif",
+                "slic",
+                "count=5000",
+                "compactness=40"
+            ]
         },
         {
             "name": "EBHI-Normal",
@@ -55,7 +115,12 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-001.png", "slic", "count=150", "compactness=58"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-001.png",
+                "slic",
+                "count=150",
+                "compactness=58"
+            ]
         },
         {
             "name": "SpermHeads",
@@ -63,31 +128,51 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\SpermHeads\\IMAGES\\test_1.png", "slic", "count=800", "compactness=40"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\SpermHeads\\IMAGES\\test_1.png",
+                "slic",
+                "count=800",
+                "compactness=40"
+            ]
         },
-		{
+        {
             "name": "Skin Marks",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024317.jpg", "slic", "count=180", "compactness=30"]
+            "args": [
+                "S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024317.jpg",
+                "slic",
+                "count=180",
+                "compactness=30"
+            ]
         },
-		{
+        {
             "name": "Pulmonary Vascular",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["S:\\MasterThesisData\\Datasets\\PulmonaryVascular\\IMAGES\\JK_02_0205AA4_4.png", "slic", "count=800", "compactness=40"]
+            "args": [
+                "S:\\MasterThesisData\\Datasets\\PulmonaryVascular\\IMAGES\\JK_02_0205AA4_4.png",
+                "slic",
+                "count=800",
+                "compactness=40"
+            ]
         },
-		{
+        {
             "name": "Synthetic",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main",
-            "args": ["\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Synthetic\\IMAGES_NOISE_A\\0001.png", "slic", "count=800", "compactness=40"]
+            "args": [
+                "\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Synthetic\\IMAGES_NOISE_A\\0001.png",
+                "slic",
+                "count=800",
+                "compactness=40"
+            ]
         }
     ]
 }
