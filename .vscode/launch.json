@@ -21,10 +21,10 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES\\malignant (99).png",
+				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES\\malignant (22).png",
 				"slic",
-				"count=220",
-				"compactness=60"
+				"count=450",
+				"compactness=10"
 			]
 		},
 		{
