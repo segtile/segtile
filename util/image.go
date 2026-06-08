@@ -499,6 +499,22 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 	return neighbors
 }
 
+func SelectBorderingSuperpixels(labelMap *image.Gray16, selection []bool) []bool {
+	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
+	newSelection := make([]bool, len(selection))
+	//copy(newSelection, selection)
+	for spLabel, selected := range selection {
+		if selected {
+			for _, neighbor := range neighbors[spLabel] {
+				if !selection[neighbor] {
+					newSelection[neighbor] = true
+				}
+			}
+		}
+	}
+	return newSelection
+}
+
 func CountBorderingSuperpixels(labelMap *image.Gray16, selection []bool) (selectedSpCount int, selectedBorderingSpCount int) {
 
 	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
@@ -578,16 +594,24 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 		islandLabels = islandLabels[:maxIslands]
 	}
 
+	groundTruthMaskArea := groundTruthMask.Bounds().Dx() * groundTruthMask.Bounds().Dy()
+
 	for _, islandLabel := range islandLabels {
 
 		currentGroundTruthIsland := SelectIsland(groundTruthIslands, islandLabel)
+		currentGroundTruthIslandArea := Area(currentGroundTruthIsland)
 
 		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
 		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+		currentApproximatedMaskArea := Area(currentApproximatedMask)
 
 		currentSelectedSpCount, currentSelectedBorderingSpCount := CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
 		selectedSpCount += currentSelectedSpCount
 		selectedBorderingSpCount += currentSelectedBorderingSpCount
+
+		currentBorderingSpSelection := SelectBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		currentBorderingSpMask := spResult.SelectionToMask(currentBorderingSpSelection)
+		currentBorderingSpMaskArea := Area(currentBorderingSpMask)
 
 		// F1 Score
 		currentF1Score, _ := F1Score(currentGroundTruthIsland, currentApproximatedMask)
@@ -595,8 +619,8 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 
 		// Density Calibration Score
 		if currentSelectedBorderingSpCount > 0 {
-			borderPortionOfSelection := float64(currentSelectedBorderingSpCount) / float64(currentSelectedSpCount)
-			desiredBorderPortionOfSelection := 1 - math.Sqrt(float64(Area(currentGroundTruthIsland))/float64(groundTruthMask.Bounds().Dx()*groundTruthMask.Bounds().Dy()))
+			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
+			desiredBorderPortionOfSelection := 1 - (float64(currentGroundTruthIslandArea) / float64(groundTruthMaskArea))
 			densityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
 		}
 
