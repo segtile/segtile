@@ -21,10 +21,10 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES_MALIGNANT\\malignant (40).png",
+				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES\\malignant (99).png",
 				"slic",
-				"count=300",
-				"compactness=25"
+				"count=220",
+				"compactness=60"
 			]
 		},
 		{
@@ -86,9 +86,9 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024317.jpg",
+				"S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024319.jpg",
 				"slic",
-				"count=180",
+				"count=220",
 				"compactness=30"
 			]
 		},
@@ -127,8 +127,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Brain MRI\\IMAGES\\TCGA_CS_4941_19960909_14.tif",
 				"slic",
-				"count=420",
-				"compactness=5"
+				"count=360",
+				"compactness=10"
 			]
 		},
 		{
@@ -140,8 +140,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png",
 				"slic",
-				"count=500",
-				"compactness=10"
+				"count=300",
+				"compactness=5"
 			]
 		},
 	]
