@@ -8,10 +8,10 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Fetal Abdominal Structures Segmentation Dataset Using Ultrasonic Images\\IMAGES\\P01_IMG1.png",
+				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Fetal Structures\\IMAGES\\P01_IMG1.png",
 				"slic",
-				"count=800",
-				"compactness=40"
+				"count=860",
+				"compactness=10"
 			]
 		},
 		{
@@ -23,8 +23,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES\\malignant (22).png",
 				"slic",
-				"count=450",
-				"compactness=10"
+				"count=360",
+				"compactness=40"
 			]
 		},
 		{
@@ -36,7 +36,7 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Retina\\IMAGES\\0.png",
 				"slic",
-				"count=9000",
+				"count=9600",
 				"compactness=0"
 			]
 		},
@@ -49,8 +49,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_Pleura_02.tif",
 				"slic",
-				"count=5000",
-				"compactness=40"
+				"count=6500",
+				"compactness=30"
 			]
 		},
 		{
@@ -62,8 +62,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-006.png",
 				"slic",
-				"count=300",
-				"compactness=100"
+				"count=350",
+				"compactness=200"
 			]
 		},
 		{
@@ -75,8 +75,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\SpermHeads\\IMAGES\\test_1.png",
 				"slic",
-				"count=800",
-				"compactness=40"
+				"count=160",
+				"compactness=15"
 			]
 		},
 		{
@@ -88,7 +88,7 @@
 			"args": [
 				"S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024319.jpg",
 				"slic",
-				"count=220",
+				"count=240",
 				"compactness=30"
 			]
 		},
@@ -101,8 +101,8 @@
 			"args": [
 				"S:\\MasterThesisData\\Datasets\\PulmonaryVascular\\IMAGES\\JK_02_0205AA4_4.png",
 				"slic",
-				"count=800",
-				"compactness=40"
+				"count=900",
+				"compactness=15"
 			]
 		},
 		{
@@ -140,8 +140,8 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png",
 				"slic",
-				"count=300",
-				"compactness=5"
+				"count=600",
+				"compactness=15"
 			]
 		},
 	]

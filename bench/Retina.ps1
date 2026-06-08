@@ -3,5 +3,5 @@ go run ./cmd/bench `
     "\\lennart\Sync\MasterThesisData\Datasets\Retina\MASKS\" `
     "\\lennart\Sync\MasterThesisData\BenchmarkResults\SLIC\Retina.csv" `
     slic `
-    "count=20,1000,20" `
+    "count=200,10000,200" `
     "compactness=0,50,5"
