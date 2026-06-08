@@ -4,4 +4,4 @@ go run ./cmd/bench `
     "S:\MasterThesisData\BenchmarkResults\SLIC\SkinMarks.csv" `
     slic `
     "count=20,1000,20" `
-    "compactness=0,50,5"
+    "compactness=0,150,5"
