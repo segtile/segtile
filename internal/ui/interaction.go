@@ -43,7 +43,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 				v, _ := appState.SuperpixelImplementation.GetParameter(p)
 				appState.Settings.Superpixel.Parameters[string(p)] = v
 			}
-			if err := app_config.Save(appState.Settings, appState.OutputDir); err != nil {
+			if err := app_config.Save(appState.Settings, appState.OutputDirectory); err != nil {
 				fmt.Println("Warning: could not save config:", err)
 			}
 		}

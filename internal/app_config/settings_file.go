@@ -27,11 +27,11 @@ func Load(path string) (*ProjectSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cfg ProjectSettings
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	var settings ProjectSettings
+	if err := yaml.Unmarshal(data, &settings); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return &settings, nil
 }
 
 // Save marshals cfg and writes it to outputDir/settings.yaml,

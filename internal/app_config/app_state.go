@@ -24,9 +24,9 @@ import (
 type AppState struct {
 
 	// Project
-	Settings   *ProjectSettings
-	OutputDir  string
-	ImageFiles []string
+	Settings        *ProjectSettings
+	OutputDirectory string
+	ImageFiles      []string
 
 	// Images
 	CurrentImage *image.NRGBA // Original image
@@ -95,9 +95,9 @@ func NewAppState() *AppState {
 
 // ProjectResult carries the outcome of a background project-load dialog.
 type ProjectResult struct {
-	Cfg       *ProjectSettings
-	OutputDir string
-	Err       error
+	Settings        *ProjectSettings
+	OutputDirectory string
+	Err             error
 }
 
 // applyProject configures the AppState for the given project, saves any current mask,
@@ -135,7 +135,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	}
 
 	appState.Settings = projectSettings
-	appState.OutputDir = outputDir
+	appState.OutputDirectory = outputDir
 	appState.ImageFiles = imageFiles
 	appState.CurrentIndex = 0
 	appState.LoadImageAtIndex(0)
@@ -144,14 +144,14 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 // applyProjectResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectResult(r ProjectResult) {
 	appState.ProjectLoading = false
-	if r.Err == dialog.ErrCancelled || r.Cfg == nil {
+	if r.Err == dialog.ErrCancelled || r.Settings == nil {
 		return
 	}
 	if r.Err != nil {
 		log.Printf("Failed to open project: %v", r.Err)
 		return
 	}
-	appState.ApplyProject(r.Cfg, r.OutputDir)
+	appState.ApplyProject(r.Settings, r.OutputDirectory)
 }
 
 func (appState *AppState) RecalculateSuperpixels() {
@@ -251,5 +251,5 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	base := filepath.Base(appState.ImageFiles[i])
 	ext := filepath.Ext(base)
 	name := base[:len(base)-len(ext)] + ".png"
-	return filepath.Join(appState.OutputDir, name)
+	return filepath.Join(appState.OutputDirectory, name)
 }
