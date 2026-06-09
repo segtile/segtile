@@ -19,6 +19,8 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	regularityCalibrationScore = 0.0
 	labelingCalibrationScore = 0.0
 	averageBoundaryDistance = 0.0
+	selectedBorderingSpCount = 0
+	selectedSpCount = 0
 
 	// Build a list of all island labels
 	islandLabels := make([]uint16, groundTruthIslandCount)
@@ -34,23 +36,33 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 		islandLabels = islandLabels[:maxIslands]
 	}
 
+	groundTruthMaskArea := groundTruthMask.Bounds().Dx() * groundTruthMask.Bounds().Dy()
+
 	for _, islandLabel := range islandLabels {
 
 		currentGroundTruthIsland := SelectIsland(groundTruthIslands, islandLabel)
+		currentGroundTruthIslandArea := Area(currentGroundTruthIsland)
 
 		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
 		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+		currentApproximatedMaskArea := Area(currentApproximatedMask)
 
-		selectedSpCount, selectedBorderingSpCount = CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		currentSelectedSpCount, currentSelectedBorderingSpCount := CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		selectedSpCount += currentSelectedSpCount
+		selectedBorderingSpCount += currentSelectedBorderingSpCount
+
+		currentBorderingSpSelection := SelectBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		currentBorderingSpMask := spResult.SelectionToMask(currentBorderingSpSelection)
+		currentBorderingSpMaskArea := Area(currentBorderingSpMask)
 
 		// F1 Score
 		currentF1Score, _ := F1Score(currentGroundTruthIsland, currentApproximatedMask)
 		f1Score += currentF1Score
 
 		// Density Calibration Score
-		if selectedSpCount > 0 {
-			borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
-			desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
+		if currentSelectedBorderingSpCount > 0 {
+			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
+			desiredBorderPortionOfSelection := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(groundTruthMaskArea)), 2)
 			densityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
 		}
 
@@ -71,9 +83,11 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	densityCalibrationScore /= float64(len(islandLabels))
 	regularityCalibrationScore /= float64(len(islandLabels))
 	averageBoundaryDistance /= float64(len(islandLabels))
+	selectedSpCount /= len(islandLabels)
+	selectedBorderingSpCount /= len(islandLabels)
 
 	// Final Labeling Calibration Score
-	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
+	labelingCalibrationScore = f1Score * f1Score * densityCalibrationScore * regularityCalibrationScore
 
 	return labelingCalibrationScore, f1Score, densityCalibrationScore, regularityCalibrationScore, averageBoundaryDistance, selectedSpCount, selectedBorderingSpCount
 }

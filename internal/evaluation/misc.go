@@ -10,19 +10,18 @@ func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}
 
+	distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
+
 	var intersection, union int
 	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
 		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
-			p1 := maskOriginal.Gray16At(x, y)
-			p2 := maskApproximated.Gray16At(x, y)
-			if p1.Y > 0 && p2.Y > 0 {
+			pOriginal := maskOriginal.Gray16At(x, y)
+			pApproximated := maskApproximated.Gray16At(x, y)
+			if pOriginal.Y > 0 && pApproximated.Y > 0 {
 				intersection++
-			}
-			if p1.Y > 0 {
-				union++
-			}
-			if p2.Y > 0 {
-				union++
+				union += 2
+			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
+				union += /*1 +*/ int(distanceMap.Gray16At(x, y).Y)
 			}
 		}
 	}
@@ -39,6 +38,8 @@ func JaccardIndex(maskOriginal, maskApproximated *image.Gray16) (float64, error)
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}
 
+	//distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
+
 	var intersection, union int
 	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
 		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
@@ -48,7 +49,7 @@ func JaccardIndex(maskOriginal, maskApproximated *image.Gray16) (float64, error)
 				intersection++
 			}
 			if p1.Y > 0 || p2.Y > 0 {
-				union++
+				union += 1
 			}
 		}
 	}

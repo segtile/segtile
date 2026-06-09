@@ -151,7 +151,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if appState.NewProjectButton.Clicked(gtx) {
-								appState.TriggerNewProject()
+								triggerNewProject(appState)
 							}
 							if appState.ProjectLoading {
 								gtx = gtx.Disabled()
@@ -162,7 +162,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if appState.OpenProjectButton.Clicked(gtx) {
-								appState.TriggerOpenProject()
+								triggerOpenProject(appState)
 							}
 							if appState.ProjectLoading {
 								gtx = gtx.Disabled()
@@ -224,14 +224,14 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								if appState.NewProjectButton.Clicked(gtx) {
-									appState.TriggerNewProject()
+									triggerNewProject(appState)
 								}
 								return material.Button(appState.Theme, &appState.NewProjectButton, "New Project").Layout(gtx)
 							}),
 							layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								if appState.OpenProjectButton.Clicked(gtx) {
-									appState.TriggerOpenProject()
+									triggerOpenProject(appState)
 								}
 								return material.Button(appState.Theme, &appState.OpenProjectButton, "Open Project").Layout(gtx)
 							}),

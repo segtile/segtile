@@ -18,7 +18,7 @@ func triggerOpenProject(appState *app_config.AppState) {
 	appState.ProjectLoading = true
 	go func() {
 		cfg, outputDir, err := showOpenProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectResult{cfg: cfg, outputDir: outputDir, err: err}
+		appState.ProjectLoadResult <- app_config.ProjectResult{Cfg: cfg, OutputDir: outputDir, Err: err}
 		appState.Window.Invalidate()
 	}()
 }
@@ -32,7 +32,7 @@ func triggerNewProject(appState *app_config.AppState) {
 	appState.ProjectLoading = true
 	go func() {
 		cfg, outputDir, err := showNewProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectResult{cfg: cfg, outputDir: outputDir, err: err}
+		appState.ProjectLoadResult <- app_config.ProjectResult{Cfg: cfg, OutputDir: outputDir, Err: err}
 		appState.Window.Invalidate()
 	}()
 }

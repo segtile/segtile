@@ -95,9 +95,9 @@ func NewAppState() *AppState {
 
 // ProjectResult carries the outcome of a background project-load dialog.
 type ProjectResult struct {
-	cfg       *ProjectSettings
-	outputDir string
-	err       error
+	Cfg       *ProjectSettings
+	OutputDir string
+	Err       error
 }
 
 // applyProject configures the AppState for the given project, saves any current mask,
@@ -138,23 +138,23 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	appState.OutputDir = outputDir
 	appState.ImageFiles = imageFiles
 	appState.CurrentIndex = 0
-	appState.loadImageAtIndex(0)
+	appState.LoadImageAtIndex(0)
 }
 
 // applyProjectResult processes a result returned by a background dialog goroutine.
-func (appState *AppState) applyProjectResult(r ProjectResult) {
+func (appState *AppState) ApplyProjectResult(r ProjectResult) {
 	appState.ProjectLoading = false
-	if r.err == dialog.ErrCancelled || r.cfg == nil {
+	if r.Err == dialog.ErrCancelled || r.Cfg == nil {
 		return
 	}
-	if r.err != nil {
-		log.Printf("Failed to open project: %v", r.err)
+	if r.Err != nil {
+		log.Printf("Failed to open project: %v", r.Err)
 		return
 	}
-	appState.applyProject(r.cfg, r.outputDir)
+	appState.ApplyProject(r.Cfg, r.OutputDir)
 }
 
-func (appState *AppState) recalculateSuperpixels() {
+func (appState *AppState) RecalculateSuperpixels() {
 
 	fmt.Println("Calculating superpixels...")
 	start := time.Now().UnixMicro()
@@ -191,14 +191,14 @@ func (appState *AppState) recalculateSuperpixels() {
 
 // loadImageAtIndex saves the current mask (if any), loads the image at index i,
 // runs the superpixel algorithm, and restores any previously saved mask.
-func (appState *AppState) loadImageAtIndex(i int) {
+func (appState *AppState) LoadImageAtIndex(i int) {
 	if appState.CurrentImage != nil {
 		appState.saveCurrentMask()
 	}
 
 	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
 	appState.SuperpixelImplementation.SetImage(appState.CurrentImage)
-	appState.recalculateSuperpixels()
+	appState.RecalculateSuperpixels()
 
 	// Restore selection from an existing mask file, if present.
 	maskPath := appState.maskPathForIndex(i)
