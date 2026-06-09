@@ -177,19 +177,18 @@ func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}
 
+	distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
+
 	var intersection, union int
 	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
 		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
-			p1 := maskOriginal.Gray16At(x, y)
-			p2 := maskApproximated.Gray16At(x, y)
-			if p1.Y > 0 && p2.Y > 0 {
+			pOriginal := maskOriginal.Gray16At(x, y)
+			pApproximated := maskApproximated.Gray16At(x, y)
+			if pOriginal.Y > 0 && pApproximated.Y > 0 {
 				intersection++
-			}
-			if p1.Y > 0 {
-				union++
-			}
-			if p2.Y > 0 {
-				union++
+				union += 2
+			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
+				union += /*1 +*/ int(distanceMap.Gray16At(x, y).Y)
 			}
 		}
 	}
@@ -206,6 +205,8 @@ func JaccardIndex(maskOriginal, maskApproximated *image.Gray16) (float64, error)
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}
 
+	//distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
+
 	var intersection, union int
 	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
 		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
@@ -215,7 +216,7 @@ func JaccardIndex(maskOriginal, maskApproximated *image.Gray16) (float64, error)
 				intersection++
 			}
 			if p1.Y > 0 || p2.Y > 0 {
-				union++
+				union += 1
 			}
 		}
 	}
@@ -257,6 +258,84 @@ func Area(mask *image.Gray16) int {
 	}
 
 	return covered
+}
+
+func DistanceToNextBoundaryPixel(mask *image.Gray16) *image.Gray16 {
+	bounds := mask.Bounds()
+	w := bounds.Dx()
+	h := bounds.Dy()
+
+	const inf = int(^uint(0) >> 1)
+	dist := make([]int, w*h)
+	for i := range dist {
+		dist[i] = inf
+	}
+
+	type point struct{ x, y int }
+	queue := make([]point, 0, w*h)
+
+	// Seed the BFS with all non-zero pixels that have at least one zero neighbour (boundary pixels).
+	neighbors := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if mask.Gray16At(x, y).Y == 0 {
+				continue
+			}
+			isBoundary := false
+			for _, d := range neighbors {
+				nx, ny := x+d[0], y+d[1]
+				if nx < bounds.Min.X || nx >= bounds.Max.X || ny < bounds.Min.Y || ny >= bounds.Max.Y || mask.Gray16At(nx, ny).Y == 0 {
+					isBoundary = true
+					break
+				}
+			}
+			if isBoundary {
+				idx := (y-bounds.Min.Y)*w + (x - bounds.Min.X)
+				dist[idx] = 0
+				queue = append(queue, point{x, y})
+			}
+		}
+	}
+
+	// BFS propagation — each step increments distance by 1 (Chebyshev-like; use squared for Euclidean approximation).
+	// For exact squared-Euclidean use a two-pass approach; BFS gives L∞ (Chebyshev) distance which is a fast, tight approximation.
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		curIdx := (cur.y-bounds.Min.Y)*w + (cur.x - bounds.Min.X)
+		curDist := dist[curIdx]
+		for _, d := range neighbors {
+			nx, ny := cur.x+d[0], cur.y+d[1]
+			if nx < bounds.Min.X || nx >= bounds.Max.X || ny < bounds.Min.Y || ny >= bounds.Max.Y {
+				continue
+			}
+			if mask.Gray16At(nx, ny).Y == 0 {
+				continue
+			}
+			nIdx := (ny-bounds.Min.Y)*w + (nx - bounds.Min.X)
+			if nd := curDist + 1; nd < dist[nIdx] {
+				dist[nIdx] = nd
+				queue = append(queue, point{nx, ny})
+			}
+		}
+	}
+
+	// Write results to output image.
+	distanceMap := image.NewGray16(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if mask.Gray16At(x, y).Y > 0 {
+				idx := (y-bounds.Min.Y)*w + (x - bounds.Min.X)
+				d := dist[idx]
+				if d > 65535 {
+					d = 65535
+				}
+				distanceMap.SetGray16(x, y, color.Gray16{Y: uint16(d)})
+			}
+		}
+	}
+
+	return distanceMap
 }
 
 // Identifies connected components of non-zero pixels in the mask and assigns each component a unique label in the output image.
@@ -394,6 +473,7 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 
 	bounds := labelMap.Bounds()
 	neighbors := make([][]uint16, spCount)
+	seen := make([]map[uint16]struct{}, spCount)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -401,8 +481,8 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 			if currentLabel == 0 {
 				continue
 			}
-			if neighbors[currentLabel] == nil {
-				neighbors[currentLabel] = make([]uint16, 0)
+			if seen[currentLabel] == nil {
+				seen[currentLabel] = make(map[uint16]struct{})
 			}
 
 			// Check 4-neighborhoods
@@ -411,13 +491,34 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 				if nx >= bounds.Min.X && nx < bounds.Max.X && ny >= bounds.Min.Y && ny < bounds.Max.Y {
 					neighborLabel := labelMap.Gray16At(nx, ny).Y
 					if neighborLabel != 0 && neighborLabel != currentLabel {
-						neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
+						if _, exists := seen[currentLabel][neighborLabel]; !exists {
+							seen[currentLabel][neighborLabel] = struct{}{}
+							neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
+						}
 					}
 				}
 			}
 		}
 	}
 	return neighbors
+}
+
+// Returns a new selection which includes all SP from the old selection, but only if they border at least one unselected SP (i.e. they are on the border of the selection)
+func SelectBorderingSuperpixels(labelMap *image.Gray16, selection []bool) []bool {
+	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
+	newSelection := make([]bool, len(selection))
+	//copy(newSelection, selection)
+	for spLabel, selected := range selection {
+		if selected {
+			for _, neighbor := range neighbors[spLabel] {
+				if !selection[neighbor] {
+					newSelection[spLabel] = true
+					break
+				}
+			}
+		}
+	}
+	return newSelection
 }
 
 func CountBorderingSuperpixels(labelMap *image.Gray16, selection []bool) (selectedSpCount int, selectedBorderingSpCount int) {
@@ -482,6 +583,8 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	regularityCalibrationScore = 0.0
 	labelingCalibrationScore = 0.0
 	averageBoundaryDistance = 0.0
+	selectedBorderingSpCount = 0
+	selectedSpCount = 0
 
 	// Build a list of all island labels
 	islandLabels := make([]uint16, groundTruthIslandCount)
@@ -497,23 +600,33 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 		islandLabels = islandLabels[:maxIslands]
 	}
 
+	groundTruthMaskArea := groundTruthMask.Bounds().Dx() * groundTruthMask.Bounds().Dy()
+
 	for _, islandLabel := range islandLabels {
 
 		currentGroundTruthIsland := SelectIsland(groundTruthIslands, islandLabel)
+		currentGroundTruthIslandArea := Area(currentGroundTruthIsland)
 
 		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
 		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+		currentApproximatedMaskArea := Area(currentApproximatedMask)
 
-		selectedSpCount, selectedBorderingSpCount = CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		currentSelectedSpCount, currentSelectedBorderingSpCount := CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		selectedSpCount += currentSelectedSpCount
+		selectedBorderingSpCount += currentSelectedBorderingSpCount
+
+		currentBorderingSpSelection := SelectBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		currentBorderingSpMask := spResult.SelectionToMask(currentBorderingSpSelection)
+		currentBorderingSpMaskArea := Area(currentBorderingSpMask)
 
 		// F1 Score
 		currentF1Score, _ := F1Score(currentGroundTruthIsland, currentApproximatedMask)
 		f1Score += currentF1Score
 
 		// Density Calibration Score
-		if selectedSpCount > 0 {
-			borderPortionOfSelection := float64(selectedBorderingSpCount) / float64(selectedSpCount)
-			desiredBorderPortionOfSelection := 1 - math.Pow(float64(selectedSpCount)/float64(spResult.SpCount), 0.5)
+		if currentSelectedBorderingSpCount > 0 {
+			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
+			desiredBorderPortionOfSelection := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(groundTruthMaskArea)), 2)
 			densityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
 		}
 
@@ -534,9 +647,11 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	densityCalibrationScore /= float64(len(islandLabels))
 	regularityCalibrationScore /= float64(len(islandLabels))
 	averageBoundaryDistance /= float64(len(islandLabels))
+	selectedSpCount /= len(islandLabels)
+	selectedBorderingSpCount /= len(islandLabels)
 
 	// Final Labeling Calibration Score
-	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
+	labelingCalibrationScore = f1Score * f1Score * densityCalibrationScore * regularityCalibrationScore
 
 	return labelingCalibrationScore, f1Score, densityCalibrationScore, regularityCalibrationScore, averageBoundaryDistance, selectedSpCount, selectedBorderingSpCount
 }
