@@ -177,7 +177,7 @@ func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}
 
-	distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
+	//distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
 
 	var intersection, union int
 	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
@@ -188,7 +188,7 @@ func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 				intersection++
 				union += 2
 			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
-				union += 1 + int(distanceMap.Gray16At(x, y).Y)
+				union += 1 /*+ int(distanceMap.Gray16At(x, y).Y)*/
 			}
 		}
 	}
