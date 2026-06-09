@@ -473,6 +473,7 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 
 	bounds := labelMap.Bounds()
 	neighbors := make([][]uint16, spCount)
+	seen := make([]map[uint16]struct{}, spCount)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -480,8 +481,8 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 			if currentLabel == 0 {
 				continue
 			}
-			if neighbors[currentLabel] == nil {
-				neighbors[currentLabel] = make([]uint16, 0)
+			if seen[currentLabel] == nil {
+				seen[currentLabel] = make(map[uint16]struct{})
 			}
 
 			// Check 4-neighborhoods
@@ -490,7 +491,10 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 				if nx >= bounds.Min.X && nx < bounds.Max.X && ny >= bounds.Min.Y && ny < bounds.Max.Y {
 					neighborLabel := labelMap.Gray16At(nx, ny).Y
 					if neighborLabel != 0 && neighborLabel != currentLabel {
-						neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
+						if _, exists := seen[currentLabel][neighborLabel]; !exists {
+							seen[currentLabel][neighborLabel] = struct{}{}
+							neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
+						}
 					}
 				}
 			}
@@ -499,6 +503,7 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 	return neighbors
 }
 
+// Returns a new selection which includes all SP from the old selection, but only if they border at least one unselected SP (i.e. they are on the border of the selection)
 func SelectBorderingSuperpixels(labelMap *image.Gray16, selection []bool) []bool {
 	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
 	newSelection := make([]bool, len(selection))
@@ -507,7 +512,8 @@ func SelectBorderingSuperpixels(labelMap *image.Gray16, selection []bool) []bool
 		if selected {
 			for _, neighbor := range neighbors[spLabel] {
 				if !selection[neighbor] {
-					newSelection[neighbor] = true
+					newSelection[spLabel] = true
+					break
 				}
 			}
 		}
