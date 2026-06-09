@@ -177,7 +177,7 @@ func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 		return 0, fmt.Errorf("Masks must have the same dimensions")
 	}
 
-	//distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
+	distanceMap := DistanceToNextBoundaryPixel(maskOriginal)
 
 	var intersection, union int
 	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
@@ -188,7 +188,7 @@ func F1Score(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
 				intersection++
 				union += 2
 			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
-				union += 1 /*+ int(distanceMap.Gray16At(x, y).Y)*/
+				union += /*1 +*/ int(distanceMap.Gray16At(x, y).Y)
 			}
 		}
 	}
@@ -626,7 +626,7 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 		// Density Calibration Score
 		if currentSelectedBorderingSpCount > 0 {
 			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
-			desiredBorderPortionOfSelection := 1 - (float64(currentGroundTruthIslandArea) / float64(groundTruthMaskArea))
+			desiredBorderPortionOfSelection := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(groundTruthMaskArea)), 2)
 			densityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
 		}
 
@@ -647,9 +647,11 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	densityCalibrationScore /= float64(len(islandLabels))
 	regularityCalibrationScore /= float64(len(islandLabels))
 	averageBoundaryDistance /= float64(len(islandLabels))
+	selectedSpCount /= len(islandLabels)
+	selectedBorderingSpCount /= len(islandLabels)
 
 	// Final Labeling Calibration Score
-	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
+	labelingCalibrationScore = f1Score * f1Score * densityCalibrationScore * regularityCalibrationScore
 
 	return labelingCalibrationScore, f1Score, densityCalibrationScore, regularityCalibrationScore, averageBoundaryDistance, selectedSpCount, selectedBorderingSpCount
 }
