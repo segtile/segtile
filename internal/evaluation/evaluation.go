@@ -87,7 +87,7 @@ func SuperpixelEvaluation(groundTruthMask *image.Gray16, spResult *superpixel.Sp
 	selectedBorderingSpCount /= len(islandLabels)
 
 	// Final Labeling Calibration Score
-	labelingCalibrationScore = f1Score * f1Score * densityCalibrationScore * regularityCalibrationScore
+	labelingCalibrationScore = f1Score * densityCalibrationScore * regularityCalibrationScore
 
 	return labelingCalibrationScore, f1Score, densityCalibrationScore, regularityCalibrationScore, averageBoundaryDistance, selectedSpCount, selectedBorderingSpCount
 }
