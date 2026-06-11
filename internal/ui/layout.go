@@ -87,28 +87,19 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					}))
 				}
 
-				// Prev / Next navigation buttons.
+				// Spacer
 				children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
+
+				// Prev / Next navigation buttons.
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							// Consume any pending click before optionally disabling.
-							if appState.PrevButton.Clicked(gtx) && appState.CurrentIndex > 0 {
-								appState.LoadImageAtIndex(appState.CurrentIndex - 1)
-							}
-							if appState.CurrentIndex == 0 {
-								gtx = gtx.Disabled()
-							}
+							HandleUiButton(appState, gtx, &appState.PrevButton)
 							return material.Button(appState.Theme, &appState.PrevButton, "← Prev").Layout(gtx)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							if appState.NextButton.Clicked(gtx) && appState.CurrentIndex < len(appState.ImageFiles)-1 {
-								appState.LoadImageAtIndex(appState.CurrentIndex + 1)
-							}
-							if appState.CurrentIndex >= len(appState.ImageFiles)-1 {
-								gtx = gtx.Disabled()
-							}
+							HandleUiButton(appState, gtx, &appState.NextButton)
 							return material.Button(appState.Theme, &appState.NextButton, "Next →").Layout(gtx)
 						}),
 					)
@@ -138,7 +129,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 			if appState.Settings == nil {
 				// No project loaded: show centered New Project / Open Project buttons.
 				promptText := "Create a new project or open an existing one."
-				if appState.ProjectLoading {
+				if appState.CurrentlyLoadingProject {
 					promptText = "Loading project…"
 				}
 				layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -153,7 +144,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							if appState.NewProjectButton.Clicked(gtx) {
 								triggerNewProject(appState)
 							}
-							if appState.ProjectLoading {
+							if appState.CurrentlyLoadingProject {
 								gtx = gtx.Disabled()
 							}
 							gtx.Constraints.Min.X = gtx.Dp(220)
@@ -164,7 +155,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							if appState.OpenProjectButton.Clicked(gtx) {
 								triggerOpenProject(appState)
 							}
-							if appState.ProjectLoading {
+							if appState.CurrentlyLoadingProject {
 								gtx = gtx.Disabled()
 							}
 							gtx.Constraints.Min.X = gtx.Dp(220)
@@ -218,7 +209,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				// Small New Project / Open Project buttons overlaid at the top-left corner.
 				layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						if appState.ProjectLoading {
+						if appState.CurrentlyLoadingProject {
 							gtx = gtx.Disabled()
 						}
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,

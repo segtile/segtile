@@ -53,8 +53,10 @@ type AppState struct {
 	NextButton                 widget.Clickable
 	OpenProjectButton          widget.Clickable
 	NewProjectButton           widget.Clickable
-	ProjectLoading             bool
-	ProjectLoadResult          chan ProjectResult
+
+	// Loading state
+	CurrentlyLoadingProject bool
+	ProjectLoadResult       chan ProjectLoadingResult
 
 	// Hover state
 	IsPanning        bool
@@ -89,15 +91,8 @@ func NewAppState() *AppState {
 		HoverStrokeWidth:           0.5,
 		SuperpixelImplementation:   impl,
 		SuperpixelParameterEditors: editors,
-		ProjectLoadResult:          make(chan ProjectResult, 1),
+		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
 	}
-}
-
-// ProjectResult carries the outcome of a background project-load dialog.
-type ProjectResult struct {
-	Settings        *ProjectSettings
-	OutputDirectory string
-	Err             error
 }
 
 // applyProject configures the AppState for the given project, saves any current mask,
@@ -141,9 +136,9 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	appState.LoadImageAtIndex(0)
 }
 
-// applyProjectResult processes a result returned by a background dialog goroutine.
-func (appState *AppState) ApplyProjectResult(r ProjectResult) {
-	appState.ProjectLoading = false
+// applyProjectLoadingResult processes a result returned by a background dialog goroutine.
+func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
+	appState.CurrentlyLoadingProject = false
 	if r.Err == dialog.ErrCancelled || r.Settings == nil {
 		return
 	}

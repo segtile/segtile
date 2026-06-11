@@ -21,10 +21,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES\\malignant (22).png",
-				"slic",
-				"count=360",
-				"compactness=40"
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\BreastUltrasound\\settings.yaml"
 			]
 		},
 		{

@@ -9,35 +9,35 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
-// triggerOpenProject spawns a background goroutine to open an existing project.
+// Creates a goroutine to open an existing project.
 // Results are delivered via projectLoadResult for the event loop to apply.
 func triggerOpenProject(appState *app_config.AppState) {
-	if appState.ProjectLoading {
+	if appState.CurrentlyLoadingProject {
 		return
 	}
-	appState.ProjectLoading = true
+	appState.CurrentlyLoadingProject = true
 	go func() {
 		cfg, outputDir, err := showOpenProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectResult{Settings: cfg, OutputDirectory: outputDir, Err: err}
+		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, OutputDirectory: outputDir, Err: err}
 		appState.Window.Invalidate()
 	}()
 }
 
-// triggerNewProject spawns a background goroutine to create a new project.
+// Creates a goroutine to create a new project.
 // Results are delivered via projectLoadResult for the event loop to apply.
 func triggerNewProject(appState *app_config.AppState) {
-	if appState.ProjectLoading {
+	if appState.CurrentlyLoadingProject {
 		return
 	}
-	appState.ProjectLoading = true
+	appState.CurrentlyLoadingProject = true
 	go func() {
 		cfg, outputDir, err := showNewProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectResult{Settings: cfg, OutputDirectory: outputDir, Err: err}
+		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, OutputDirectory: outputDir, Err: err}
 		appState.Window.Invalidate()
 	}()
 }
 
-// showOpenProjectDialogs prompts the user to pick an existing config file.
+// Prompts the user to pick an existing config file.
 // Must be called from a background goroutine.
 func showOpenProjectDialogs() (*app_config.ProjectSettings, string, error) {
 	path, err := dialog.File().
@@ -51,7 +51,8 @@ func showOpenProjectDialogs() (*app_config.ProjectSettings, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to load config %q: %w", path, err)
 	}
-	return cfg, filepath.Dir(path), nil
+	outputDir := filepath.Dir(path)
+	return cfg, outputDir, nil
 }
 
 // showNewProjectDialogs prompts the user to select an input directory and then

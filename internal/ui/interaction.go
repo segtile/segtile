@@ -13,9 +13,12 @@ import (
 	"github.com/struffel/annotation-tool/internal/superpixel_interaction"
 )
 
+// HandleEditors processes all superpixel parameter editor events and applies the changes.
 func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 	recalculate := false
+
+	// Handle settings changes
 	for param, editor := range appState.SuperpixelParameterEditors {
 		// Drain events and apply the value on Submit
 		for {
@@ -166,6 +169,32 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 		}
 	}
+}
+
+// Next/Prev handling, both for buttons and keyboard shortcuts
+
+func HandleUiButton(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
+
+	if button == &appState.PrevButton {
+		if appState.PrevButton.Clicked(gtx) && appState.CurrentIndex > 0 {
+			appState.LoadImageAtIndex(appState.CurrentIndex - 1)
+		}
+		if appState.CurrentIndex == 0 {
+			gtx = gtx.Disabled()
+		}
+		return
+	}
+
+	if button == &appState.NextButton {
+		if appState.NextButton.Clicked(gtx) && appState.CurrentIndex < len(appState.ImageFiles)-1 {
+			appState.LoadImageAtIndex(appState.CurrentIndex + 1)
+		}
+		if appState.CurrentIndex >= len(appState.ImageFiles)-1 {
+			gtx = gtx.Disabled()
+		}
+		return
+	}
+
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {

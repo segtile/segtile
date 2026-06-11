@@ -57,13 +57,15 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 			return e.Err
 		case app.FrameEvent:
 			// The list of draw operations
-			ops.Reset()
+			//ops.Reset()
 
 			// Apply any pending project result delivered by a background dialog goroutine.
 			select {
 			case result := <-appState.ProjectLoadResult:
-				appState.ApplyProjectResult(result)
+				// We have a project, apply it.
+				appState.ApplyProjectLoadingResult(result)
 			default:
+				// The channel is empty, continue.
 			}
 
 			// New context for this frame

@@ -21,6 +21,13 @@ type ProjectSettings struct {
 	Superpixel     SuperpixelSettings `yaml:"superpixel"`
 }
 
+// ProjectLoadingResult carries the outcome of a background project-load dialog.
+type ProjectLoadingResult struct {
+	Settings        *ProjectSettings
+	OutputDirectory string
+	Err             error
+}
+
 // Load reads and unmarshals a config file from the given path.
 func Load(path string) (*ProjectSettings, error) {
 	data, err := os.ReadFile(filepath.Clean(path))
