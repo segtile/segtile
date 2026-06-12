@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image"
 	"image/color"
 	"path/filepath"
 
@@ -20,6 +19,8 @@ import (
 
 func Layout(appState *app_config.AppState, gtx layout.Context) {
 
+	const sidebarWidth = 220
+
 	// This is the size of the window
 	size := gtx.Constraints.Max
 
@@ -32,48 +33,36 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	paint.PaintOp{}.Add(gtx.Ops)
 	bgClip.Pop()
 
-	const sidebarWidth = 220
-	const menuBarHeight = 40
-
 	// Entire application layout
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 
 		// Top menu bar
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			// Small New Project / Open Project buttons overlaid at the top-left corner.
-			layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-
-				// Disable while loading
-				if appState.CurrentlyLoadingProject {
-					gtx = gtx.Disabled()
-				}
-
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if appState.NewProjectButton.Clicked(gtx) {
-							triggerNewProject(appState)
-						}
-						buttonStyle := material.Button(appState.Theme, &appState.NewProjectButton, "New Project")
-						buttonStyle.CornerRadius = 0
-						buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
-						//buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
-						return buttonStyle.Layout(gtx)
-					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if appState.OpenProjectButton.Clicked(gtx) {
-							triggerOpenProject(appState)
-						}
-						buttonStyle := material.Button(appState.Theme, &appState.OpenProjectButton, "Open Project")
-						buttonStyle.CornerRadius = 0
-						buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
-						//buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
-						return buttonStyle.Layout(gtx)
-					}),
-				)
-
-			})
-			return layout.Dimensions{Size: image.Point{X: size.X, Y: gtx.Dp(menuBarHeight)}}
+			// Disable while loading
+			if appState.CurrentlyLoadingProject {
+				gtx = gtx.Disabled()
+			}
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if appState.NewProjectButton.Clicked(gtx) {
+						triggerNewProject(appState)
+					}
+					buttonStyle := material.Button(appState.Theme, &appState.NewProjectButton, "New Project")
+					buttonStyle.CornerRadius = 0
+					buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
+					return buttonStyle.Layout(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if appState.OpenProjectButton.Clicked(gtx) {
+						triggerOpenProject(appState)
+					}
+					buttonStyle := material.Button(appState.Theme, &appState.OpenProjectButton, "Open Project")
+					buttonStyle.CornerRadius = 0
+					buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
+					return buttonStyle.Layout(gtx)
+				}),
+			)
 		}),
 
 		// Main content window
@@ -164,6 +153,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 					})
+
 				}),
 				// Main canvas
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
