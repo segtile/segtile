@@ -20,6 +20,10 @@ import (
 func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 	const sidebarWidth = 220
+	const menuBarSpacing = 6
+
+	// Helpers
+	transparent := color.NRGBA{R: 0, G: 0, B: 0, A: 0}
 
 	// This is the size of the window
 	size := gtx.Constraints.Max
@@ -47,19 +51,24 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					if appState.NewProjectButton.Clicked(gtx) {
 						triggerNewProject(appState)
 					}
-					buttonStyle := material.Button(appState.Theme, &appState.NewProjectButton, "New Project")
+					buttonStyle := material.Button(appState.Theme, &appState.NewProjectButton, "New")
 					buttonStyle.CornerRadius = 0
-					buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
+					buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
+					buttonStyle.Inset.Left = unit.Dp(menuBarSpacing)
+					buttonStyle.Inset.Right = unit.Dp(menuBarSpacing)
+					buttonStyle.Background = transparent
 					return buttonStyle.Layout(gtx)
 				}),
-				layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if appState.OpenProjectButton.Clicked(gtx) {
 						triggerOpenProject(appState)
 					}
-					buttonStyle := material.Button(appState.Theme, &appState.OpenProjectButton, "Open Project")
+					buttonStyle := material.Button(appState.Theme, &appState.OpenProjectButton, "Open")
 					buttonStyle.CornerRadius = 0
-					buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
+					buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
+					buttonStyle.Inset.Left = unit.Dp(menuBarSpacing)
+					buttonStyle.Inset.Right = unit.Dp(menuBarSpacing)
+					buttonStyle.Background = transparent
 					return buttonStyle.Layout(gtx)
 				}),
 			)
