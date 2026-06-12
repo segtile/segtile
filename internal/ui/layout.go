@@ -33,19 +33,47 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	bgClip.Pop()
 
 	const sidebarWidth = 220
+	const menuBarHeight = 40
 
 	// Entire application layout
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 
 		// Top menu bar
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			// Draw menu bar background
-			menuBarHeight := gtx.Dp(32)
-			menuBarClip := clip.Rect{Max: image.Point{X: size.X, Y: menuBarHeight}}.Push(gtx.Ops)
-			paint.ColorOp{Color: color.NRGBA{R: 25, G: 25, B: 25, A: 255}}.Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			menuBarClip.Pop()
-			return layout.Dimensions{Size: image.Point{X: size.X, Y: menuBarHeight}}
+			// Small New Project / Open Project buttons overlaid at the top-left corner.
+			layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+
+				// Disable while loading
+				if appState.CurrentlyLoadingProject {
+					gtx = gtx.Disabled()
+				}
+
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if appState.NewProjectButton.Clicked(gtx) {
+							triggerNewProject(appState)
+						}
+						buttonStyle := material.Button(appState.Theme, &appState.NewProjectButton, "New Project")
+						buttonStyle.CornerRadius = 0
+						buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
+						//buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
+						return buttonStyle.Layout(gtx)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if appState.OpenProjectButton.Clicked(gtx) {
+							triggerOpenProject(appState)
+						}
+						buttonStyle := material.Button(appState.Theme, &appState.OpenProjectButton, "Open Project")
+						buttonStyle.CornerRadius = 0
+						buttonStyle.Inset = layout.UniformInset(unit.Dp(1))
+						//buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
+						return buttonStyle.Layout(gtx)
+					}),
+				)
+
+			})
+			return layout.Dimensions{Size: image.Point{X: size.X, Y: gtx.Dp(menuBarHeight)}}
 		}),
 
 		// Main content window
@@ -55,8 +83,8 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
 					// Set fixed width for the sidebar
-					gtx.Constraints.Min.X = sidebarWidth
-					gtx.Constraints.Max.X = sidebarWidth
+					gtx.Constraints.Min.X = gtx.Dp(sidebarWidth)
+					gtx.Constraints.Max.X = gtx.Dp(sidebarWidth)
 
 					// Draw sidebar background
 					sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
@@ -235,29 +263,6 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							}
 						}
 
-						// Small New Project / Open Project buttons overlaid at the top-left corner.
-						layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								if appState.CurrentlyLoadingProject {
-									gtx = gtx.Disabled()
-								}
-								return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										if appState.NewProjectButton.Clicked(gtx) {
-											triggerNewProject(appState)
-										}
-										return material.Button(appState.Theme, &appState.NewProjectButton, "New Project").Layout(gtx)
-									}),
-									layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										if appState.OpenProjectButton.Clicked(gtx) {
-											triggerOpenProject(appState)
-										}
-										return material.Button(appState.Theme, &appState.OpenProjectButton, "Open Project").Layout(gtx)
-									}),
-								)
-							})
-						})
 					}
 
 					canvasClip.Pop()
