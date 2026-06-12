@@ -94,12 +94,24 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							HandleUiButton(appState, gtx, &appState.PrevButton)
+							// Handle possible click
+							HandleUiButtonClick(appState, gtx, &appState.PrevButton)
+
+							// Disable the button if we're at the beginning of the list
+							if appState.CurrentIndex == 0 {
+								gtx = gtx.Disabled()
+							}
 							return material.Button(appState.Theme, &appState.PrevButton, "← Prev").Layout(gtx)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							HandleUiButton(appState, gtx, &appState.NextButton)
+							// Handle possible click
+							HandleUiButtonClick(appState, gtx, &appState.NextButton)
+
+							// Disable the button if we're at the end of the list
+							if appState.CurrentIndex >= len(appState.ImageFiles)-1 {
+								gtx = gtx.Disabled()
+							}
 							return material.Button(appState.Theme, &appState.NextButton, "Next →").Layout(gtx)
 						}),
 					)

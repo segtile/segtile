@@ -133,7 +133,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	appState.OutputDirectory = outputDir
 	appState.ImageFiles = imageFiles
 	appState.CurrentIndex = 0
-	appState.LoadImageAtIndex(0)
+	appState.loadImageAtIndex(0)
 }
 
 // applyProjectLoadingResult processes a result returned by a background dialog goroutine.
@@ -184,9 +184,21 @@ func (appState *AppState) RecalculateSuperpixels() {
 
 }
 
+func (appState *AppState) LoadNextImage() {
+	if appState.CurrentIndex < len(appState.ImageFiles)-1 {
+		appState.loadImageAtIndex(appState.CurrentIndex + 1)
+	}
+}
+
+func (appState *AppState) LoadPreviousImage() {
+	if appState.CurrentIndex > 0 {
+		appState.loadImageAtIndex(appState.CurrentIndex - 1)
+	}
+}
+
 // loadImageAtIndex saves the current mask (if any), loads the image at index i,
 // runs the superpixel algorithm, and restores any previously saved mask.
-func (appState *AppState) LoadImageAtIndex(i int) {
+func (appState *AppState) loadImageAtIndex(i int) {
 	if appState.CurrentImage != nil {
 		appState.saveCurrentMask()
 	}

@@ -173,25 +173,19 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
 
-func HandleUiButton(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
+func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
+
+	if !button.Clicked(gtx) {
+		return
+	}
 
 	if button == &appState.PrevButton {
-		if appState.PrevButton.Clicked(gtx) && appState.CurrentIndex > 0 {
-			appState.LoadImageAtIndex(appState.CurrentIndex - 1)
-		}
-		if appState.CurrentIndex == 0 {
-			gtx = gtx.Disabled()
-		}
+		appState.LoadPreviousImage()
 		return
 	}
 
 	if button == &appState.NextButton {
-		if appState.NextButton.Clicked(gtx) && appState.CurrentIndex < len(appState.ImageFiles)-1 {
-			appState.LoadImageAtIndex(appState.CurrentIndex + 1)
-		}
-		if appState.CurrentIndex >= len(appState.ImageFiles)-1 {
-			gtx = gtx.Disabled()
-		}
+		appState.LoadNextImage()
 		return
 	}
 
@@ -204,7 +198,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "F"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameTab, Optional: key.ModShift},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 		)
 		if !ok {
 			break
@@ -218,6 +212,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		if ke.State == key.Press && ke.Name == "F" {
 			appState.FitToWindow = true
 			appState.Window.Invalidate()
+			continue
 		}
 
 		// [C]lear selection
@@ -227,6 +222,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			}
 			appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
 			appState.Window.Invalidate()
+			continue
 		}
 
 		// [D]isable preview (while held)
@@ -238,19 +234,17 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 				appState.RenderSelectionOutlines = true
 				appState.Window.Invalidate()
 			}
+			continue
 		}
 
-		// Tab → next image, Shift+Tab → previous image
-		if ke.State == key.Press && ke.Name == key.NameTab {
+		// Tab: next image, Shift+Tab: previous image
+		if ke.State == key.Press && ke.Name == key.NameSpace {
 			if ke.Modifiers.Contain(key.ModShift) {
-				if appState.CurrentIndex > 0 {
-					appState.LoadImageAtIndex(appState.CurrentIndex - 1)
-				}
+				appState.LoadPreviousImage()
 			} else {
-				if appState.CurrentIndex < len(appState.ImageFiles)-1 {
-					appState.LoadImageAtIndex(appState.CurrentIndex + 1)
-				}
+				appState.LoadNextImage()
 			}
+			continue
 		}
 	}
 }
