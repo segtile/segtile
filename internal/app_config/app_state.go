@@ -49,7 +49,9 @@ type AppState struct {
 	Theme                      *theme.AppTheme
 	SuperpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 	RenderSelectionOutlines    bool
+	PrevUnlabeledButton        widget.Clickable
 	PrevButton                 widget.Clickable
+	NextUnlabeledButton        widget.Clickable
 	NextButton                 widget.Clickable
 	OpenProjectButton          widget.Clickable
 	NewProjectButton           widget.Clickable
@@ -196,10 +198,34 @@ func (appState *AppState) LoadPreviousImage() {
 	}
 }
 
+// LoadNextUnlabeledImage finds the next image without an existing mask file and loads it.
+func (appState *AppState) LoadNextUnlabeledImage() {
+	for i := appState.CurrentIndex + 1; i < len(appState.ImageFiles); i++ {
+		maskPath := appState.maskPathForIndex(i)
+		if _, err := os.Stat(maskPath); os.IsNotExist(err) {
+			appState.loadImageAtIndex(i)
+			return
+		}
+	}
+}
+
+// LoadPreviousUnlabeledImage finds the previous image without an existing mask file and loads it.
+func (appState *AppState) LoadPreviousUnlabeledImage() {
+	for i := appState.CurrentIndex - 1; i >= 0; i-- {
+		maskPath := appState.maskPathForIndex(i)
+		if _, err := os.Stat(maskPath); os.IsNotExist(err) {
+			appState.loadImageAtIndex(i)
+			return
+		}
+	}
+}
+
 // loadImageAtIndex saves the current mask (if any), loads the image at index i,
 // runs the superpixel algorithm, and restores any previously saved mask.
 func (appState *AppState) loadImageAtIndex(i int) {
-	if appState.CurrentImage != nil {
+
+	// Save the current mask, if a selection is made
+	if appState.CurrentImage != nil && appState.selectionMade() {
 		appState.saveCurrentMask()
 	}
 
@@ -259,4 +285,13 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	ext := filepath.Ext(base)
 	name := base[:len(base)-len(ext)] + ".png"
 	return filepath.Join(appState.OutputDirectory, name)
+}
+
+func (appState *AppState) selectionMade() bool {
+	for _, selected := range appState.SelectionIndex {
+		if selected {
+			return true
+		}
+	}
+	return false
 }

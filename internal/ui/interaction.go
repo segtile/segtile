@@ -179,8 +179,18 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.PrevUnlabeledButton {
+		appState.LoadPreviousUnlabeledImage()
+		return
+	}
+
 	if button == &appState.PrevButton {
 		appState.LoadPreviousImage()
+		return
+	}
+
+	if button == &appState.NextUnlabeledButton {
+		appState.LoadNextUnlabeledImage()
 		return
 	}
 

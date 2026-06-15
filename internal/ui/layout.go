@@ -139,6 +139,26 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							)
 						}))
 
+						// Spacer
+						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
+
+						// Prev Unlabled / Next Unlabled navigation buttons.
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									// Handle possible click
+									HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
+									return appState.Theme.DefaultButton(&appState.PrevUnlabeledButton, "← Prev Unlabeled").Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									// Handle possible click
+									HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
+									return appState.Theme.DefaultButton(&appState.NextUnlabeledButton, "Next Unlabeled →").Layout(gtx)
+								}),
+							)
+						}))
+
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 					})
 
