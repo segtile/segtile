@@ -13,10 +13,10 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
+	"github.com/struffel/annotation-tool/internal/theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
@@ -46,7 +46,7 @@ type AppState struct {
 	// UI state
 	Window                     *app.Window
 	CanvasTag                  bool
-	Theme                      *material.Theme
+	Theme                      *theme.AppTheme
 	SuperpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 	RenderSelectionOutlines    bool
 	PrevButton                 widget.Clickable
@@ -86,7 +86,7 @@ func NewAppState() *AppState {
 	return &AppState{
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
-		Theme:                      material.NewTheme(),
+		Theme:                      theme.Theme,
 		SelectionStrokeWidth:       0.75,
 		HoverStrokeWidth:           0.5,
 		SuperpixelImplementation:   impl,

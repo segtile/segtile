@@ -91,10 +91,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024319.jpg",
-				"slic",
-				"count=240",
-				"compactness=30"
+				"S:\\MasterThesisData\\Projects\\SkinMarks\\settings.yaml"
 			]
 		},
 		{

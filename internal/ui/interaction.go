@@ -189,6 +189,16 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.OpenProjectButton {
+		triggerOpenProject(appState)
+		return
+	}
+
+	if button == &appState.NewProjectButton {
+		triggerNewProject(appState)
+		return
+	}
+
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
