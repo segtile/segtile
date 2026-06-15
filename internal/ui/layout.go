@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"path/filepath"
 
 	"gioui.org/f32"
@@ -15,15 +14,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/theme"
 )
 
 func Layout(appState *app_config.AppState, gtx layout.Context) {
-
-	const sidebarWidth = 220
-	const menuBarSpacing = 6
-
-	// Helpers
-	transparent := color.NRGBA{R: 0, G: 0, B: 0, A: 0}
 
 	// This is the size of the window
 	size := gtx.Constraints.Max
@@ -49,23 +43,11 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					HandleUiButtonClick(appState, gtx, &appState.NewProjectButton)
-					buttonStyle := material.Button(&appState.Theme.GioTheme, &appState.NewProjectButton, "New")
-					buttonStyle.CornerRadius = 0
-					buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
-					buttonStyle.Inset.Left = unit.Dp(menuBarSpacing)
-					buttonStyle.Inset.Right = unit.Dp(menuBarSpacing)
-					buttonStyle.Background = transparent
-					return buttonStyle.Layout(gtx)
+					return appState.Theme.MenuBarButton(&appState.NewProjectButton, "New").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					HandleUiButtonClick(appState, gtx, &appState.OpenProjectButton)
-					buttonStyle := material.Button(&appState.Theme.GioTheme, &appState.OpenProjectButton, "Open")
-					buttonStyle.CornerRadius = 0
-					buttonStyle.Inset = layout.UniformInset(unit.Dp(2))
-					buttonStyle.Inset.Left = unit.Dp(menuBarSpacing)
-					buttonStyle.Inset.Right = unit.Dp(menuBarSpacing)
-					buttonStyle.Background = transparent
-					return buttonStyle.Layout(gtx)
+					return appState.Theme.MenuBarButton(&appState.OpenProjectButton, "Open").Layout(gtx)
 				}),
 			)
 		}),
@@ -77,8 +59,8 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
 					// Set fixed width for the sidebar
-					gtx.Constraints.Min.X = gtx.Dp(sidebarWidth)
-					gtx.Constraints.Max.X = gtx.Dp(sidebarWidth)
+					gtx.Constraints.Min.X = gtx.Dp(theme.SidebarWidth)
+					gtx.Constraints.Max.X = gtx.Dp(theme.SidebarWidth)
 
 					// Draw sidebar background
 					sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
@@ -141,7 +123,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 									if appState.CurrentIndex == 0 {
 										gtx = gtx.Disabled()
 									}
-									return material.Button(&appState.Theme.GioTheme, &appState.PrevButton, "← Prev").Layout(gtx)
+									return appState.Theme.DefaultButton(&appState.PrevButton, "← Prev").Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -152,7 +134,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 									if appState.CurrentIndex >= len(appState.ImageFiles)-1 {
 										gtx = gtx.Disabled()
 									}
-									return material.Button(&appState.Theme.GioTheme, &appState.NextButton, "Next →").Layout(gtx)
+									return appState.Theme.DefaultButton(&appState.NextButton, "Next →").Layout(gtx)
 								}),
 							)
 						}))
@@ -201,7 +183,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										gtx = gtx.Disabled()
 									}
 									gtx.Constraints.Min.X = gtx.Dp(220)
-									return material.Button(&appState.Theme.GioTheme, &appState.NewProjectButton, "New Project").Layout(gtx)
+									return appState.Theme.DefaultButton(&appState.NewProjectButton, "New Project").Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -212,7 +194,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										gtx = gtx.Disabled()
 									}
 									gtx.Constraints.Min.X = gtx.Dp(220)
-									return material.Button(&appState.Theme.GioTheme, &appState.OpenProjectButton, "Open Project").Layout(gtx)
+									return appState.Theme.DefaultButton(&appState.OpenProjectButton, "Open Project").Layout(gtx)
 								}),
 							)
 						})
