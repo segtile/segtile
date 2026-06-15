@@ -2,6 +2,14 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Blank",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${workspaceFolder}/cmd/main",
+			"args": []
+		},
+		{
 			"name": "Ultrasound Fetus Segmentation",
 			"type": "go",
 			"request": "launch",
@@ -21,10 +29,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Breast Ultrasound\\IMAGES\\malignant (22).png",
-				"slic",
-				"count=360",
-				"compactness=40"
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\BreastUltrasound\\settings.yaml"
 			]
 		},
 		{
@@ -86,10 +91,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"S:\\MasterThesisData\\Datasets\\SkinMarks\\IMAGES\\ISIC_0024319.jpg",
-				"slic",
-				"count=240",
-				"compactness=30"
+				"S:\\MasterThesisData\\Projects\\SkinMarks\\settings.yaml"
 			]
 		},
 		{

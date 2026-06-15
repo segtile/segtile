@@ -1,4 +1,4 @@
-package util
+package superpixel_utils
 
 import (
 	"image"

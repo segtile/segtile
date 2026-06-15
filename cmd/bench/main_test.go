@@ -3,12 +3,12 @@ package main
 import (
 	"testing"
 
-	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/util"
+	"github.com/struffel/annotation-tool/internal/cli"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 func TestBuildRunConfigurations_SingleRange(t *testing.T) {
-	ranges := []util.ParameterRange{
+	ranges := []cli.ParameterRange{
 		{Name: "count", Start: 100, End: 300, Step: 100},
 	}
 	configs, err := buildRunParameterSets(ranges)
@@ -29,7 +29,7 @@ func TestBuildRunConfigurations_SingleRange(t *testing.T) {
 }
 
 func TestBuildRunConfigurations_MultipleRanges(t *testing.T) {
-	ranges := []util.ParameterRange{
+	ranges := []cli.ParameterRange{
 		{Name: "count", Start: 100, End: 200, Step: 20},
 		{Name: "compactness", Start: 0, End: 10, Step: 2},
 	}
@@ -65,7 +65,7 @@ func TestBuildRunConfigurations_MultipleRanges(t *testing.T) {
 }
 
 func TestBuildRunConfigurations_EmptyRanges(t *testing.T) {
-	configs, err := buildRunParameterSets([]util.ParameterRange{})
+	configs, err := buildRunParameterSets([]cli.ParameterRange{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

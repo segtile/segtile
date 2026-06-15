@@ -3,8 +3,8 @@ package superpixel_factory
 import (
 	"fmt"
 
-	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/superpixel/slic"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel/slic"
 )
 
 func GetSuperpixelImplementationByName(name string) (superpixel.SpImplementation, error) {
