@@ -29,7 +29,7 @@ type AppState struct {
 	ImageFiles      []string
 
 	// Images
-	CurrentImage *image.NRGBA // Original image
+	CurrentImage *image.NRGBA
 	CurrentIndex int
 
 	// Superpixel module
