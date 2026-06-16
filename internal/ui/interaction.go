@@ -165,6 +165,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if selectionChanged {
 				labelMap := appState.SuperpixelImplementation.GetResult().LabelMap
 				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
+				// Clear the existing mask orange outline once the user starts painting.
+				if appState.ExistingMask != nil {
+					appState.ExistingMask = nil
+					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
+				}
 				appState.Window.Invalidate()
 			}
 		}

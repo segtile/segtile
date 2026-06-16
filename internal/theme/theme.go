@@ -12,9 +12,10 @@ import (
 // AppTheme defines the colors and styles used throughout the application.
 // It encapsulates the Gio material theme and adds its own stuff on top.
 type AppTheme struct {
-	GioTheme              material.Theme
-	HoverOutlineColor     color.NRGBA
-	SelectionOutlineColor color.NRGBA
+	GioTheme                 material.Theme
+	HoverOutlineColor        color.NRGBA
+	SelectionOutlineColor    color.NRGBA
+	ExistingMaskOutlineColor color.NRGBA
 }
 
 // Constants
@@ -32,9 +33,10 @@ var palette = material.Palette{
 var gioTheme = material.NewTheme().WithPalette(palette)
 
 var Theme = &AppTheme{
-	GioTheme:              gioTheme,
-	HoverOutlineColor:     color.NRGBA{R: 0, G: 200, B: 255, A: 220},
-	SelectionOutlineColor: color.NRGBA{R: 255, G: 200, B: 0, A: 220},
+	GioTheme:                 gioTheme,
+	HoverOutlineColor:        color.NRGBA{R: 0, G: 200, B: 255, A: 220},
+	SelectionOutlineColor:    color.NRGBA{R: 255, G: 200, B: 0, A: 220},
+	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 220},
 }
 
 func (theme *AppTheme) DefaultButton(btn *widget.Clickable, txt string) material.ButtonStyle {

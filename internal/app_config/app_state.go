@@ -30,6 +30,7 @@ type AppState struct {
 
 	// Images
 	CurrentImage *image.NRGBA
+	ExistingMask *image.Gray16
 	CurrentIndex int
 
 	// Superpixel module
@@ -39,9 +40,10 @@ type AppState struct {
 	SelectionIndex []bool
 
 	// Render cache (rebuilt only when data changes, not every frame)
-	ImgBaseOp         paint.ImageOp
-	SelectionPathSpec clip.PathSpec
-	HoverPathSpec     clip.PathSpec
+	ImgBaseOp            paint.ImageOp
+	SelectionPathSpec    clip.PathSpec
+	HoverPathSpec        clip.PathSpec
+	ExistingMaskPathSpec clip.PathSpec
 
 	// UI state
 	Window                     *app.Window
@@ -233,16 +235,17 @@ func (appState *AppState) loadImageAtIndex(i int) {
 	appState.SuperpixelImplementation.SetImage(appState.CurrentImage)
 	appState.RecalculateSuperpixels()
 
-	// Restore selection from an existing mask file, if present.
+	// If an existing non-empty mask is on disk, store it for display as an orange
+	// outline. Do not approximate it into the superpixel selection.
+	appState.ExistingMask = nil
+	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
-		existingMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
-		result := appState.SuperpixelImplementation.GetResult()
-		appState.SelectionIndex = result.SelectFromMask(existingMask, 0.5)
-		appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(
-			*result.LabelMap,
-			appState.SelectionIndex,
-		)
+		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
+		if isMaskNonEmpty(loadedMask) {
+			appState.ExistingMask = loadedMask
+			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(*loadedMask)
+		}
 	}
 
 	// Rebuild image paint op.
@@ -290,6 +293,15 @@ func (appState *AppState) maskPathForIndex(i int) string {
 func (appState *AppState) selectionMade() bool {
 	for _, selected := range appState.SelectionIndex {
 		if selected {
+			return true
+		}
+	}
+	return false
+}
+
+func isMaskNonEmpty(mask *image.Gray16) bool {
+	for _, p := range mask.Pix {
+		if p != 0 {
 			return true
 		}
 	}

@@ -258,6 +258,11 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								stack = op.Affine(transformation).Push(gtx.Ops)
 								paint.FillShape(gtx.Ops, appState.Theme.SelectionOutlineColor, clip.Stroke{Path: appState.SelectionPathSpec, Width: appState.SelectionStrokeWidth / appState.ViewScale}.Op())
 								stack.Pop()
+
+								// Draw existing mask outline (orange) for any mask loaded from disk
+								stack = op.Affine(transformation).Push(gtx.Ops)
+								paint.FillShape(gtx.Ops, appState.Theme.ExistingMaskOutlineColor, clip.Stroke{Path: appState.ExistingMaskPathSpec, Width: appState.SelectionStrokeWidth / appState.ViewScale}.Op())
+								stack.Pop()
 							}
 						}
 
