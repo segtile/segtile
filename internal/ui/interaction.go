@@ -48,12 +48,15 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 		// Persist updated parameters to config.
 		if appState.Settings != nil {
-			for _, p := range appState.SuperpixelImplementation.GetSupportedParameters() {
-				v, _ := appState.SuperpixelImplementation.GetParameter(p)
-				appState.Settings.Superpixel.Parameters[string(p)] = v
-			}
-			if err := app_config.Save(appState.Settings, appState.OutputDirectory); err != nil {
-				fmt.Println("Warning: could not save config:", err)
+			spCfg, err := app_config.SuperpixelSettingsFromImpl(appState.SuperpixelImplementation)
+			if err == nil {
+				settings := &app_config.ProjectSettings{
+					InputDirectory: appState.Settings.InputDirectory,
+					Superpixel:     spCfg,
+				}
+				if err := app_config.Save(settings, appState.OutputDirectory); err != nil {
+					fmt.Println("Warning: could not save config:", err)
+				}
 			}
 		}
 	}
