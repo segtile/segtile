@@ -52,10 +52,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\CryoNuSeg\\IMAGES\\Human_Pleura_02.tif",
-				"slic",
-				"count=6500",
-				"compactness=30"
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\NucleiSegmentation\\settings.yaml"
 			]
 		},
 		{
