@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"path/filepath"
 
 	"gioui.org/f32"
@@ -249,20 +250,17 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							stack.Pop()
 
 							// Draw hover outline using cached path spec
-							stack = op.Affine(transformation).Push(gtx.Ops)
-							paint.FillShape(gtx.Ops, appState.Theme.HoverOutlineColor, clip.Stroke{Path: appState.HoverPathSpec, Width: appState.HoverStrokeWidth / appState.ViewScale}.Op())
-							stack.Pop()
+
+							drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
 
 							if appState.RenderSelectionOutlines {
-								// Draw selection outline using cached path spec
-								stack = op.Affine(transformation).Push(gtx.Ops)
-								paint.FillShape(gtx.Ops, appState.Theme.SelectionOutlineColor, clip.Stroke{Path: appState.SelectionPathSpec, Width: appState.SelectionStrokeWidth / appState.ViewScale}.Op())
-								stack.Pop()
+								// Halo (wider, dark stroke drawn first)
+
+								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
 
 								// Draw existing mask outline (orange) for any mask loaded from disk
-								stack = op.Affine(transformation).Push(gtx.Ops)
-								paint.FillShape(gtx.Ops, appState.Theme.ExistingMaskOutlineColor, clip.Stroke{Path: appState.ExistingMaskPathSpec, Width: appState.SelectionStrokeWidth / appState.ViewScale}.Op())
-								stack.Pop()
+
+								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
 							}
 						}
 
@@ -274,4 +272,29 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 			)
 		}),
 	)
+}
+
+func drawStroke(stack *op.TransformStack, gtx layout.Context, transformation f32.Affine2D, viewScale float32, pathSpec clip.PathSpec, strokeColor color.NRGBA, strokeWidth float32, haloWidth float32) {
+	// Halo (wider, dark stroke drawn first)
+	if haloWidth > 0 {
+		*stack = op.Affine(transformation).Push(gtx.Ops)
+		paint.FillShape(gtx.Ops,
+			color.NRGBA{R: 0, G: 0, B: 0, A: 200},
+			clip.Stroke{
+				Path:  pathSpec,
+				Width: (strokeWidth + haloWidth) / viewScale,
+			}.Op())
+		stack.Pop()
+	}
+	if strokeWidth > 0 {
+		// Colored stroke on top
+		*stack = op.Affine(transformation).Push(gtx.Ops)
+		paint.FillShape(gtx.Ops,
+			strokeColor,
+			clip.Stroke{
+				Path:  pathSpec,
+				Width: strokeWidth / viewScale,
+			}.Op())
+		stack.Pop()
+	}
 }

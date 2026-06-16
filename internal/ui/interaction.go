@@ -28,8 +28,14 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			}
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
-					appState.SuperpixelImplementation.SetParameter(param, v)
-					fmt.Printf("Set %s to %v\n", param.Title(), v)
+					setErr := appState.SuperpixelImplementation.SetParameter(param, v)
+					if setErr != nil {
+						fmt.Printf("Error setting %s: %v\n", param.Title(), setErr)
+					}
+					newValue, _ := appState.SuperpixelImplementation.GetParameter(param)
+					editor.SetText(fmt.Sprintf("%v", newValue))
+					fmt.Printf("Set %s to %v\n", param.Title(), newValue)
+
 					recalculate = true
 				}
 			}

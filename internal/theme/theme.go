@@ -16,6 +16,11 @@ type AppTheme struct {
 	HoverOutlineColor        color.NRGBA
 	SelectionOutlineColor    color.NRGBA
 	ExistingMaskOutlineColor color.NRGBA
+
+	SelectionStrokeWidth    float32
+	HoverStrokeWidth        float32
+	ExistingMaskStrokeWidth float32
+	StrokeHaloWidth         float32
 }
 
 // Constants
@@ -33,10 +38,19 @@ var palette = material.Palette{
 var gioTheme = material.NewTheme().WithPalette(palette)
 
 var Theme = &AppTheme{
-	GioTheme:                 gioTheme,
+	// Material theme for Gio widgets
+	GioTheme: gioTheme,
+
+	// Colors for outlines
 	HoverOutlineColor:        color.NRGBA{R: 0, G: 200, B: 255, A: 220},
-	SelectionOutlineColor:    color.NRGBA{R: 255, G: 200, B: 0, A: 220},
-	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 220},
+	SelectionOutlineColor:    color.NRGBA{R: 255, G: 200, B: 0, A: 240},
+	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 160},
+
+	// Stroke widths
+	SelectionStrokeWidth:    0.75,
+	HoverStrokeWidth:        0.75,
+	ExistingMaskStrokeWidth: 1.0,
+	StrokeHaloWidth:         0.75,
 }
 
 func (theme *AppTheme) DefaultButton(btn *widget.Clickable, txt string) material.ButtonStyle {

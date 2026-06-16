@@ -73,8 +73,7 @@ type AppState struct {
 	FitToWindow                         bool
 
 	// Display settings
-	SelectionStrokeWidth float32
-	HoverStrokeWidth     float32
+
 }
 
 func NewAppState() *AppState {
@@ -83,7 +82,7 @@ func NewAppState() *AppState {
 	editors := make(map[superpixel.SpParameter]*widget.Editor)
 	for _, param := range impl.GetSupportedParameters() {
 		value, _ := impl.GetParameter(param)
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789"}
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
 		ed.SetText(fmt.Sprintf("%g", value))
 		editors[param] = ed
 	}
@@ -91,8 +90,6 @@ func NewAppState() *AppState {
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
 		Theme:                      theme.Theme,
-		SelectionStrokeWidth:       0.75,
-		HoverStrokeWidth:           0.5,
 		SuperpixelImplementation:   impl,
 		SuperpixelParameterEditors: editors,
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
@@ -121,7 +118,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	editors := make(map[superpixel.SpParameter]*widget.Editor)
 	for _, param := range impl.GetSupportedParameters() {
 		value, _ := impl.GetParameter(param)
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789"}
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
 		ed.SetText(fmt.Sprintf("%g", value))
 		editors[param] = ed
 	}
