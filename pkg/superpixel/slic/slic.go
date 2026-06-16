@@ -25,8 +25,8 @@ import (
 
 	"github.com/lucasb-eyer/go-colorful"
 
-	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/util"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type slicSpCluster struct {
@@ -411,7 +411,7 @@ func (this *SpSlic) initializeClusters() {
 
 	// Initialize clusters
 	var points []image.Point
-	points, this.gridInterval = util.RegularGridPoints(width, height, this.numSuperpixels)
+	points, this.gridInterval = superpixel_utils.RegularGridPoints(width, height, this.numSuperpixels)
 	this.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
 		this.clusters[index].x = point.X
