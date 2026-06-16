@@ -77,7 +77,7 @@ func main() {
 
 	// Read parameters
 	algorithmName := os.Args[4]
-	_, err := superpixel_factory.GetSuperpixelImplementationByName(algorithmName)
+	_, err := superpixel_factory.NewSuperpixelImplementationByName(algorithmName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -201,7 +201,7 @@ func main() {
 				defer wg.Done()
 
 				// Set up superpixel algorithm
-				sp, _ := superpixel_factory.GetSuperpixelImplementationByName(algorithmName)
+				sp, _ := superpixel_factory.NewSuperpixelImplementationByName(algorithmName)
 				sp.SetImage(img)
 				sp.SetRecommendedParameters()
 

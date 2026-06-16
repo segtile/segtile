@@ -71,7 +71,7 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, string, error) {
 		return nil, "", err
 	}
 
-	impl, err := superpixel_factory.GetSuperpixelImplementationByName("slic")
+	impl, err := superpixel_factory.NewSuperpixelImplementationByName("slic")
 	if err != nil {
 		return nil, "", err
 	}

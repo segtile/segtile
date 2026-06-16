@@ -78,7 +78,7 @@ type AppState struct {
 }
 
 func NewAppState() *AppState {
-	impl, _ := superpixel_factory.GetSuperpixelImplementationByName("slic")
+	impl, _ := superpixel_factory.NewSuperpixelImplementationByName("slic")
 	impl.SetRecommendedParameters()
 	editors := make(map[superpixel.SpParameter]*widget.Editor)
 	for _, param := range impl.GetSupportedParameters() {
@@ -107,7 +107,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 		appState.CurrentImage = nil
 	}
 
-	impl, err := superpixel_factory.GetSuperpixelImplementationByName(projectSettings.Superpixel.Algorithm)
+	impl, err := superpixel_factory.NewSuperpixelImplementationByName(projectSettings.Superpixel.Algorithm)
 	if err != nil {
 		log.Printf("Unknown algorithm %q: %v", projectSettings.Superpixel.Algorithm, err)
 		return
