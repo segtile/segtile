@@ -21,8 +21,8 @@ import (
 
 	"github.com/lucasb-eyer/go-colorful"
 
-	"github.com/struffel/annotation-tool/superpixel"
-	"github.com/struffel/annotation-tool/superpixel/slic"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel/slic"
 )
 
 // ---------------------------------------------------------------------------

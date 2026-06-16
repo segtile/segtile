@@ -44,6 +44,9 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		if appState.Settings != nil {
 			for _, p := range appState.SuperpixelImplementation.GetSupportedParameters() {
 				v, _ := appState.SuperpixelImplementation.GetParameter(p)
+				if appState.Settings.Superpixel.Parameters == nil {
+					appState.Settings.Superpixel.Parameters = make(map[string]float64)
+				}
 				appState.Settings.Superpixel.Parameters[string(p)] = v
 			}
 			if err := app_config.Save(appState.Settings, appState.OutputDirectory); err != nil {
