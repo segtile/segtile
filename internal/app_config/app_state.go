@@ -97,7 +97,7 @@ func NewAppState() *AppState {
 	}
 }
 
-// applyProject configures the AppState for the given project, saves any current mask,
+// ApplyProject configures the AppState for the given project, saves any current mask,
 // and loads the first image.
 func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputDir string) {
 	if appState.CurrentImage != nil {
@@ -138,7 +138,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	appState.loadImageAtIndex(0)
 }
 
-// applyProjectLoadingResult processes a result returned by a background dialog goroutine.
+// ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.CurrentlyLoadingProject = false
 	if r.Err == dialog.ErrCancelled || r.Settings == nil {
