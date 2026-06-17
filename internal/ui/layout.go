@@ -250,16 +250,13 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							stack.Pop()
 
 							// Draw hover outline using cached path spec
-
 							drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
 
 							if appState.RenderSelectionOutlines {
 								// Halo (wider, dark stroke drawn first)
-
 								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
 
 								// Draw existing mask outline (orange) for any mask loaded from disk
-
 								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
 							}
 						}
