@@ -285,8 +285,9 @@ func drawStroke(
 	strokeColor color.NRGBA,
 	strokeWidth float32,
 	haloWidth float32) {
-	// Halo/Outline
+
 	if haloWidth > 0 {
+		// Halo/Outline
 		*stack = op.Affine(transformation).Push(gtx.Ops)
 		paint.FillShape(gtx.Ops,
 			color.NRGBA{R: 0, G: 0, B: 0, A: 200},
