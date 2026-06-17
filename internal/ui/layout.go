@@ -49,6 +49,10 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					HandleUiButtonClick(appState, gtx, &appState.OpenProjectButton)
 					return appState.Theme.MenuBarButton(&appState.OpenProjectButton, "Open").Layout(gtx)
 				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
+					return appState.Theme.MenuBarButton(&appState.OptimizeButton, "Optimize").Layout(gtx)
+				}),
 			)
 		}),
 

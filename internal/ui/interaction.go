@@ -214,6 +214,11 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.OptimizeButton {
+		appState.OptimizeSpParameters()
+		return
+	}
+
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {

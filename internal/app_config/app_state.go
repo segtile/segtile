@@ -57,6 +57,7 @@ type AppState struct {
 	NextButton                 widget.Clickable
 	OpenProjectButton          widget.Clickable
 	NewProjectButton           widget.Clickable
+	OptimizeButton             widget.Clickable
 
 	// Loading state
 	CurrentlyLoadingProject bool
