@@ -16,10 +16,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Fetal Structures\\IMAGES\\P01_IMG1.png",
-				"slic",
-				"count=860",
-				"compactness=10"
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\FetalStructures\\settings.yaml"
 			]
 		},
 		{
