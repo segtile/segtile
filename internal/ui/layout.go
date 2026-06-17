@@ -274,8 +274,18 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	)
 }
 
-func drawStroke(stack *op.TransformStack, gtx layout.Context, transformation f32.Affine2D, viewScale float32, pathSpec clip.PathSpec, strokeColor color.NRGBA, strokeWidth float32, haloWidth float32) {
-	// Halo (wider, dark stroke drawn first)
+// drawStroke adds the drawing operations for an outline to the graphics context
+// The halo is an additional outline around the main line.
+func drawStroke(
+	stack *op.TransformStack,
+	gtx layout.Context,
+	transformation f32.Affine2D,
+	viewScale float32,
+	pathSpec clip.PathSpec,
+	strokeColor color.NRGBA,
+	strokeWidth float32,
+	haloWidth float32) {
+	// Halo/Outline
 	if haloWidth > 0 {
 		*stack = op.Affine(transformation).Push(gtx.Ops)
 		paint.FillShape(gtx.Ops,
