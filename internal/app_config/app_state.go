@@ -51,6 +51,8 @@ type AppState struct {
 	Theme                      *theme.AppTheme
 	SuperpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 	RenderSelectionOutlines    bool
+	FirstButton                widget.Clickable
+	LastButton                 widget.Clickable
 	PrevUnlabeledButton        widget.Clickable
 	PrevButton                 widget.Clickable
 	NextUnlabeledButton        widget.Clickable
@@ -74,17 +76,16 @@ type AppState struct {
 	FitToWindow                         bool
 
 	// Display settings
-	SelectionStrokeWidth float32
-	HoverStrokeWidth     float32
+
 }
 
 func NewAppState() *AppState {
-	impl, _ := superpixel_factory.GetSuperpixelImplementationByName("slic")
+	impl, _ := superpixel_factory.NewSuperpixelImplementationByName("slic")
 	impl.SetRecommendedParameters()
 	editors := make(map[superpixel.SpParameter]*widget.Editor)
 	for _, param := range impl.GetSupportedParameters() {
 		value, _ := impl.GetParameter(param)
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789"}
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
 		ed.SetText(fmt.Sprintf("%g", value))
 		editors[param] = ed
 	}
@@ -92,8 +93,6 @@ func NewAppState() *AppState {
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
 		Theme:                      theme.Theme,
-		SelectionStrokeWidth:       0.75,
-		HoverStrokeWidth:           0.5,
 		SuperpixelImplementation:   impl,
 		SuperpixelParameterEditors: editors,
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
@@ -108,7 +107,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 		appState.CurrentImage = nil
 	}
 
-	impl, err := superpixel_factory.GetSuperpixelImplementationByName(projectSettings.Superpixel.Algorithm)
+	impl, err := superpixel_factory.NewSuperpixelImplementationByName(projectSettings.Superpixel.Algorithm)
 	if err != nil {
 		log.Printf("Unknown algorithm %q: %v", projectSettings.Superpixel.Algorithm, err)
 		return
@@ -122,7 +121,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	editors := make(map[superpixel.SpParameter]*widget.Editor)
 	for _, param := range impl.GetSupportedParameters() {
 		value, _ := impl.GetParameter(param)
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789"}
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
 		ed.SetText(fmt.Sprintf("%g", value))
 		editors[param] = ed
 	}
@@ -198,6 +197,18 @@ func (appState *AppState) LoadNextImage() {
 func (appState *AppState) LoadPreviousImage() {
 	if appState.CurrentIndex > 0 {
 		appState.loadImageAtIndex(appState.CurrentIndex - 1)
+	}
+}
+
+func (appState *AppState) LoadFirstImage() {
+	if len(appState.ImageFiles) > 0 {
+		appState.loadImageAtIndex(0)
+	}
+}
+
+func (appState *AppState) LoadLastImage() {
+	if len(appState.ImageFiles) > 0 {
+		appState.loadImageAtIndex(len(appState.ImageFiles) - 1)
 	}
 }
 

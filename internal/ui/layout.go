@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"path/filepath"
 
 	"gioui.org/f32"
@@ -116,51 +117,9 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						// Spacer
 						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
 
-						// Prev / Next navigation buttons.
+						// Image navigation buttons.
 						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									// Handle possible click
-									HandleUiButtonClick(appState, gtx, &appState.PrevButton)
-
-									// Disable the button if we're at the beginning of the list
-									if appState.CurrentIndex == 0 {
-										gtx = gtx.Disabled()
-									}
-									return appState.Theme.DefaultButton(&appState.PrevButton, "← Prev").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									// Handle possible click
-									HandleUiButtonClick(appState, gtx, &appState.NextButton)
-
-									// Disable the button if we're at the end of the list
-									if appState.CurrentIndex >= len(appState.ImageFiles)-1 {
-										gtx = gtx.Disabled()
-									}
-									return appState.Theme.DefaultButton(&appState.NextButton, "Next →").Layout(gtx)
-								}),
-							)
-						}))
-
-						// Spacer
-						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
-
-						// Prev Unlabled / Next Unlabled navigation buttons.
-						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									// Handle possible click
-									HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
-									return appState.Theme.DefaultButton(&appState.PrevUnlabeledButton, "← Prev Unlabeled").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									// Handle possible click
-									HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
-									return appState.Theme.DefaultButton(&appState.NextUnlabeledButton, "Next Unlabeled →").Layout(gtx)
-								}),
-							)
+							return drawImageNavigationButtons(appState, gtx)
 						}))
 
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -207,7 +166,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										gtx = gtx.Disabled()
 									}
 									gtx.Constraints.Min.X = gtx.Dp(220)
-									return appState.Theme.DefaultButton(&appState.NewProjectButton, "New Project").Layout(gtx)
+									return appState.Theme.DefaultButton(&appState.NewProjectButton, "New Project", 16).Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -218,7 +177,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										gtx = gtx.Disabled()
 									}
 									gtx.Constraints.Min.X = gtx.Dp(220)
-									return appState.Theme.DefaultButton(&appState.OpenProjectButton, "Open Project").Layout(gtx)
+									return appState.Theme.DefaultButton(&appState.OpenProjectButton, "Open Project", 16).Layout(gtx)
 								}),
 							)
 						})
@@ -253,20 +212,14 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							stack.Pop()
 
 							// Draw hover outline using cached path spec
-							stack = op.Affine(transformation).Push(gtx.Ops)
-							paint.FillShape(gtx.Ops, appState.Theme.HoverOutlineColor, clip.Stroke{Path: appState.HoverPathSpec, Width: appState.HoverStrokeWidth / appState.ViewScale}.Op())
-							stack.Pop()
+							drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
 
 							if appState.RenderSelectionOutlines {
-								// Draw selection outline using cached path spec
-								stack = op.Affine(transformation).Push(gtx.Ops)
-								paint.FillShape(gtx.Ops, appState.Theme.SelectionOutlineColor, clip.Stroke{Path: appState.SelectionPathSpec, Width: appState.SelectionStrokeWidth / appState.ViewScale}.Op())
-								stack.Pop()
+								// Halo (wider, dark stroke drawn first)
+								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
 
 								// Draw existing mask outline (orange) for any mask loaded from disk
-								stack = op.Affine(transformation).Push(gtx.Ops)
-								paint.FillShape(gtx.Ops, appState.Theme.ExistingMaskOutlineColor, clip.Stroke{Path: appState.ExistingMaskPathSpec, Width: appState.SelectionStrokeWidth / appState.ViewScale}.Op())
-								stack.Pop()
+								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
 							}
 						}
 
@@ -278,4 +231,102 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 			)
 		}),
 	)
+}
+
+func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
+	atFirstImage := appState.CurrentIndex == 0
+	atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
+
+	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.FirstButton)
+			}
+			return appState.Theme.IconButton(&appState.FirstButton, theme.IconFirst, "First").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
+			}
+			return appState.Theme.IconButton(&appState.PrevUnlabeledButton, theme.IconPrevUnlabeled, "Previous Unlabeled").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.PrevButton)
+			}
+			return appState.Theme.IconButton(&appState.PrevButton, theme.IconPrev, "Previous").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.NextButton)
+			}
+			return appState.Theme.IconButton(&appState.NextButton, theme.IconNext, "Next").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
+			}
+			return appState.Theme.IconButton(&appState.NextUnlabeledButton, theme.IconNextUnlabeled, "Next Unlabeled").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.LastButton)
+			}
+			return appState.Theme.IconButton(&appState.LastButton, theme.IconLast, "Last").Layout(gtx)
+		}),
+	)
+}
+
+// drawStroke adds the drawing operations for an outline to the graphics context
+// The halo is an additional outline around the main line.
+func drawStroke(
+	stack *op.TransformStack,
+	gtx layout.Context,
+	transformation f32.Affine2D,
+	viewScale float32,
+	pathSpec clip.PathSpec,
+	strokeColor color.NRGBA,
+	strokeWidth float32,
+	haloWidth float32) {
+
+	if haloWidth > 0 {
+		// Halo/Outline
+		*stack = op.Affine(transformation).Push(gtx.Ops)
+		paint.FillShape(gtx.Ops,
+			color.NRGBA{R: 0, G: 0, B: 0, A: 200},
+			clip.Stroke{
+				Path:  pathSpec,
+				Width: (strokeWidth + haloWidth) / viewScale,
+			}.Op())
+		stack.Pop()
+	}
+	if strokeWidth > 0 {
+		// Colored stroke on top
+		*stack = op.Affine(transformation).Push(gtx.Ops)
+		paint.FillShape(gtx.Ops,
+			strokeColor,
+			clip.Stroke{
+				Path:  pathSpec,
+				Width: strokeWidth / viewScale,
+			}.Op())
+		stack.Pop()
+	}
 }

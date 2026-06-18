@@ -5,17 +5,21 @@ import (
 	"path/filepath"
 
 	"github.com/goccy/go-yaml"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
 const ConfigFileName = "settings.yaml"
 
 // SuperpixelSettings stores the algorithm name and its parameters.
+// This is used for yaml persistence.
 type SuperpixelSettings struct {
 	Algorithm  string             `yaml:"algorithm"`
 	Parameters map[string]float64 `yaml:"parameters"`
 }
 
-// ProjectSettings is the top-level structure persisted to disk.
+// ProjectSettings stores all settings of a project,
+// it is used for yaml persistence.
 type ProjectSettings struct {
 	InputDirectory string             `yaml:"input_directory"`
 	Superpixel     SuperpixelSettings `yaml:"superpixel"`
@@ -65,4 +69,20 @@ func InitNew(outputDir, inputDir string, spSettings SuperpixelSettings) (*Projec
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// SuperpixelSettingsFromImpl derives a SuperpixelSettings from a live SpImplementation.
+// The algorithm name is resolved via the superpixel_factory, keeping all name
+// registry logic in one place.
+func SuperpixelSettingsFromImpl(impl superpixel.SpImplementation) (SuperpixelSettings, error) {
+	name, err := superpixel_factory.ImplementationName(impl)
+	if err != nil {
+		return SuperpixelSettings{}, err
+	}
+	params := make(map[string]float64)
+	for _, p := range impl.GetSupportedParameters() {
+		v, _ := impl.GetParameter(p)
+		params[string(p)] = v
+	}
+	return SuperpixelSettings{Algorithm: name, Parameters: params}, nil
 }

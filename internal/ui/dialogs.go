@@ -71,17 +71,15 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, string, error) {
 		return nil, "", err
 	}
 
-	impl, err := superpixel_factory.GetSuperpixelImplementationByName("slic")
+	impl, err := superpixel_factory.NewSuperpixelImplementationByName("slic")
 	if err != nil {
 		return nil, "", err
 	}
 	impl.SetRecommendedParameters()
-	params := make(map[string]float64)
-	for _, p := range impl.GetSupportedParameters() {
-		v, _ := impl.GetParameter(p)
-		params[string(p)] = v
+	spCfg, err := app_config.SuperpixelSettingsFromImpl(impl)
+	if err != nil {
+		return nil, "", err
 	}
-	spCfg := app_config.SuperpixelSettings{Algorithm: "slic", Parameters: params}
 
 	cfg, err := app_config.InitNew(outputDir, inputDir, spCfg)
 	if err != nil {
