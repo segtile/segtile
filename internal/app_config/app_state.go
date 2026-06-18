@@ -51,6 +51,8 @@ type AppState struct {
 	Theme                      *theme.AppTheme
 	SuperpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
 	RenderSelectionOutlines    bool
+	FirstButton                widget.Clickable
+	LastButton                 widget.Clickable
 	PrevUnlabeledButton        widget.Clickable
 	PrevButton                 widget.Clickable
 	NextUnlabeledButton        widget.Clickable
