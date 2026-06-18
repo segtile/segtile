@@ -224,10 +224,12 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	}
 
 	if button == &appState.FirstButton {
+		appState.LoadFirstImage()
 		return
 	}
 
 	if button == &appState.LastButton {
+		appState.LoadLastImage()
 		return
 	}
 

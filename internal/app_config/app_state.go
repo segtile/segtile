@@ -199,6 +199,18 @@ func (appState *AppState) LoadPreviousImage() {
 	}
 }
 
+func (appState *AppState) LoadFirstImage() {
+	if len(appState.ImageFiles) > 0 {
+		appState.loadImageAtIndex(0)
+	}
+}
+
+func (appState *AppState) LoadLastImage() {
+	if len(appState.ImageFiles) > 0 {
+		appState.loadImageAtIndex(len(appState.ImageFiles) - 1)
+	}
+}
+
 // LoadNextUnlabeledImage finds the next image without an existing mask file and loads it.
 func (appState *AppState) LoadNextUnlabeledImage() {
 	for i := appState.CurrentIndex + 1; i < len(appState.ImageFiles); i++ {

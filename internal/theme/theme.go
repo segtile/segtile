@@ -84,7 +84,7 @@ func (theme *AppTheme) DefaultButton(btn *widget.Clickable, txt string, size flo
 
 func (theme *AppTheme) IconButton(btn *widget.Clickable, icon *widget.Icon, description string) material.IconButtonStyle {
 	style := material.IconButton(&theme.GioTheme, btn, icon, description)
-	style.Size = unit.Dp(16)
+	style.Size = unit.Dp(20)
 	style.Inset = layout.UniformInset(unit.Dp(4))
 	return style
 }

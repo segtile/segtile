@@ -114,65 +114,8 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
 
 						// Image navigation buttons.
-						atFirstImage := appState.CurrentIndex == 0
-						atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
 						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									if atFirstImage {
-										gtx = gtx.Disabled()
-									} else {
-										HandleUiButtonClick(appState, gtx, &appState.FirstButton)
-									}
-									return appState.Theme.IconButton(&appState.FirstButton, theme.IconFirst, "First").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									if atFirstImage {
-										gtx = gtx.Disabled()
-									} else {
-										HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
-									}
-									return appState.Theme.IconButton(&appState.PrevUnlabeledButton, theme.IconPrevUnlabeled, "Previous Unlabeled").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									if atFirstImage {
-										gtx = gtx.Disabled()
-									} else {
-										HandleUiButtonClick(appState, gtx, &appState.PrevButton)
-									}
-									return appState.Theme.IconButton(&appState.PrevButton, theme.IconPrev, "Previous").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-
-									if atLastImage {
-										gtx = gtx.Disabled()
-									} else {
-										HandleUiButtonClick(appState, gtx, &appState.NextButton)
-									}
-									return appState.Theme.IconButton(&appState.NextButton, theme.IconNext, "Next").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									if atLastImage {
-										gtx = gtx.Disabled()
-									} else {
-										HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
-									}
-									return appState.Theme.IconButton(&appState.NextUnlabeledButton, theme.IconNextUnlabeled, "Next Unlabeled").Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									if atLastImage {
-										gtx = gtx.Disabled()
-									} else {
-										HandleUiButtonClick(appState, gtx, &appState.LastButton)
-									}
-									return appState.Theme.IconButton(&appState.LastButton, theme.IconLast, "Last").Layout(gtx)
-								}),
-							)
+							return drawImageNavigationButtons(appState, gtx)
 						}))
 
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -282,6 +225,68 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					return layout.Dimensions{Size: canvasSize}
 				}),
 			)
+		}),
+	)
+}
+
+func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
+	atFirstImage := appState.CurrentIndex == 0
+	atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
+
+	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.FirstButton)
+			}
+			return appState.Theme.IconButton(&appState.FirstButton, theme.IconFirst, "First").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
+			}
+			return appState.Theme.IconButton(&appState.PrevUnlabeledButton, theme.IconPrevUnlabeled, "Previous Unlabeled").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.PrevButton)
+			}
+			return appState.Theme.IconButton(&appState.PrevButton, theme.IconPrev, "Previous").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.NextButton)
+			}
+			return appState.Theme.IconButton(&appState.NextButton, theme.IconNext, "Next").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
+			}
+			return appState.Theme.IconButton(&appState.NextUnlabeledButton, theme.IconNextUnlabeled, "Next Unlabeled").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.LastButton)
+			}
+			return appState.Theme.IconButton(&appState.LastButton, theme.IconLast, "Last").Layout(gtx)
 		}),
 	)
 }
