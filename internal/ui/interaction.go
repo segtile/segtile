@@ -28,8 +28,14 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			}
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
-					appState.SuperpixelImplementation.SetParameter(param, v)
-					fmt.Printf("Set %s to %v\n", param.Title(), v)
+					setErr := appState.SuperpixelImplementation.SetParameter(param, v)
+					if setErr != nil {
+						fmt.Printf("Error setting %s: %v\n", param.Title(), setErr)
+					}
+					newValue, _ := appState.SuperpixelImplementation.GetParameter(param)
+					editor.SetText(fmt.Sprintf("%v", newValue))
+					fmt.Printf("Set %s to %v\n", param.Title(), newValue)
+
 					recalculate = true
 				}
 			}
@@ -42,12 +48,15 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 		// Persist updated parameters to config.
 		if appState.Settings != nil {
-			for _, p := range appState.SuperpixelImplementation.GetSupportedParameters() {
-				v, _ := appState.SuperpixelImplementation.GetParameter(p)
-				appState.Settings.Superpixel.Parameters[string(p)] = v
-			}
-			if err := app_config.Save(appState.Settings, appState.OutputDirectory); err != nil {
-				fmt.Println("Warning: could not save config:", err)
+			spCfg, err := app_config.SuperpixelSettingsFromImpl(appState.SuperpixelImplementation)
+			if err == nil {
+				settings := &app_config.ProjectSettings{
+					InputDirectory: appState.Settings.InputDirectory,
+					Superpixel:     spCfg,
+				}
+				if err := app_config.Save(settings, appState.OutputDirectory); err != nil {
+					fmt.Println("Warning: could not save config:", err)
+				}
 			}
 		}
 	}
@@ -211,6 +220,16 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.NewProjectButton {
 		triggerNewProject(appState)
+		return
+	}
+
+	if button == &appState.FirstButton {
+		appState.LoadFirstImage()
+		return
+	}
+
+	if button == &appState.LastButton {
+		appState.LoadLastImage()
 		return
 	}
 

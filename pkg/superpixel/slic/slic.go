@@ -87,21 +87,25 @@ func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, err
 }
 
 func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
+
 	switch parameter {
 	case superpixel.Count:
-		if value < 1 {
-			return errors.New("Superpixel count must be at least 1.")
+		if value < 2 {
+			this.numSuperpixels = 2
+			return errors.New("Superpixel count must be at least 2.")
 		}
 		this.numSuperpixels = int(value)
 		return nil
 	case superpixel.Compactness:
 		if value < 0 {
+			this.compactness = 0
 			return errors.New("Compactness can not be negative.")
 		}
 		this.compactness = value
 		return nil
 	case superpixel.InitialPerturbationNeighborhoodRadius:
 		if value < 0 {
+			this.initialPerturbationNeighborhoodRadius = 0
 			return errors.New("Initial perturbation neighborhood radius can not be negative.")
 		}
 		this.initialPerturbationNeighborhoodRadius = int(value)

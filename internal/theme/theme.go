@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
 // AppTheme defines the colors and styles used throughout the application.
@@ -16,6 +17,33 @@ type AppTheme struct {
 	HoverOutlineColor        color.NRGBA
 	SelectionOutlineColor    color.NRGBA
 	ExistingMaskOutlineColor color.NRGBA
+
+	SelectionStrokeWidth    float32
+	HoverStrokeWidth        float32
+	ExistingMaskStrokeWidth float32
+	StrokeHaloWidth         float32
+}
+
+// golang.org/x/exp/shiny/materialdesign/icons does not provide a "play reversed arrow" icon, so we define it ourselves by mirroring the existing play arrow icon.
+var aVPlayReverseArrow = []byte{
+	0x89, 0x49, 0x56, 0x47, 0x02, 0x0a, 0x00, 0x50, 0x50, 0xb0, 0xb0, 0xc0, 0x90, 0x64, 0xe9, 0xb8,
+	0x20, 0x54, 0x64, 0xe1,
+}
+
+var (
+	IconFirst         = mustIcon(widget.NewIcon(icons.AVSkipPrevious))
+	IconPrevUnlabeled = mustIcon(widget.NewIcon(icons.AVFastRewind))
+	IconPrev          = mustIcon(widget.NewIcon(aVPlayReverseArrow))
+	IconNext          = mustIcon(widget.NewIcon(icons.AVPlayArrow))
+	IconNextUnlabeled = mustIcon(widget.NewIcon(icons.AVFastForward))
+	IconLast          = mustIcon(widget.NewIcon(icons.AVSkipNext))
+)
+
+func mustIcon(ic *widget.Icon, err error) *widget.Icon {
+	if err != nil {
+		panic(err)
+	}
+	return ic
 }
 
 // Constants
@@ -33,14 +61,32 @@ var palette = material.Palette{
 var gioTheme = material.NewTheme().WithPalette(palette)
 
 var Theme = &AppTheme{
-	GioTheme:                 gioTheme,
+	// Material theme for Gio widgets
+	GioTheme: gioTheme,
+
+	// Colors for outlines
 	HoverOutlineColor:        color.NRGBA{R: 0, G: 200, B: 255, A: 220},
-	SelectionOutlineColor:    color.NRGBA{R: 255, G: 200, B: 0, A: 220},
-	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 220},
+	SelectionOutlineColor:    color.NRGBA{R: 255, G: 200, B: 0, A: 240},
+	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 160},
+
+	// Stroke widths
+	SelectionStrokeWidth:    0.75,
+	HoverStrokeWidth:        0.75,
+	ExistingMaskStrokeWidth: 1.0,
+	StrokeHaloWidth:         0.75,
 }
 
-func (theme *AppTheme) DefaultButton(btn *widget.Clickable, txt string) material.ButtonStyle {
-	return material.Button(&theme.GioTheme, btn, txt)
+func (theme *AppTheme) DefaultButton(btn *widget.Clickable, txt string, size float32) material.ButtonStyle {
+	buttonStyle := material.Button(&theme.GioTheme, btn, txt)
+	buttonStyle.TextSize = unit.Sp(size)
+	return buttonStyle
+}
+
+func (theme *AppTheme) IconButton(btn *widget.Clickable, icon *widget.Icon, description string) material.IconButtonStyle {
+	style := material.IconButton(&theme.GioTheme, btn, icon, description)
+	style.Size = unit.Dp(20)
+	style.Inset = layout.UniformInset(unit.Dp(4))
+	return style
 }
 
 func (theme *AppTheme) MenuBarButton(btn *widget.Clickable, txt string) material.ButtonStyle {
