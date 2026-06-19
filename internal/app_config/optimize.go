@@ -1,13 +1,42 @@
 package app_config
 
+import (
+	"log"
+
+	"github.com/d4l3k/go-bayesopt"
+)
+
 func (appState *AppState) OptimizeSpParameters() {
 
 	// Copy the existing SP implementation
-	//spImpl := appState.SuperpixelImplementation
+	spImpl := appState.SuperpixelImplementation
 
-	// Get all already labeled images
+	// Prepare the parameters for the optimizer.
+	bayesParameters := []bayesopt.Param{}
 
-	// Loop over up to N images
+	for _, param := range spImpl.GetSupportedParameters() {
+		bayesParameters = append(bayesParameters, bayesopt.UniformParam{
+			Name: string(param),
+			Min:  param.Min(),
+			Max:  param.Max(),
+		})
+	}
 
-	// 		Build SP with current configuration
+	// Create the optimizer with the parameters.
+	optimizer := bayesopt.New(
+		bayesParameters,
+	)
+
+	parameterMap, score, err := optimizer.Optimize(func(params map[bayesopt.Param]float64) float64 {
+		return evaluate(appState, params)
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println(parameterMap, score)
+}
+
+func evaluate(appState *AppState, params map[bayesopt.Param]float64) float64 {
+	// TODO
+	return 0
 }

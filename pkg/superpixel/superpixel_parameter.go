@@ -13,6 +13,37 @@ const (
 	InitialPerturbationNeighborhoodRadius SpParameter = "initial_perturbation_neighborhood_radius"
 )
 
+func (this SpParameter) Min() float64 {
+	switch this {
+	case Count:
+		return 2
+	case Compactness:
+		return 0
+	case Iterations:
+		return 1
+	case InitialPerturbationNeighborhoodRadius:
+		return 0
+	default:
+		return 0
+	}
+
+}
+
+func (this SpParameter) Max() float64 {
+	switch this {
+	case Count:
+		return 32768
+	case Compactness:
+		return 1024
+	case Iterations:
+		return 32
+	case InitialPerturbationNeighborhoodRadius:
+		return 16
+	default:
+		return 0
+	}
+}
+
 // Titles
 func (this SpParameter) Title() string {
 	switch this {
