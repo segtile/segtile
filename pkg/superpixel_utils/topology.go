@@ -1,4 +1,4 @@
-package evaluation
+package superpixel_utils
 
 import "image"
 
