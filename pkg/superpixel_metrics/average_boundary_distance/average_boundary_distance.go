@@ -6,29 +6,23 @@ import (
 	"math"
 	"math/rand/v2"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type SpMetricAverageBoundaryDistance struct {
-	spResult *superpixel.SpResult
-}
-
-func (e *SpMetricAverageBoundaryDistance) SetSpResult(spResult *superpixel.SpResult) {
-	e.spResult = spResult
-}
-
-func (e *SpMetricAverageBoundaryDistance) GetSpResult() *superpixel.SpResult {
-	return e.spResult
+	superpixel_metrics.SpMetricsData
 }
 
 func (e *SpMetricAverageBoundaryDistance) PerfectScore() float64 {
 	return 1.0
 }
 
-func (e *SpMetricAverageBoundaryDistance) GetScore(groundTruthMask *image.Gray16, spResult *superpixel.SpResult, maxIslands int) (averageBoundaryDistance float64) {
+func (e *SpMetricAverageBoundaryDistance) GetScore() (averageBoundaryDistance float64) {
 
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruthMask)
+	const maxIslands = 5
+
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
 
 	// Prepare metrics
 	averageBoundaryDistance = 0.0
@@ -51,8 +45,8 @@ func (e *SpMetricAverageBoundaryDistance) GetScore(groundTruthMask *image.Gray16
 
 		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, islandLabel)
 
-		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
-		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+		selectionFromCurrentIsland := e.GetSpResult().SelectFromMask(currentGroundTruthIsland, 0.5)
+		currentApproximatedMask := e.GetSpResult().SelectionToMask(selectionFromCurrentIsland)
 
 		currentAverageBoundaryDistance, _ := AverageBoundaryDistance(currentGroundTruthIsland, currentApproximatedMask)
 		averageBoundaryDistance += currentAverageBoundaryDistance

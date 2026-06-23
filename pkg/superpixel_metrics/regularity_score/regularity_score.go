@@ -1,33 +1,26 @@
 package regularity_score
 
 import (
-	"image"
 	"math"
 	"math/rand/v2"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type SpEvaluatorDensityCalibrationScore struct {
-	spResult *superpixel.SpResult
-}
-
-func (e *SpEvaluatorDensityCalibrationScore) SetSpResult(spResult *superpixel.SpResult) {
-	e.spResult = spResult
-}
-
-func (e *SpEvaluatorDensityCalibrationScore) GetSpResult() *superpixel.SpResult {
-	return e.spResult
+	superpixel_metrics.SpMetricsData
 }
 
 func (e *SpEvaluatorDensityCalibrationScore) PerfectScore() float64 {
 	return 1.0
 }
 
-func (e *SpEvaluatorDensityCalibrationScore) GetScore(groundTruthMask *image.Gray16, spResult *superpixel.SpResult, maxIslands int) (regularityCalibrationScore float64) {
+func (e *SpEvaluatorDensityCalibrationScore) GetScore() (regularityCalibrationScore float64) {
 
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruthMask)
+	const maxIslands = 5
+
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
 
 	// Prepare metrics
 	regularityCalibrationScore = 0.0
@@ -52,7 +45,7 @@ func (e *SpEvaluatorDensityCalibrationScore) GetScore(groundTruthMask *image.Gra
 
 		// Regularity Calibration Score
 		groundTruthFillRatio := FillRatioOfOwnBoundingBox(currentGroundTruthIsland)
-		superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(spResult.LabelMap, spResult.SpCount)
+		superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(e.GetSpResult().LabelMap, e.GetSpResult().SpCount)
 		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
 			regularityCalibrationScore += math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
 		}

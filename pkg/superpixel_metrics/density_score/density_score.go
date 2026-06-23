@@ -1,34 +1,26 @@
 package density_score
 
 import (
-	"image"
 	"math"
 	"math/rand/v2"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type SpMetricDensityCalibrationScore struct {
-	spResult *superpixel.SpResult
-}
-
-func (e *SpMetricDensityCalibrationScore) SetSpResult(spResult *superpixel.SpResult) {
-	e.spResult = spResult
-}
-
-func (e *SpMetricDensityCalibrationScore) GetSpResult() *superpixel.SpResult {
-	return e.spResult
+	superpixel_metrics.SpMetricsData
 }
 
 func (e *SpMetricDensityCalibrationScore) PerfectScore() float64 {
 	return 1.0
 }
 
-func (e *SpMetricDensityCalibrationScore) GetScore(groundTruthMask *image.Gray16, spResult *superpixel.SpResult, maxIslands int) (densityCalibrationScore float64) {
+func (e *SpMetricDensityCalibrationScore) GetScore() (densityCalibrationScore float64) {
 
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruthMask)
+	const maxIslands = 5
+
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
 
 	// Prepare metrics
 	densityCalibrationScore = 0.0
@@ -47,21 +39,21 @@ func (e *SpMetricDensityCalibrationScore) GetScore(groundTruthMask *image.Gray16
 		islandLabels = islandLabels[:maxIslands]
 	}
 
-	groundTruthMaskArea := groundTruthMask.Bounds().Dx() * groundTruthMask.Bounds().Dy()
+	groundTruthMaskArea := e.GetGroundTruthSegmentation().Bounds().Dx() * e.GetGroundTruthSegmentation().Bounds().Dy()
 
 	for _, islandLabel := range islandLabels {
 
 		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, islandLabel)
 		currentGroundTruthIslandArea := superpixel_metrics.Area(currentGroundTruthIsland)
 
-		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
-		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+		selectionFromCurrentIsland := e.GetSpResult().SelectFromMask(currentGroundTruthIsland, 0.5)
+		currentApproximatedMask := e.GetSpResult().SelectionToMask(selectionFromCurrentIsland)
 		currentApproximatedMaskArea := superpixel_metrics.Area(currentApproximatedMask)
 
-		_, currentSelectedBorderingSpCount := superpixel_utils.CountBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
+		_, currentSelectedBorderingSpCount := superpixel_utils.CountBorderingSuperpixels(e.GetSpResult().LabelMap, selectionFromCurrentIsland)
 
-		currentBorderingSpSelection := superpixel_utils.SelectBorderingSuperpixels(spResult.LabelMap, selectionFromCurrentIsland)
-		currentBorderingSpMask := spResult.SelectionToMask(currentBorderingSpSelection)
+		currentBorderingSpSelection := superpixel_utils.SelectBorderingSuperpixels(e.GetSpResult().LabelMap, selectionFromCurrentIsland)
+		currentBorderingSpMask := e.GetSpResult().SelectionToMask(currentBorderingSpSelection)
 		currentBorderingSpMaskArea := superpixel_metrics.Area(currentBorderingSpMask)
 
 		// Density Calibration Score

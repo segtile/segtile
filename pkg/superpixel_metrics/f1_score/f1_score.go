@@ -5,29 +5,23 @@ import (
 	"image"
 	"math/rand/v2"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type SpMetricF1Score struct {
-	spResult *superpixel.SpResult
-}
-
-func (e *SpMetricF1Score) SetSpResult(spResult *superpixel.SpResult) {
-	e.spResult = spResult
-}
-
-func (e *SpMetricF1Score) GetSpResult() *superpixel.SpResult {
-	return e.spResult
+	superpixel_metrics.SpMetricsData
 }
 
 func (e *SpMetricF1Score) PerfectScore() float64 {
 	return 1.0
 }
 
-func (e *SpMetricF1Score) GetScore(groundTruthMask *image.Gray16, spResult *superpixel.SpResult, maxIslands int) (f1Score float64) {
+func (e *SpMetricF1Score) GetScore() (f1Score float64) {
 
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruthMask)
+	const maxIslands = 5
+
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
 
 	// Prepare metrics
 	f1Score = 0.0
@@ -50,8 +44,8 @@ func (e *SpMetricF1Score) GetScore(groundTruthMask *image.Gray16, spResult *supe
 
 		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, islandLabel)
 
-		selectionFromCurrentIsland := spResult.SelectFromMask(currentGroundTruthIsland, 0.5)
-		currentApproximatedMask := spResult.SelectionToMask(selectionFromCurrentIsland)
+		selectionFromCurrentIsland := e.GetSpResult().SelectFromMask(currentGroundTruthIsland, 0.5)
+		currentApproximatedMask := e.GetSpResult().SelectionToMask(selectionFromCurrentIsland)
 
 		// F1 Score
 		currentF1Score, _ := F1Score(currentGroundTruthIsland, currentApproximatedMask)
