@@ -8,15 +8,15 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type SpMetricDensityCalibrationScore struct {
+type SpMetricDensityScore struct {
 	superpixel_metrics.SpMetricsData
 }
 
-func (e *SpMetricDensityCalibrationScore) PerfectScore() float64 {
+func (e *SpMetricDensityScore) PerfectScore() float64 {
 	return 1.0
 }
 
-func (e *SpMetricDensityCalibrationScore) GetScore() (densityCalibrationScore float64) {
+func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64) {
 
 	const maxIslands = 5
 
