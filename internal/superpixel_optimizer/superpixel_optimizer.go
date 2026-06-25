@@ -1,4 +1,4 @@
-package superpixel_optimization
+package superpixel_optimizer
 
 import "github.com/struffel/annotation-tool/pkg/superpixel"
 
@@ -10,22 +10,28 @@ type SpOptimizer interface {
 	// Set a superpixel implementation to be evaluated and optimized.
 	SetImplementation(implementation superpixel.SpImplementation)
 
+	// Get available optimizer parameters
+	GetSupportedParameters() []SpOptimizerParameter
+
+	// Set a parameter value for the optimizer.
+	SetParameter(parameter SpOptimizerParameter, value float64) error
+
 	// Run the optimization process
 	Run() error
 
-	// Get the best parameters and the resulting score found by the optimization process.
+	// Get the best superpixel parameters and the resulting score found by the optimization process.
 	GetResults() (score float64, parameters map[superpixel.SpParameter]float64, err error)
 }
 
 type SpOptimizerData struct {
-	Paths          map[string]string
-	Implementation superpixel.SpImplementation
+	AnnotationPairs  map[string]string
+	SpImplementation superpixel.SpImplementation
 }
 
 func (o *SpOptimizerData) SetImageAndGroundTruthPaths(paths map[string]string) {
-	o.Paths = paths
+	o.AnnotationPairs = paths
 }
 
 func (o *SpOptimizerData) SetImplementation(implementation superpixel.SpImplementation) {
-	o.Implementation = implementation
+	o.SpImplementation = implementation
 }
