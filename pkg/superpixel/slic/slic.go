@@ -39,7 +39,7 @@ type SpSlic struct {
 	superpixel.SpAlgorithmData
 
 	// Specific parameters
-	numSuperpixels                        int
+	count                                 int
 	compactness                           float64
 	initialPerturbationNeighborhoodRadius int
 	iterations                            int
@@ -56,7 +56,7 @@ type SpSlic struct {
 }
 
 func (this *SpSlic) SetRecommendedParameters() {
-	this.numSuperpixels = 1000
+	this.count = 1000
 	this.compactness = 30
 	this.initialPerturbationNeighborhoodRadius = 1
 	this.iterations = 8
@@ -74,7 +74,7 @@ func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
 func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, error) {
 	switch parameter {
 	case Count:
-		return float64(this.numSuperpixels), nil
+		return float64(this.count), nil
 	case Compactness:
 		return this.compactness, nil
 	case InitialPerturbationNeighborhoodRadius:
@@ -91,10 +91,10 @@ func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64
 	switch parameter {
 	case Count:
 		if value < 2 {
-			this.numSuperpixels = 2
+			this.count = 2
 			return errors.New("Superpixel count must be at least 2.")
 		}
-		this.numSuperpixels = int(value)
+		this.count = int(value)
 		return nil
 	case Compactness:
 		if value < 0 {
@@ -415,7 +415,7 @@ func (this *SpSlic) initializeClusters() {
 
 	// Initialize clusters
 	var points []image.Point
-	points, this.gridInterval = superpixel_utils.RegularGridPoints(width, height, this.numSuperpixels)
+	points, this.gridInterval = superpixel_utils.RegularGridPoints(width, height, this.count)
 	this.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
 		this.clusters[index].x = point.X
