@@ -20,10 +20,19 @@ type SpMetric interface {
 	GetGroundTruthSegmentation() *image.Gray16
 
 	// Returns the score for the current superpixel result
-	GetScore() float64
+	GetScore() (float64, error)
 
 	// Returns the score that is considered "perfect" for this metric
 	PerfectScore() float64
+
+	// Set a specific metric parameter to the given value.
+	SetParameter(parameter SpMetricParameter, value float64) error
+
+	// Get the current value of a specific metric parameter.
+	GetParameter(parameter SpMetricParameter) (float64, error)
+
+	// Get a list of parameters supported by this metric.
+	GetSupportedParameters() []SpMetricParameter
 }
 
 type SpMetricsData struct {

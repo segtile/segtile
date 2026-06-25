@@ -1,6 +1,7 @@
 package density_score
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 
@@ -10,10 +11,36 @@ import (
 
 type SpMetricDensityScore struct {
 	superpixel_metrics.SpMetricsData
+	maxIslands int
 }
 
 func (e *SpMetricDensityScore) PerfectScore() float64 {
 	return 1.0
+}
+
+func (e *SpMetricDensityScore) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
+	switch parameter {
+	case MaxIslands:
+		e.maxIslands = int(value)
+		return nil
+	default:
+		return fmt.Errorf("Unknown parameter for DensityScore metric: %s", parameter)
+	}
+}
+
+func (e *SpMetricDensityScore) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
+	switch parameter {
+	case MaxIslands:
+		return float64(e.maxIslands), nil
+	default:
+		return 0, fmt.Errorf("Unknown parameter for DensityScore metric: %s", parameter)
+	}
+}
+
+func (e *SpMetricDensityScore) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
+	return []superpixel_metrics.SpMetricParameter{
+		MaxIslands,
+	}
 }
 
 func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64) {

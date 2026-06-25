@@ -18,6 +18,18 @@ func (e *SpMetricAverageBoundaryDistance) PerfectScore() float64 {
 	return 1.0
 }
 
+func (e *SpMetricAverageBoundaryDistance) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
+	return fmt.Errorf("No parameters available for AverageBoundaryDistance metric.")
+}
+
+func (e *SpMetricAverageBoundaryDistance) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
+	return 0, fmt.Errorf("No parameters available for AverageBoundaryDistance metric.")
+}
+
+func (e *SpMetricAverageBoundaryDistance) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
+	return []superpixel_metrics.SpMetricParameter{}
+}
+
 func (e *SpMetricAverageBoundaryDistance) GetScore() (averageBoundaryDistance float64) {
 
 	const maxIslands = 5
