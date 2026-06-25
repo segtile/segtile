@@ -39,7 +39,7 @@ type SpSlic struct {
 	superpixel.SpAlgorithmData
 
 	// Specific parameters
-	numSuperpixels                        int
+	count                                 int
 	compactness                           float64
 	initialPerturbationNeighborhoodRadius int
 	iterations                            int
@@ -56,7 +56,7 @@ type SpSlic struct {
 }
 
 func (this *SpSlic) SetRecommendedParameters() {
-	this.numSuperpixels = 1000
+	this.count = 1000
 	this.compactness = 30
 	this.initialPerturbationNeighborhoodRadius = 1
 	this.iterations = 8
@@ -64,22 +64,22 @@ func (this *SpSlic) SetRecommendedParameters() {
 
 func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
 	return []superpixel.SpParameter{
-		superpixel.Count,
-		superpixel.Compactness,
-		superpixel.InitialPerturbationNeighborhoodRadius,
-		superpixel.Iterations,
+		Count,
+		Compactness,
+		InitialPerturbationNeighborhoodRadius,
+		Iterations,
 	}
 }
 
 func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, error) {
 	switch parameter {
-	case superpixel.Count:
-		return float64(this.numSuperpixels), nil
-	case superpixel.Compactness:
+	case Count:
+		return float64(this.count), nil
+	case Compactness:
 		return this.compactness, nil
-	case superpixel.InitialPerturbationNeighborhoodRadius:
+	case InitialPerturbationNeighborhoodRadius:
 		return float64(this.initialPerturbationNeighborhoodRadius), nil
-	case superpixel.Iterations:
+	case Iterations:
 		return float64(this.iterations), nil
 	default:
 		return 0, errors.New("SLIC does not have this parameter.")
@@ -89,28 +89,28 @@ func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, err
 func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
 
 	switch parameter {
-	case superpixel.Count:
+	case Count:
 		if value < 2 {
-			this.numSuperpixels = 2
+			this.count = 2
 			return errors.New("Superpixel count must be at least 2.")
 		}
-		this.numSuperpixels = int(value)
+		this.count = int(value)
 		return nil
-	case superpixel.Compactness:
+	case Compactness:
 		if value < 0 {
 			this.compactness = 0
 			return errors.New("Compactness can not be negative.")
 		}
 		this.compactness = value
 		return nil
-	case superpixel.InitialPerturbationNeighborhoodRadius:
+	case InitialPerturbationNeighborhoodRadius:
 		if value < 0 {
 			this.initialPerturbationNeighborhoodRadius = 0
 			return errors.New("Initial perturbation neighborhood radius can not be negative.")
 		}
 		this.initialPerturbationNeighborhoodRadius = int(value)
 		return nil
-	case superpixel.Iterations:
+	case Iterations:
 		iterations := int(value)
 		if iterations < 1 {
 			return errors.New("Iterations must be at least 1.")
@@ -415,7 +415,7 @@ func (this *SpSlic) initializeClusters() {
 
 	// Initialize clusters
 	var points []image.Point
-	points, this.gridInterval = superpixel_utils.RegularGridPoints(width, height, this.numSuperpixels)
+	points, this.gridInterval = superpixel_utils.RegularGridPoints(width, height, this.count)
 	this.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
 		this.clusters[index].x = point.X

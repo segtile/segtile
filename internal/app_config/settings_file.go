@@ -82,7 +82,7 @@ func SuperpixelSettingsFromImpl(impl superpixel.SpImplementation) (SuperpixelSet
 	params := make(map[string]float64)
 	for _, p := range impl.GetSupportedParameters() {
 		v, _ := impl.GetParameter(p)
-		params[string(p)] = v
+		params[p.String()] = v
 	}
 	return SuperpixelSettings{Algorithm: name, Parameters: params}, nil
 }

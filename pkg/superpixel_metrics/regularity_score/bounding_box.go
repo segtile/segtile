@@ -1,6 +1,10 @@
-package evaluation
+package regularity_score
 
-import "image"
+import (
+	"image"
+
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+)
 
 type boundingBox struct {
 	minX, minY, maxX, maxY int
@@ -47,7 +51,7 @@ func FillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
 	if !bb.initialized {
 		return 0
 	}
-	return float64(Area(mask)) / float64(bb.area())
+	return float64(superpixel_metrics.Area(mask)) / float64(bb.area())
 }
 
 func FillRatioOfOwnBoundingBoxPerSuperpixel(labelMap *image.Gray16, spCount int) float64 {
