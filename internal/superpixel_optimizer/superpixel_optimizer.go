@@ -2,10 +2,15 @@ package superpixel_optimizer
 
 import "github.com/struffel/annotation-tool/pkg/superpixel"
 
+type SpOptimizerImagePair struct {
+	ImagePath       string
+	GroundTruthPath string
+}
+
 type SpOptimizer interface {
 
 	// Set a map of image paths and corresponding ground truth selection paths to be used for optimization.
-	SetImageAndGroundTruthPaths(paths map[string]string)
+	SetImageAndGroundTruthPaths([]SpOptimizerImagePair)
 
 	// Set a superpixel implementation to be evaluated and optimized.
 	SetImplementation(implementation superpixel.SpImplementation)
@@ -24,11 +29,11 @@ type SpOptimizer interface {
 }
 
 type SpOptimizerData struct {
-	AnnotationPairs  map[string]string
+	AnnotationPairs  []SpOptimizerImagePair
 	SpImplementation superpixel.SpImplementation
 }
 
-func (o *SpOptimizerData) SetImageAndGroundTruthPaths(paths map[string]string) {
+func (o *SpOptimizerData) SetImageAndGroundTruthPaths(paths []SpOptimizerImagePair) {
 	o.AnnotationPairs = paths
 }
 

@@ -86,6 +86,10 @@ func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, err
 	}
 }
 
+func (this *SpSlic) SetParameterByName(parameterName string, value float64) error {
+	return this.SetParameter(SlicParameter(parameterName), value)
+}
+
 func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
 
 	switch parameter {

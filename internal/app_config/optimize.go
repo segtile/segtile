@@ -1,30 +1,22 @@
 package app_config
 
 import (
-	"image"
 	"log"
 	"math/rand/v2"
 	"os"
 
-	"github.com/d4l3k/go-bayesopt"
-	"github.com/struffel/annotation-tool/internal/evaluation"
 	"github.com/struffel/annotation-tool/internal/io_utils"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
+	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
+	"github.com/struffel/annotation-tool/internal/superpixel_optimizer/labeling_calibration"
 )
 
 const optimizeSampleCount = 16
 
-type gtSample struct {
-	image *image.NRGBA
-	mask  *image.Gray16
-}
-
 // collectGTSamples assembles up to n image+GT-mask pairs to use during optimization.
 // The current image with its active selection is always the first entry (if a selection exists).
 // Additional samples are drawn randomly from images that already have a saved mask on disk.
-func collectGTSamples(appState *AppState, n int) []gtSample {
-	var samples []gtSample
+func collectGTSamples(appState *AppState, n int) []superpixel_optimizer.SpOptimizerImagePair {
+	var samples []superpixel_optimizer.SpOptimizerImagePair
 
 	// Shuffle all image indices and pick up to n–1 additional saved masks.
 	indices := make([]int, len(appState.ImageFiles))
@@ -47,8 +39,7 @@ func collectGTSamples(appState *AppState, n int) []gtSample {
 		if !isMaskNonEmpty(loadedMask) {
 			continue
 		}
-		img := io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-		samples = append(samples, gtSample{image: img, mask: loadedMask})
+		samples = append(samples, superpixel_optimizer.SpOptimizerImagePair{ImagePath: appState.ImageFiles[i], GroundTruthPath: maskPath})
 	}
 
 	return samples
@@ -64,78 +55,48 @@ func (appState *AppState) OptimizeSpParameters() {
 	}
 	log.Printf("Optimizing using %d GT sample(s)", len(samples))
 
-	// Prepare the parameters for the optimizer.
-	bayesParameters := []bayesopt.Param{}
+	optimizer := labeling_calibration.SpOptimizerLabelingCalibration{}
+	optimizer.SpOptimizerData.SetImplementation(appState.SuperpixelImplementation)
+	optimizer.SpOptimizerData.SetImageAndGroundTruthPaths(samples)
 
-	/*for _, param := range spImpl.GetSupportedParameters() {
+	optimizer.Run()
+	/*
+		// Prepare the parameters for the optimizer.
+		bayesParameters := []bayesopt.Param{}
+
+		/*for _, param := range spImpl.GetSupportedParameters() {
+			bayesParameters = append(bayesParameters, bayesopt.UniformParam{
+				Name: string(param),
+				Min:  param.Min(),
+				Max:  param.Max(),
+			})
+		} //
 		bayesParameters = append(bayesParameters, bayesopt.UniformParam{
-			Name: string(param),
-			Min:  param.Min(),
-			Max:  param.Max(),
+			Name: string(slic.Count),
+			Min:  slic.Count.Min(),
+			Max:  slic.Count.Max(),
 		})
-	}*/
-	bayesParameters = append(bayesParameters, bayesopt.UniformParam{
-		Name: string(superpixel.Count),
-		Min:  superpixel.Count.Min(),
-		Max:  superpixel.Count.Max(),
-	})
-	bayesParameters = append(bayesParameters, bayesopt.UniformParam{
-		Name: string(superpixel.Compactness),
-		Min:  superpixel.Compactness.Min(),
-		Max:  superpixel.Compactness.Max(),
-	})
+		bayesParameters = append(bayesParameters, bayesopt.UniformParam{
+			Name: string(slic.Compactness),
+			Min:  slic.Compactness.Min(),
+			Max:  slic.Compactness.Max(),
+		})
 
-	// Create the optimizer with the parameters.
-	optimizer := bayesopt.New(
-		bayesParameters,
-		bayesopt.WithMinimize(false),
-		bayesopt.WithRandomRounds(16),
-		bayesopt.WithRounds(32),
-	)
+		// Create the optimizer with the parameters.
+		optimizer := bayesopt.New(
+			bayesParameters,
+			bayesopt.WithMinimize(false),
+			bayesopt.WithRandomRounds(16),
+			bayesopt.WithRounds(32),
+		)
 
-	parameterMap, score, err := optimizer.Optimize(func(params map[bayesopt.Param]float64) float64 {
-		result := evaluate(appState, samples, params)
-		log.Printf("Round %d: score=%.4f, params=%v", optimizer.Rounds(), result, params)
-		return result
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Optimization complete: best score=%.4f, params=%v", score, parameterMap)
-}
-
-func evaluate(appState *AppState, samples []gtSample, params map[bayesopt.Param]float64) float64 {
-	if len(samples) == 0 {
-		return 0
-	}
-
-	implName, err := superpixel_factory.ImplementationName(appState.SuperpixelImplementation)
-	if err != nil {
-		return 0
-	}
-
-	totalScore := 0.0
-	for _, sample := range samples {
-		newImpl, err := superpixel_factory.NewSuperpixelImplementationByName(implName)
+		parameterMap, score, err := optimizer.Optimize(func(params map[bayesopt.Param]float64) float64 {
+			result := evaluate(appState, samples, params)
+			log.Printf("Round %d: score=%.4f, params=%v", optimizer.Rounds(), result, params)
+			return result
+		})
 		if err != nil {
-			continue
+			log.Fatal(err)
 		}
-		newImpl.SetImage(sample.image)
-		newImpl.SetRecommendedParameters()
-
-		// Apply the candidate parameters
-		for param, value := range params {
-			newImpl.SetParameter(superpixel.SpParameter(param.GetName()), value)
-		}
-
-		if err := newImpl.Run(); err != nil {
-			continue
-		}
-
-		spResult := newImpl.GetResult()
-		score, _, _, _, _, _, _ := evaluation.SuperpixelEvaluation(sample.mask, spResult, 10)
-		totalScore += score
-	}
-
-	return totalScore / float64(len(samples))
+		log.Printf("Optimization complete: best score=%.4f, params=%v", score, parameterMap)*/
 }

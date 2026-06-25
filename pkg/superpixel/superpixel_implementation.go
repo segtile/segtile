@@ -20,6 +20,8 @@ type SpImplementation interface {
 	// Returns an error if the parameter is not supported or if the value is invalid.
 	SetParameter(parameter SpParameter, value float64) error
 
+	SetParameterByName(parameterName string, value float64) error
+
 	// GetParameter retrieves the current value of a specific algorithm parameter.
 	// Returns an error if the parameter is not supported.
 	GetParameter(parameter SpParameter) (float64, error)
