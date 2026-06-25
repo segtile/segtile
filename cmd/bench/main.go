@@ -8,14 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"sync"
 
 	_ "golang.org/x/image/tiff"
 
 	"github.com/struffel/annotation-tool/internal/cli"
 	util "github.com/struffel/annotation-tool/internal/cli"
-	"github.com/struffel/annotation-tool/internal/evaluation"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
@@ -137,7 +135,7 @@ func main() {
 	for param := range runParameters[0] {
 		parameterKeys = append(parameterKeys, param)
 	}
-	sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
+	//sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
 
 	// Prepare the header
 	csvHeader := []string{

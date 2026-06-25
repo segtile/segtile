@@ -114,7 +114,12 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputD
 	}
 	impl.SetRecommendedParameters()
 	for k, v := range projectSettings.Superpixel.Parameters {
-		impl.SetParameter(superpixel.SpParameter(k), v)
+		for _, param := range impl.GetSupportedParameters() {
+			if param.String() == k {
+				impl.SetParameter(param, v)
+				break
+			}
+		}
 	}
 	appState.SuperpixelImplementation = impl
 

@@ -10,7 +10,7 @@ import (
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/internal/superpixel_interaction"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
@@ -160,7 +160,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
 				if pe.Modifiers&key.ModShift != 0 {
 					// If shift is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_interaction.SuperpixelFloodFillSelection(labelMap, int(imageX), int(imageY), appState.SelectionIndex)
+					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillSelection(labelMap, int(imageX), int(imageY), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
