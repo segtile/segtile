@@ -33,9 +33,9 @@ func (this SlicParameter) Min() float64 {
 func (this SlicParameter) Max() float64 {
 	switch this {
 	case Count:
-		return 32768
+		return 8192
 	case Compactness:
-		return 1000.0
+		return 100.0
 	case Iterations:
 		return 32
 	case InitialPerturbationNeighborhoodRadius:

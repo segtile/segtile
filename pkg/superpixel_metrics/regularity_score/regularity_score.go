@@ -16,7 +16,7 @@ func (e *SpMetricRegularityScore) PerfectScore() float64 {
 	return 1.0
 }
 
-func (e *SpMetricRegularityScore) GetScore() (regularityCalibrationScore float64) {
+func (e *SpMetricRegularityScore) GetScore() (regularityCalibrationScore float64, err error) {
 
 	const maxIslands = 5
 
@@ -54,5 +54,5 @@ func (e *SpMetricRegularityScore) GetScore() (regularityCalibrationScore float64
 
 	regularityCalibrationScore /= float64(len(islandLabels))
 
-	return regularityCalibrationScore
+	return regularityCalibrationScore, nil
 }

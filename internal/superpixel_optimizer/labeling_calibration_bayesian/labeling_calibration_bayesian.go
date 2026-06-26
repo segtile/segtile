@@ -1,4 +1,4 @@
-package labeling_calibration
+package labeling_calibration_bayesian
 
 import (
 	"fmt"
@@ -11,6 +11,8 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel/slic"
 	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
 )
 
 type SpOptimizerLabelingCalibration struct {
@@ -22,8 +24,6 @@ func (o *SpOptimizerLabelingCalibration) Run() error {
 	if len(o.AnnotationPairs) == 0 {
 		return fmt.Errorf("No image and ground truth paths provided for optimization.")
 	}
-
-	log.Printf("Optimizing using %d GT sample(s)", len(o.AnnotationPairs))
 
 	// Prepare the parameters for the optimizer.
 	bayesParameters := []bayesopt.Param{}
@@ -103,11 +103,21 @@ func evaluate(impl superpixel.SpImplementation, annotationPairs []superpixel_opt
 		densityScoreEvaluator.SetSpResult(currentImpl.GetResult())
 		densityScoreEvaluator.SetGroundTruthSegmentation(currentGt)
 		densityScoreEvaluator.SetParameter(density_score.MaxIslands, 5)
-		densityScore := densityScoreEvaluator.GetScore()
+		densityScore, _ := densityScoreEvaluator.GetScore()
 
-		// ... Other scores
+		// Weighted F1 Score
+		weightedF1ScoreEvaluator := weighted_f1_score.SpMetricWeightedF1Score{}
+		weightedF1ScoreEvaluator.SetSpResult(currentImpl.GetResult())
+		weightedF1ScoreEvaluator.SetGroundTruthSegmentation(currentGt)
+		weightedF1Score, _ := weightedF1ScoreEvaluator.GetScore()
 
-		score := densityScore
+		// Regularity Score
+		regularityScoreEvaluator := regularity_score.SpMetricRegularityScore{}
+		regularityScoreEvaluator.SetSpResult(currentImpl.GetResult())
+		regularityScoreEvaluator.SetGroundTruthSegmentation(currentGt)
+		regularityScore, _ := regularityScoreEvaluator.GetScore()
+
+		score := densityScore * weightedF1Score * regularityScore
 
 		//Sum up
 		totalScore += score

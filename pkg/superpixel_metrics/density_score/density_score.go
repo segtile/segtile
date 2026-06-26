@@ -43,7 +43,7 @@ func (e *SpMetricDensityScore) GetSupportedParameters() []superpixel_metrics.SpM
 	}
 }
 
-func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64) {
+func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64, err error) {
 
 	const maxIslands = 5
 
@@ -94,5 +94,5 @@ func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64) {
 
 	densityCalibrationScore /= float64(len(islandLabels))
 
-	return densityCalibrationScore
+	return densityCalibrationScore, nil
 }

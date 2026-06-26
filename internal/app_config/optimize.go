@@ -7,7 +7,7 @@ import (
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
-	"github.com/struffel/annotation-tool/internal/superpixel_optimizer/labeling_calibration"
+	"github.com/struffel/annotation-tool/internal/superpixel_optimizer/labeling_calibration_bayesian"
 )
 
 const optimizeSampleCount = 16
@@ -55,7 +55,7 @@ func (appState *AppState) OptimizeSpParameters() {
 	}
 	log.Printf("Optimizing using %d GT sample(s)", len(samples))
 
-	optimizer := labeling_calibration.SpOptimizerLabelingCalibration{}
+	optimizer := labeling_calibration_bayesian.SpOptimizerLabelingCalibration{}
 	optimizer.SpOptimizerData.SetImplementation(appState.SuperpixelImplementation)
 	optimizer.SpOptimizerData.SetImageAndGroundTruthPaths(samples)
 
