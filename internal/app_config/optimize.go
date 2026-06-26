@@ -55,7 +55,7 @@ func (appState *AppState) OptimizeSpParameters() {
 	}
 	log.Printf("Optimizing using %d GT sample(s)", len(samples))
 
-	optimizer := labeling_calibration_bayesian.SpOptimizerLabelingCalibration{}
+	optimizer := labeling_calibration_bayesian.SpOptimizerLabelingCalibrationBayesian{}
 	optimizer.SpOptimizerData.SetImplementation(appState.SuperpixelImplementation)
 	optimizer.SpOptimizerData.SetImageAndGroundTruthPaths(samples)
 

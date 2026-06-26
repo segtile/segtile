@@ -15,12 +15,12 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
 )
 
-type SpOptimizerLabelingCalibration struct {
+type SpOptimizerLabelingCalibrationBayesian struct {
 	superpixel_optimizer.SpOptimizerData
 	score float64
 }
 
-func (o *SpOptimizerLabelingCalibration) Run() error {
+func (o *SpOptimizerLabelingCalibrationBayesian) Run() error {
 	if len(o.AnnotationPairs) == 0 {
 		return fmt.Errorf("No image and ground truth paths provided for optimization.")
 	}
