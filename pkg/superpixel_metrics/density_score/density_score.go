@@ -45,8 +45,6 @@ func (e *SpMetricDensityScore) GetSupportedParameters() []superpixel_metrics.SpM
 
 func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64, err error) {
 
-	const maxIslands = 5
-
 	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
 
 	// Prepare metrics
@@ -58,12 +56,12 @@ func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64, err 
 		islandLabels[i] = i + 1
 	}
 
-	// Shuffle the island labels and pick up to 10 for evaluation
+	// Shuffle the island labels and pick up to N for evaluation
 	rand.Shuffle(len(islandLabels), func(i, j int) {
 		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
 	})
-	if len(islandLabels) > maxIslands {
-		islandLabels = islandLabels[:maxIslands]
+	if len(islandLabels) > e.maxIslands {
+		islandLabels = islandLabels[:e.maxIslands]
 	}
 
 	groundTruthMaskArea := e.GetGroundTruthSegmentation().Bounds().Dx() * e.GetGroundTruthSegmentation().Bounds().Dy()
