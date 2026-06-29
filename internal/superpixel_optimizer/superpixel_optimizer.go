@@ -15,6 +15,12 @@ type SpOptimizer interface {
 	// Set a superpixel implementation to be evaluated and optimized.
 	SetImplementation(implementation superpixel.SpImplementation)
 
+	// Sets the parameters that will be optimized during the optimization process.
+	SetOptimizationTargetParameters([]superpixel.SpParameter)
+
+	// Gets the parameters that will be optimized during the optimization process.
+	GetOptimizationTargetParameters() []superpixel.SpParameter
+
 	// Get available optimizer parameters
 	GetSupportedParameters() []SpOptimizerParameter
 
@@ -29,8 +35,9 @@ type SpOptimizer interface {
 }
 
 type SpOptimizerData struct {
-	AnnotationPairs  []SpOptimizerImagePair
-	SpImplementation superpixel.SpImplementation
+	AnnotationPairs              []SpOptimizerImagePair
+	SpImplementation             superpixel.SpImplementation
+	OptimizationTargetParameters []superpixel.SpParameter
 }
 
 func (o *SpOptimizerData) SetImageAndGroundTruthPaths(paths []SpOptimizerImagePair) {
@@ -39,4 +46,12 @@ func (o *SpOptimizerData) SetImageAndGroundTruthPaths(paths []SpOptimizerImagePa
 
 func (o *SpOptimizerData) SetImplementation(implementation superpixel.SpImplementation) {
 	o.SpImplementation = implementation
+}
+
+func (o *SpOptimizerData) SetOptimizationTargetParameters(params []superpixel.SpParameter) {
+	o.OptimizationTargetParameters = params
+}
+
+func (o *SpOptimizerData) GetOptimizationTargetParameters() []superpixel.SpParameter {
+	return o.OptimizationTargetParameters
 }

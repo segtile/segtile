@@ -8,17 +8,18 @@ import (
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer/labeling_calibration_coordinate_descent"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel/slic"
 )
 
 const optimizeSampleCount = 16
 
-// collectGTSamples assembles up to n image+GT-mask pairs to use during optimization.
+// collectGTSamples assembles up to maxImageCount image+GT-mask pairs to use during optimization.
 // The current image with its active selection is always the first entry (if a selection exists).
 // Additional samples are drawn randomly from images that already have a saved mask on disk.
-func collectGTSamples(appState *AppState, n int) []superpixel_optimizer.SpOptimizerImagePair {
+func collectGTSamples(appState *AppState, maxImageCount int) []superpixel_optimizer.SpOptimizerImagePair {
 	var samples []superpixel_optimizer.SpOptimizerImagePair
 
-	// Shuffle all image indices and pick up to n–1 additional saved masks.
 	indices := make([]int, len(appState.ImageFiles))
 	for i := range indices {
 		indices[i] = i
@@ -28,7 +29,7 @@ func collectGTSamples(appState *AppState, n int) []superpixel_optimizer.SpOptimi
 	})
 
 	for _, i := range indices {
-		if len(samples) >= n {
+		if len(samples) >= maxImageCount {
 			break
 		}
 		maskPath := appState.maskPathForIndex(i)
@@ -57,46 +58,9 @@ func (appState *AppState) OptimizeSpParameters() {
 
 	optimizer := labeling_calibration_coordinate_descent.SpOptimizerLabelingCalibrationCoordinateDescent{}
 	optimizer.SpOptimizerData.SetImplementation(appState.SuperpixelImplementation)
+	optimizer.SpOptimizerData.SetOptimizationTargetParameters([]superpixel.SpParameter{slic.Count, slic.Compactness})
 	optimizer.SpOptimizerData.SetImageAndGroundTruthPaths(samples)
 
 	optimizer.Run()
-	/*
-		// Prepare the parameters for the optimizer.
-		bayesParameters := []bayesopt.Param{}
 
-		/*for _, param := range spImpl.GetSupportedParameters() {
-			bayesParameters = append(bayesParameters, bayesopt.UniformParam{
-				Name: string(param),
-				Min:  param.Min(),
-				Max:  param.Max(),
-			})
-		} //
-		bayesParameters = append(bayesParameters, bayesopt.UniformParam{
-			Name: string(slic.Count),
-			Min:  slic.Count.Min(),
-			Max:  slic.Count.Max(),
-		})
-		bayesParameters = append(bayesParameters, bayesopt.UniformParam{
-			Name: string(slic.Compactness),
-			Min:  slic.Compactness.Min(),
-			Max:  slic.Compactness.Max(),
-		})
-
-		// Create the optimizer with the parameters.
-		optimizer := bayesopt.New(
-			bayesParameters,
-			bayesopt.WithMinimize(false),
-			bayesopt.WithRandomRounds(16),
-			bayesopt.WithRounds(32),
-		)
-
-		parameterMap, score, err := optimizer.Optimize(func(params map[bayesopt.Param]float64) float64 {
-			result := evaluate(appState, samples, params)
-			log.Printf("Round %d: score=%.4f, params=%v", optimizer.Rounds(), result, params)
-			return result
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("Optimization complete: best score=%.4f, params=%v", score, parameterMap)*/
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel/slic"
 	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
 )
@@ -38,10 +37,7 @@ func (o *SpOptimizerLabelingCalibrationCoordinateDescent) Run() error {
 	}
 	tempImpl.SetRecommendedParameters()
 
-	supportedParams := []superpixel.SpParameter{
-		slic.Count,
-		slic.Compactness,
-	}
+	supportedParams := o.OptimizationTargetParameters
 	initialParams := make(map[superpixel.SpParameter]float64)
 	for _, param := range supportedParams {
 		if v, err := tempImpl.GetParameter(param); err == nil {
@@ -180,25 +176,6 @@ func evaluate(impl superpixel.SpImplementation, annotationPairs []superpixel_opt
 			labelingCalibrationEvaluator.SetGroundTruthSegmentation(currentGt)
 			labelingCalibrationEvaluator.SetParameter(labeling_calibration_score.MaxIslands, 5)
 			labelingCalibrationScore, _ := labelingCalibrationEvaluator.GetScore()
-
-			/*// Density Score
-			densityScoreEvaluator := density_score.SpMetricDensityScore{}
-			densityScoreEvaluator.SetSpResult(currentImpl.GetResult())
-			densityScoreEvaluator.SetGroundTruthSegmentation(currentGt)
-			densityScoreEvaluator.SetParameter(density_score.MaxIslands, 5)
-			densityScore, _ := densityScoreEvaluator.GetScore()
-
-			// Weighted F1 Score
-			weightedF1ScoreEvaluator := weighted_f1_score.SpMetricWeightedF1Score{}
-			weightedF1ScoreEvaluator.SetSpResult(currentImpl.GetResult())
-			weightedF1ScoreEvaluator.SetGroundTruthSegmentation(currentGt)
-			weightedF1Score, _ := weightedF1ScoreEvaluator.GetScore()
-
-			// Regularity Score
-			regularityScoreEvaluator := regularity_score.SpMetricRegularityScore{}
-			regularityScoreEvaluator.SetSpResult(currentImpl.GetResult())
-			regularityScoreEvaluator.SetGroundTruthSegmentation(currentGt)
-			regularityScore, _ := regularityScoreEvaluator.GetScore()*/
 
 			scores <- labelingCalibrationScore
 		}(sample)
