@@ -2,6 +2,7 @@ package density_score
 
 import (
 	"fmt"
+	"image"
 	"math"
 	"math/rand/v2"
 
@@ -47,12 +48,17 @@ func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64, err 
 
 	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
 
+	return e.GetScoreWithCachedIslands(groundTruthIslands, groundTruthIslandCount)
+}
+
+func (e *SpMetricDensityScore) GetScoreWithCachedIslands(islandMap *image.Gray16, islandCount uint16) (densityCalibrationScore float64, err error) {
+
 	// Prepare metrics
 	densityCalibrationScore = 0.0
 
 	// Build a list of all island labels
-	islandLabels := make([]uint16, groundTruthIslandCount)
-	for i := uint16(0); i < groundTruthIslandCount; i++ {
+	islandLabels := make([]uint16, islandCount)
+	for i := uint16(0); i < islandCount; i++ {
 		islandLabels[i] = i + 1
 	}
 
@@ -68,7 +74,7 @@ func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64, err 
 
 	for _, islandLabel := range islandLabels {
 
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, islandLabel)
+		currentGroundTruthIsland := superpixel_utils.SelectIsland(islandMap, islandLabel)
 		currentGroundTruthIslandArea := superpixel_metrics.Area(currentGroundTruthIsland)
 
 		selectionFromCurrentIsland := e.GetSpResult().SelectFromMask(currentGroundTruthIsland, 0.5)
@@ -90,6 +96,9 @@ func (e *SpMetricDensityScore) GetScore() (densityCalibrationScore float64, err 
 
 	}
 
+	if len(islandLabels) == 0 {
+		return 0.0, nil
+	}
 	densityCalibrationScore /= float64(len(islandLabels))
 
 	return densityCalibrationScore, nil
