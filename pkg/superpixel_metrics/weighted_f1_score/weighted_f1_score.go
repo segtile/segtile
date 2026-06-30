@@ -19,6 +19,10 @@ func (e *SpMetricWeightedF1Score) GetParameter(parameter superpixel_metrics.SpMe
 	return 0, fmt.Errorf("No parameters available for WeightedF1Score metric.")
 }
 
+func (e *SpMetricWeightedF1Score) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
+	return []superpixel_metrics.SpMetricParameter{}
+}
+
 func (e *SpMetricWeightedF1Score) PerfectScore() float64 {
 	return 1.0
 }

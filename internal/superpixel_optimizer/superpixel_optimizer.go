@@ -1,6 +1,9 @@
 package superpixel_optimizer
 
-import "github.com/struffel/annotation-tool/pkg/superpixel"
+import (
+	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+)
 
 type SpOptimizerImagePair struct {
 	ImagePath       string
@@ -37,6 +40,7 @@ type SpOptimizer interface {
 type SpOptimizerData struct {
 	AnnotationPairs              []SpOptimizerImagePair
 	SpImplementation             superpixel.SpImplementation
+	SpMetric                     superpixel_metrics.SpMetric
 	OptimizationTargetParameters []superpixel.SpParameter
 }
 

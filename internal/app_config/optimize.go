@@ -7,9 +7,10 @@ import (
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
-	"github.com/struffel/annotation-tool/internal/superpixel_optimizer/labeling_calibration_coordinate_descent"
+	"github.com/struffel/annotation-tool/internal/superpixel_optimizer/coordinate_descent"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
 )
 
 const optimizeSampleCount = 16
@@ -56,10 +57,11 @@ func (appState *AppState) OptimizeSpParameters() {
 	}
 	log.Printf("Optimizing using %d GT sample(s)", len(samples))
 
-	optimizer := labeling_calibration_coordinate_descent.SpOptimizerLabelingCalibrationCoordinateDescent{}
+	optimizer := coordinate_descent.SpOptimizerCoordinateDescent{}
 	optimizer.SpOptimizerData.SetImplementation(appState.SuperpixelImplementation)
 	optimizer.SpOptimizerData.SetOptimizationTargetParameters([]superpixel.SpParameter{slic.Count, slic.Compactness})
 	optimizer.SpOptimizerData.SetImageAndGroundTruthPaths(samples)
+	optimizer.SpOptimizerData.SpMetric = &labeling_calibration_score.SpMetricLabelingCalibrationScore{}
 
 	optimizer.Run()
 

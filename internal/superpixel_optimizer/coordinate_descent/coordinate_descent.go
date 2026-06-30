@@ -1,4 +1,4 @@
-package labeling_calibration_coordinate_descent
+package coordinate_descent
 
 import (
 	"fmt"
@@ -10,24 +10,28 @@ import (
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics_factory"
 )
 
-type SpOptimizerLabelingCalibrationCoordinateDescent struct {
+type SpOptimizerCoordinateDescent struct {
 	superpixel_optimizer.SpOptimizerData
 	score      float64
 	bestParams map[superpixel.SpParameter]float64
 }
 
-func (o *SpOptimizerLabelingCalibrationCoordinateDescent) Run() error {
+func (o *SpOptimizerCoordinateDescent) Run() error {
 	if len(o.AnnotationPairs) == 0 {
 		return fmt.Errorf("No image and ground truth paths provided for optimization.")
 	}
 
-	// Resolve the implementation name so we can create fresh copies during evaluation.
+	// Resolve the implementation and metric names so we can create fresh copies during evaluation.
 	implName, err := superpixel_factory.ImplementationName(o.SpImplementation)
 	if err != nil {
 		return fmt.Errorf("failed to get implementation name: %w", err)
+	}
+	metricName, err := superpixel_metrics_factory.ImplementationName(o.SpMetric)
+	if err != nil {
+		return fmt.Errorf("failed to get metric name: %w", err)
 	}
 
 	// Use SetRecommendedParameters() as the starting point.
@@ -46,7 +50,7 @@ func (o *SpOptimizerLabelingCalibrationCoordinateDescent) Run() error {
 	}
 
 	bestParams := copyParams(initialParams)
-	bestScore := evaluate(o.SpImplementation, o.AnnotationPairs, bestParams)
+	bestScore := evaluate(implName, metricName, o.AnnotationPairs, bestParams)
 	log.Printf("Initial score: %.4f, params: %v", bestScore, bestParams)
 
 	const maxPasses = 8
@@ -63,7 +67,7 @@ func (o *SpOptimizerLabelingCalibrationCoordinateDescent) Run() error {
 				trialParams := copyParams(bestParams)
 				trialParams[param] = candidate
 
-				if score := evaluate(o.SpImplementation, o.AnnotationPairs, trialParams); score > bestScore {
+				if score := evaluate(implName, metricName, o.AnnotationPairs, trialParams); score > bestScore {
 					bestScore = score
 					bestParams[param] = candidate
 					improved = true
@@ -87,7 +91,7 @@ func (o *SpOptimizerLabelingCalibrationCoordinateDescent) Run() error {
 	return nil
 }
 
-func (o *SpOptimizerLabelingCalibrationCoordinateDescent) GetResults() (float64, map[superpixel.SpParameter]float64, error) {
+func (o *SpOptimizerCoordinateDescent) GetResults() (float64, map[superpixel.SpParameter]float64, error) {
 	if o.bestParams == nil {
 		return 0, nil, fmt.Errorf("optimization has not been run yet")
 	}
@@ -135,13 +139,8 @@ func copyParams(params map[superpixel.SpParameter]float64) map[superpixel.SpPara
 	return result
 }
 
-func evaluate(impl superpixel.SpImplementation, annotationPairs []superpixel_optimizer.SpOptimizerImagePair, params map[superpixel.SpParameter]float64) float64 {
+func evaluate(implName string, metricName string, annotationPairs []superpixel_optimizer.SpOptimizerImagePair, params map[superpixel.SpParameter]float64) float64 {
 	if len(annotationPairs) == 0 {
-		return 0
-	}
-
-	implName, err := superpixel_factory.ImplementationName(impl)
-	if err != nil {
 		return 0
 	}
 
@@ -156,6 +155,11 @@ func evaluate(impl superpixel.SpImplementation, annotationPairs []superpixel_opt
 			if err != nil {
 				return
 			}
+			currentMetric, err := superpixel_metrics_factory.NewSuperpixelMetricByName(metricName)
+			if err != nil {
+				return
+			}
+
 			currentImg := io_utils.LoadImage(sample.ImagePath)
 			currentGt := io_utils.ToGray16(io_utils.LoadImage(sample.GroundTruthPath))
 			currentImpl.SetImage(currentImg)
@@ -170,14 +174,11 @@ func evaluate(impl superpixel.SpImplementation, annotationPairs []superpixel_opt
 				return
 			}
 
-			// Labeling Calibration Score
-			labelingCalibrationEvaluator := labeling_calibration_score.SpMetricLabelingCalibrationScore{}
-			labelingCalibrationEvaluator.SetSpResult(currentImpl.GetResult())
-			labelingCalibrationEvaluator.SetGroundTruthSegmentation(currentGt)
-			labelingCalibrationEvaluator.SetParameter(labeling_calibration_score.MaxIslands, 5)
-			labelingCalibrationScore, _ := labelingCalibrationEvaluator.GetScore()
+			currentMetric.SetSpResult(currentImpl.GetResult())
+			currentMetric.SetGroundTruthSegmentation(currentGt)
+			score, _ := currentMetric.GetScore()
 
-			scores <- labelingCalibrationScore
+			scores <- score
 		}(sample)
 	}
 

@@ -29,6 +29,21 @@ func (e *SpMetricRegularityScore) SetParameter(parameter superpixel_metrics.SpMe
 	}
 }
 
+func (e *SpMetricRegularityScore) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
+	switch parameter {
+	case MaxIslands:
+		return float64(e.maxIslands), nil
+	default:
+		return 0, fmt.Errorf("Unknown parameter for Regularity Score metric: %s", parameter)
+	}
+}
+
+func (e *SpMetricRegularityScore) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
+	return []superpixel_metrics.SpMetricParameter{
+		MaxIslands,
+	}
+}
+
 func (e *SpMetricRegularityScore) GetScore() (regularityCalibrationScore float64, err error) {
 
 	islandMap, islandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
@@ -51,8 +66,12 @@ func (e *SpMetricRegularityScore) GetScoreWithCachedIslands(islandMap *image.Gra
 	rand.Shuffle(len(islandLabels), func(i, j int) {
 		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
 	})
-	if len(islandLabels) > e.maxIslands {
-		islandLabels = islandLabels[:e.maxIslands]
+	maxIslands := e.maxIslands
+	if maxIslands <= 0 {
+		maxIslands = 5
+	}
+	if len(islandLabels) > maxIslands {
+		islandLabels = islandLabels[:maxIslands]
 	}
 
 	for _, islandLabel := range islandLabels {
@@ -68,6 +87,9 @@ func (e *SpMetricRegularityScore) GetScoreWithCachedIslands(islandMap *image.Gra
 
 	}
 
+	if len(islandLabels) == 0 {
+		return 0.0, nil
+	}
 	regularityCalibrationScore /= float64(len(islandLabels))
 
 	return regularityCalibrationScore, nil

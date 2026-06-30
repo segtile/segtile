@@ -51,11 +51,16 @@ func (e *SpMetricLabelingCalibrationScore) GetScore() (labelingCalibrationScore 
 
 	islandMap, islandCount := superpixel_utils.FindIslands(gtSegmentation)
 
+	maxIslands := e.maxIslands
+	if maxIslands <= 0 {
+		maxIslands = 5
+	}
+
 	// Density Score
 	densityScoreEvaluator := density_score.SpMetricDensityScore{}
 	densityScoreEvaluator.SetSpResult(spResult)
 	densityScoreEvaluator.SetGroundTruthSegmentation(gtSegmentation)
-	densityScoreEvaluator.SetParameter(density_score.MaxIslands, float64(e.maxIslands))
+	densityScoreEvaluator.SetParameter(density_score.MaxIslands, float64(maxIslands))
 	densityScore, _ := densityScoreEvaluator.GetScoreWithCachedIslands(islandMap, islandCount)
 
 	// Weighted F1 Score
@@ -68,7 +73,7 @@ func (e *SpMetricLabelingCalibrationScore) GetScore() (labelingCalibrationScore 
 	regularityScoreEvaluator := regularity_score.SpMetricRegularityScore{}
 	regularityScoreEvaluator.SetSpResult(spResult)
 	regularityScoreEvaluator.SetGroundTruthSegmentation(gtSegmentation)
-	regularityScoreEvaluator.SetParameter(regularity_score.MaxIslands, float64(e.maxIslands))
+	regularityScoreEvaluator.SetParameter(regularity_score.MaxIslands, float64(maxIslands))
 	regularityScore, _ := regularityScoreEvaluator.GetScoreWithCachedIslands(islandMap, islandCount)
 
 	//fmt.Printf("Density Score: %f, Weighted F1 Score: %f, Regularity Score: %f\n", densityScore, weightedF1Score, regularityScore)

@@ -30,7 +30,7 @@ func (e *SpMetricAverageBoundaryDistance) GetSupportedParameters() []superpixel_
 	return []superpixel_metrics.SpMetricParameter{}
 }
 
-func (e *SpMetricAverageBoundaryDistance) GetScore() (averageBoundaryDistance float64) {
+func (e *SpMetricAverageBoundaryDistance) GetScore() (averageBoundaryDistance float64, err error) {
 
 	const maxIslands = 5
 
@@ -67,7 +67,7 @@ func (e *SpMetricAverageBoundaryDistance) GetScore() (averageBoundaryDistance fl
 
 	averageBoundaryDistance /= float64(len(islandLabels))
 
-	return averageBoundaryDistance
+	return averageBoundaryDistance, nil
 }
 
 // AverageBoundaryDistance computes the average distance from each boundary pixel in maskOriginal to the nearest boundary pixel in maskApproximated.

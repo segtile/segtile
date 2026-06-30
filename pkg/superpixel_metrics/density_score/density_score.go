@@ -66,8 +66,12 @@ func (e *SpMetricDensityScore) GetScoreWithCachedIslands(islandMap *image.Gray16
 	rand.Shuffle(len(islandLabels), func(i, j int) {
 		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
 	})
-	if len(islandLabels) > e.maxIslands {
-		islandLabels = islandLabels[:e.maxIslands]
+	maxIslands := e.maxIslands
+	if maxIslands <= 0 {
+		maxIslands = 5
+	}
+	if len(islandLabels) > maxIslands {
+		islandLabels = islandLabels[:maxIslands]
 	}
 
 	groundTruthMaskArea := e.GetGroundTruthSegmentation().Bounds().Dx() * e.GetGroundTruthSegmentation().Bounds().Dy()
