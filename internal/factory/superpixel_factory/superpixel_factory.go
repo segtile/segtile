@@ -17,11 +17,11 @@ func NewSuperpixelImplementationByName(name string) (superpixel.SpImplementation
 	case nameSlic:
 		return &slic.SpSlic{}, nil
 	default:
-		return nil, fmt.Errorf("Unknown algorithm: %s", name)
+		return nil, fmt.Errorf("Unknown algorithm name: %s", name)
 	}
 }
 
-func ImplementationName(impl superpixel.SpImplementation) (string, error) {
+func GetSuperpixelImplementationName(impl superpixel.SpImplementation) (string, error) {
 	switch impl.(type) {
 	case *slic.SpSlic:
 		return nameSlic, nil

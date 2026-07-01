@@ -6,7 +6,7 @@ import (
 
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/app_config"
-	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
+	"github.com/struffel/annotation-tool/internal/factory/superpixel_factory"
 )
 
 // Creates a goroutine to open an existing project.

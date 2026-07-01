@@ -6,11 +6,11 @@ import (
 	"math"
 	"sync"
 
+	"github.com/struffel/annotation-tool/internal/factory/superpixel_factory"
+	"github.com/struffel/annotation-tool/internal/factory/superpixel_metric_factory"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics_factory"
 )
 
 type SpOptimizerCoordinateDescent struct {
@@ -19,17 +19,25 @@ type SpOptimizerCoordinateDescent struct {
 	bestParams map[superpixel.SpParameter]float64
 }
 
+func (o *SpOptimizerCoordinateDescent) GetSupportedParameters() []superpixel_optimizer.SpOptimizerParameter {
+	return []superpixel_optimizer.SpOptimizerParameter{}
+}
+
+func (o *SpOptimizerCoordinateDescent) SetParameter(parameter superpixel_optimizer.SpOptimizerParameter, value float64) error {
+	return fmt.Errorf("Setting parameters is not supported for this optimizer.")
+}
+
 func (o *SpOptimizerCoordinateDescent) Run() error {
 	if len(o.AnnotationPairs) == 0 {
 		return fmt.Errorf("No image and ground truth paths provided for optimization.")
 	}
 
 	// Resolve the implementation and metric names so we can create fresh copies during evaluation.
-	implName, err := superpixel_factory.ImplementationName(o.SpImplementation)
+	implName, err := superpixel_factory.GetSuperpixelImplementationName(o.SpImplementation)
 	if err != nil {
 		return fmt.Errorf("failed to get implementation name: %w", err)
 	}
-	metricName, err := superpixel_metrics_factory.ImplementationName(o.SpMetric)
+	metricName, err := superpixel_metric_factory.GetMetricName(o.SpMetric)
 	if err != nil {
 		return fmt.Errorf("failed to get metric name: %w", err)
 	}
@@ -155,7 +163,7 @@ func evaluate(implName string, metricName string, annotationPairs []superpixel_o
 			if err != nil {
 				return
 			}
-			currentMetric, err := superpixel_metrics_factory.NewSuperpixelMetricByName(metricName)
+			currentMetric, err := superpixel_metric_factory.NewSuperpixelMetricByName(metricName)
 			if err != nil {
 				return
 			}

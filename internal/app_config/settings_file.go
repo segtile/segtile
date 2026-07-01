@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/goccy/go-yaml"
+	"github.com/struffel/annotation-tool/internal/factory/superpixel_factory"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
 const ConfigFileName = "settings.yaml"
@@ -75,7 +75,7 @@ func InitNew(outputDir, inputDir string, spSettings SuperpixelSettings) (*Projec
 // The algorithm name is resolved via the superpixel_factory, keeping all name
 // registry logic in one place.
 func SuperpixelSettingsFromImpl(impl superpixel.SpImplementation) (SuperpixelSettings, error) {
-	name, err := superpixel_factory.ImplementationName(impl)
+	name, err := superpixel_factory.GetSuperpixelImplementationName(impl)
 	if err != nil {
 		return SuperpixelSettings{}, err
 	}

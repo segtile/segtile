@@ -14,11 +14,11 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"github.com/sqweek/dialog"
+	"github.com/struffel/annotation-tool/internal/factory/superpixel_factory"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/internal/theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
 type AppState struct {
