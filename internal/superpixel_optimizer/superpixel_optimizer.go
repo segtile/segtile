@@ -31,10 +31,7 @@ type SpOptimizer interface {
 	SetParameter(parameter SpOptimizerParameter, value float64) error
 
 	// Run the optimization process
-	Run() error
-
-	// Get the best superpixel parameters and the resulting score found by the optimization process.
-	GetResults() (score float64, parameters map[superpixel.SpParameter]float64, err error)
+	Run() (score float64, parameters map[superpixel.SpParameter]float64, err error)
 }
 
 type SpOptimizerData struct {

@@ -27,25 +27,25 @@ func (o *SpOptimizerCoordinateDescent) SetParameter(parameter superpixel_optimiz
 	return fmt.Errorf("Setting parameters is not supported for this optimizer.")
 }
 
-func (o *SpOptimizerCoordinateDescent) Run() error {
+func (o *SpOptimizerCoordinateDescent) Run() (score float64, parameters map[superpixel.SpParameter]float64, err error) {
 	if len(o.AnnotationPairs) == 0 {
-		return fmt.Errorf("No image and ground truth paths provided for optimization.")
+		return 0, nil, fmt.Errorf("No image and ground truth paths provided for optimization.")
 	}
 
 	// Resolve the implementation and metric names so we can create fresh copies during evaluation.
 	implName, err := superpixel_factory.GetSuperpixelImplementationName(o.SpImplementation)
 	if err != nil {
-		return fmt.Errorf("failed to get implementation name: %w", err)
+		return 0, nil, fmt.Errorf("failed to get implementation name: %w", err)
 	}
 	metricName, err := superpixel_metric_factory.GetMetricName(o.SpMetric)
 	if err != nil {
-		return fmt.Errorf("failed to get metric name: %w", err)
+		return 0, nil, fmt.Errorf("failed to get metric name: %w", err)
 	}
 
 	// Use SetRecommendedParameters() as the starting point.
 	tempImpl, err := superpixel_factory.NewSuperpixelImplementationByName(implName)
 	if err != nil {
-		return fmt.Errorf("failed to create superpixel implementation: %w", err)
+		return 0, nil, fmt.Errorf("failed to create superpixel implementation: %w", err)
 	}
 	tempImpl.SetRecommendedParameters()
 
@@ -96,14 +96,7 @@ func (o *SpOptimizerCoordinateDescent) Run() error {
 
 	o.score = bestScore
 	o.bestParams = bestParams
-	return nil
-}
-
-func (o *SpOptimizerCoordinateDescent) GetResults() (float64, map[superpixel.SpParameter]float64, error) {
-	if o.bestParams == nil {
-		return 0, nil, fmt.Errorf("optimization has not been run yet")
-	}
-	return o.score, o.bestParams, nil
+	return bestScore, bestParams, nil
 }
 
 // probeValues generates candidate values for a single parameter.

@@ -273,17 +273,21 @@ func (appState *AppState) loadImageAtIndex(i int) {
 	appState.FitToWindow = true
 	appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
 
-	// Sync editor text to current parameter values.
+	appState.SyncParameterEditors()
+
+	appState.CurrentIndex = i
+	appState.Window.Invalidate()
+
+}
+
+// SyncParameterEditors updates each superpixel parameter editor's text to reflect
+// the current values in the superpixel implementation.
+func (appState *AppState) SyncParameterEditors() {
 	for _, param := range appState.SuperpixelImplementation.GetSupportedParameters() {
 		if ed, ok := appState.SuperpixelParameterEditors[param]; ok {
 			value, _ := appState.SuperpixelImplementation.GetParameter(param)
 			ed.SetText(fmt.Sprintf("%g", value))
 		}
-	}
-
-	appState.CurrentIndex = i
-	if appState.Window != nil {
-		appState.Window.Invalidate()
 	}
 }
 

@@ -63,6 +63,24 @@ func (appState *AppState) OptimizeSpParameters() {
 	optimizer.SpOptimizerData.SetImageAndGroundTruthPaths(samples)
 	optimizer.SpOptimizerData.SpMetric = &labeling_calibration_score.SpMetricLabelingCalibrationScore{}
 
-	optimizer.Run()
+	score, params, err := optimizer.Run()
+	if err != nil {
+		log.Printf("Optimization failed: %v", err)
+		return
+	}
+	log.Printf("Optimization completed: score=%.4f, params=%v", score, params)
 
+	for _, spParam := range appState.SuperpixelImplementation.GetSupportedParameters() {
+		if newValue, ok := params[spParam]; ok {
+			if err := appState.SuperpixelImplementation.SetParameter(spParam, newValue); err != nil {
+				log.Printf("Failed to set parameter %s: %v", spParam.String(), err)
+			} else {
+				log.Printf("Set parameter %s to %.4f", spParam.String(), newValue)
+			}
+		}
+	}
+
+	appState.SyncParameterEditors()
+	appState.RecalculateSuperpixels()
+	appState.Window.Invalidate()
 }

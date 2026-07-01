@@ -33,7 +33,6 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 						fmt.Printf("Error setting %s: %v\n", param.Title(), setErr)
 					}
 					newValue, _ := appState.SuperpixelImplementation.GetParameter(param)
-					editor.SetText(fmt.Sprintf("%v", newValue))
 					fmt.Printf("Set %s to %v\n", param.Title(), newValue)
 
 					recalculate = true
@@ -42,6 +41,9 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 	}
 	if recalculate {
+
+		appState.SyncParameterEditors()
+
 		if appState.CurrentImage != nil {
 			appState.RecalculateSuperpixels()
 		}
