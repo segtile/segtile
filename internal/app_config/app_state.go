@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"gioui.org/app"
@@ -14,27 +15,43 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"github.com/sqweek/dialog"
-	"github.com/struffel/annotation-tool/internal/factory/superpixel_factory"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/internal/theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
+
+const defaultSpAlgorithmId = "slic"
+
+// SuperpixelSettings stores the algorithm name and its parameters.
+// This is used for yaml persistence.
+type SuperpixelSettings struct {
+	SpAlgorithmId         string         `yaml:"algorithm"`
+	SpAlgorithmParameters map[string]any `yaml:"parameters"`
+}
+
+// ProjectSettings stores all settings of a project,
+// it is used for yaml persistence.
+type ProjectSettings struct {
+	OutputDirectory string             `yaml:"-"`
+	InputDirectory  string             `yaml:"input_directory"`
+	Superpixel      SuperpixelSettings `yaml:"superpixel"`
+}
 
 type AppState struct {
 
 	// Project
-	Settings        *ProjectSettings
-	OutputDirectory string
-	ImageFiles      []string
+	Settings   ProjectSettings
+	ImageFiles []string
+
+	// ActiveResult
+	ActiveResult superpixel.SpResult
 
 	// Images
 	CurrentImage *image.NRGBA
 	ExistingMask *image.Gray16
 	CurrentIndex int
-
-	// Superpixel module
-	SuperpixelImplementation superpixel.SpImplementation
 
 	// Selected superpixels
 	SelectionIndex []bool
@@ -49,7 +66,7 @@ type AppState struct {
 	Window                     *app.Window
 	CanvasTag                  bool
 	Theme                      *theme.AppTheme
-	SuperpixelParameterEditors map[superpixel.SpParameter]*widget.Editor
+	SuperpixelParameterEditors map[string]*widget.Editor
 	RenderSelectionOutlines    bool
 	FirstButton                widget.Clickable
 	LastButton                 widget.Clickable
@@ -79,71 +96,112 @@ type AppState struct {
 
 }
 
-func NewAppState() *AppState {
-	impl, _ := superpixel_factory.NewSuperpixelImplementationByName("slic")
-	impl.SetRecommendedParameters()
-	editors := make(map[superpixel.SpParameter]*widget.Editor)
-	for _, param := range impl.GetSupportedParameters() {
-		value, _ := impl.GetParameter(param)
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
-		ed.SetText(fmt.Sprintf("%g", value))
-		editors[param] = ed
+func NewSuperpixelSettings() SuperpixelSettings {
+	defaultParameters, _ := superpixel.GetDefaultParameters(defaultSpAlgorithmId)
+	return SuperpixelSettings{
+		SpAlgorithmId:         defaultSpAlgorithmId,
+		SpAlgorithmParameters: defaultParameters,
 	}
-	return &AppState{
+}
+
+func NewAppState() *AppState {
+
+	settings := ProjectSettings{
+		InputDirectory: "",
+		Superpixel:     NewSuperpixelSettings(),
+	}
+
+	appState := AppState{
+		Settings:                   settings,
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
 		Theme:                      theme.Theme,
-		SuperpixelImplementation:   impl,
-		SuperpixelParameterEditors: editors,
+		SuperpixelParameterEditors: make(map[string]*widget.Editor),
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
 	}
+
+	appState.RebuildEditors()
+
+	return &appState
+}
+
+// Set up the editors for the current superpixel parameters.
+func (appState *AppState) RebuildEditors() {
+	appState.SuperpixelParameterEditors = make(map[string]*widget.Editor)
+	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
+		ed.SetText(fmt.Sprintf("%g", paramValue))
+		appState.SuperpixelParameterEditors[paramName] = ed
+	}
+	appState.SyncEditors()
+}
+
+// SyncEditors updates each superpixel parameter editor's text to reflect
+// the current values in the superpixel implementation.
+func (appState *AppState) SyncEditors() error {
+
+	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
+		if ed, ok := appState.SuperpixelParameterEditors[paramName]; ok {
+			ed.SetText(fmt.Sprintf("%g", paramValue))
+		} else {
+			return fmt.Errorf("editor for parameter %s not found", paramName)
+		}
+	}
+
+	return nil
+}
+
+func (appState *AppState) SetSpAlgorithm(id string) error {
+
+	// Set the new algorithm id
+	if !slices.Contains(superpixel.ListAlgorithms(), id) {
+		return fmt.Errorf("unknown superpixel algorithm %s", id)
+	}
+	appState.Settings.Superpixel.SpAlgorithmId = id
+
+	// Load the right set of parameters
+	defaultParameters, err := superpixel.GetDefaultParameters(id)
+	if err != nil {
+		return err
+	}
+	appState.Settings.Superpixel.SpAlgorithmParameters = defaultParameters
+
+	// Rebuild the editors for the new params
+	appState.RebuildEditors()
+
+	return nil
 }
 
 // ApplyProject configures the AppState for the given project, saves any current mask,
 // and loads the first image.
-func (appState *AppState) ApplyProject(projectSettings *ProjectSettings, outputDir string) {
+func (appState *AppState) ApplyProject(projectSettings ProjectSettings) error {
+
+	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
 		appState.saveCurrentMask()
 		appState.CurrentImage = nil
 	}
 
-	impl, err := superpixel_factory.NewSuperpixelImplementationByName(projectSettings.Superpixel.Algorithm)
-	if err != nil {
-		log.Printf("Unknown algorithm %q: %v", projectSettings.Superpixel.Algorithm, err)
-		return
-	}
-	impl.SetRecommendedParameters()
-	for k, v := range projectSettings.Superpixel.Parameters {
-		for _, param := range impl.GetSupportedParameters() {
-			if param.String() == k {
-				impl.SetParameter(param, v)
-				break
-			}
-		}
-	}
-	appState.SuperpixelImplementation = impl
+	// Apply the new settings
+	appState.Settings = projectSettings
 
-	editors := make(map[superpixel.SpParameter]*widget.Editor)
-	for _, param := range impl.GetSupportedParameters() {
-		value, _ := impl.GetParameter(param)
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
-		ed.SetText(fmt.Sprintf("%g", value))
-		editors[param] = ed
-	}
-	appState.SuperpixelParameterEditors = editors
+	// Rebuild editors
+	appState.RebuildEditors()
 
+	// List all image files in the input directory
 	imageFiles, err := io_utils.ListFiles(projectSettings.InputDirectory)
 	if err != nil || len(imageFiles) == 0 {
-		log.Printf("Could not list input directory %q: %v", projectSettings.InputDirectory, err)
-		return
+		return fmt.Errorf("Could not list input directory %q: %v", projectSettings.InputDirectory, err)
 	}
 
-	appState.Settings = projectSettings
-	appState.OutputDirectory = outputDir
 	appState.ImageFiles = imageFiles
 	appState.CurrentIndex = 0
 	appState.loadImageAtIndex(0)
+
+	return nil
 }
+
+// TODO: Do we need this custom struct? Perhaps it is possible to just pass in the pointer and error as two parameters.
 
 // ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
@@ -155,41 +213,46 @@ func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 		log.Printf("Failed to open project: %v", r.Err)
 		return
 	}
-	appState.ApplyProject(r.Settings, r.OutputDirectory)
+	appState.ApplyProject(*r.Settings)
 }
 
-func (appState *AppState) RecalculateSuperpixels() {
+func (appState *AppState) RecalculateSuperpixels() error {
 
 	fmt.Println("Calculating superpixels...")
 	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
-	oldResult := appState.SuperpixelImplementation.GetResult()
 	var oldSelectionMask *image.Gray16
-	if oldResult.SpCount > 0 && len(appState.SelectionIndex) > 0 {
-		oldSelectionMask = oldResult.SelectionToMask(appState.SelectionIndex)
+	if appState.ActiveResult.SpCount > 0 && len(appState.SelectionIndex) > 0 {
+		oldSelectionMask = appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
 	}
 
 	// Re-run the superpixel algorithm
-	err := appState.SuperpixelImplementation.Run()
+	newResult, err := superpixel.Run(
+		appState.Settings.Superpixel.SpAlgorithmId,
+		appState.CurrentImage,
+		appState.Settings.Superpixel.SpAlgorithmParameters)
 	if err != nil {
-		log.Fatalf("Error running superpixel algorithm: %v", err)
+		return err
 	}
+
+	appState.ActiveResult = newResult
 
 	// Restore the selection by matching old mask pixels to new superpixels,
 	// or reset to an empty selection when there was no previous result.
-	result := appState.SuperpixelImplementation.GetResult()
 	if oldSelectionMask != nil {
-		appState.SelectionIndex = result.SelectFromMask(oldSelectionMask, 0.5)
+		appState.SelectionIndex = appState.ActiveResult.SelectFromMask(oldSelectionMask, 0.5)
 	} else {
-		appState.SelectionIndex = make([]bool, result.SpCount)
+		appState.SelectionIndex = make([]bool, appState.ActiveResult.SpCount)
 	}
-	//appState.updateSelectionOutline()
-	labelMap := appState.SuperpixelImplementation.GetResult().LabelMap
-	appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
 
+	// Rebuild the selection outline path spec for rendering
+	appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveResult.LabelMap, appState.SelectionIndex)
+
+	// Log
 	end := time.Now().UnixMicro()
 	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+	return nil
 
 }
 
@@ -241,25 +304,28 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 
 // loadImageAtIndex saves the current mask (if any), loads the image at index i,
 // runs the superpixel algorithm, and restores any previously saved mask.
-func (appState *AppState) loadImageAtIndex(i int) {
+func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
 	if appState.CurrentImage != nil && appState.selectionMade() {
 		appState.saveCurrentMask()
 	}
 
+	// Update the current image and run the superpixel algorithm
 	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	appState.SuperpixelImplementation.SetImage(appState.CurrentImage)
-	appState.RecalculateSuperpixels()
+	err := appState.RecalculateSuperpixels()
+	if err != nil {
+		return err
+	}
 
-	// If an existing non-empty mask is on disk, store it for display as an orange
-	// outline. Do not approximate it into the superpixel selection.
+	// Reset the outline for showing the existing mask
 	appState.ExistingMask = nil
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
+
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
 		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
-		if isMaskNonEmpty(loadedMask) {
+		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ExistingMask = loadedMask
 			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(*loadedMask)
 		}
@@ -273,31 +339,22 @@ func (appState *AppState) loadImageAtIndex(i int) {
 	appState.FitToWindow = true
 	appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
 
-	appState.SyncParameterEditors()
+	appState.SyncEditors()
 
 	appState.CurrentIndex = i
 	appState.Window.Invalidate()
 
-}
+	return nil
 
-// SyncParameterEditors updates each superpixel parameter editor's text to reflect
-// the current values in the superpixel implementation.
-func (appState *AppState) SyncParameterEditors() {
-	for _, param := range appState.SuperpixelImplementation.GetSupportedParameters() {
-		if ed, ok := appState.SuperpixelParameterEditors[param]; ok {
-			value, _ := appState.SuperpixelImplementation.GetParameter(param)
-			ed.SetText(fmt.Sprintf("%g", value))
-		}
-	}
 }
 
 // saveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
 func (appState *AppState) saveCurrentMask() {
-	result := appState.SuperpixelImplementation.GetResult()
-	if result.SpCount == 0 {
+
+	/*if appState.ActiveResult.SpCount == 0 {
 		return
-	}
-	mask := result.SelectionToMask(appState.SelectionIndex)
+	}*/
+	mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
 	outPath := appState.maskPathForIndex(appState.CurrentIndex)
 	io_utils.SaveImage(outPath, mask)
 }
@@ -308,21 +365,12 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	base := filepath.Base(appState.ImageFiles[i])
 	ext := filepath.Ext(base)
 	name := base[:len(base)-len(ext)] + ".png"
-	return filepath.Join(appState.OutputDirectory, name)
+	return filepath.Join(appState.Settings.OutputDirectory, name)
 }
 
 func (appState *AppState) selectionMade() bool {
 	for _, selected := range appState.SelectionIndex {
 		if selected {
-			return true
-		}
-	}
-	return false
-}
-
-func isMaskNonEmpty(mask *image.Gray16) bool {
-	for _, p := range mask.Pix {
-		if p != 0 {
 			return true
 		}
 	}

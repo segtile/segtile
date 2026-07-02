@@ -17,7 +17,6 @@ import (
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_factory"
 )
 
 type benchmarkRun struct {

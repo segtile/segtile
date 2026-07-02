@@ -2,11 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/app_config"
-	"github.com/struffel/annotation-tool/internal/factory/superpixel_factory"
 )
 
 // Creates a goroutine to open an existing project.
@@ -17,8 +15,8 @@ func triggerOpenProject(appState *app_config.AppState) {
 	}
 	appState.CurrentlyLoadingProject = true
 	go func() {
-		cfg, outputDir, err := showOpenProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, OutputDirectory: outputDir, Err: err}
+		settings, err := showOpenProjectDialogs()
+		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: settings, Err: err}
 		appState.Window.Invalidate()
 	}()
 }
@@ -31,59 +29,51 @@ func triggerNewProject(appState *app_config.AppState) {
 	}
 	appState.CurrentlyLoadingProject = true
 	go func() {
-		cfg, outputDir, err := showNewProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, OutputDirectory: outputDir, Err: err}
+		cfg, err := showNewProjectDialogs()
+		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, Err: err}
 		appState.Window.Invalidate()
 	}()
 }
 
 // Prompts the user to pick an existing config file.
 // Must be called from a background goroutine.
-func showOpenProjectDialogs() (*app_config.ProjectSettings, string, error) {
+func showOpenProjectDialogs() (*app_config.ProjectSettings, error) {
 	path, err := dialog.File().
 		Title("Open Configuration File").
 		Filter("YAML config", "yaml", "yml").
 		Load()
 	if err != nil {
-		return nil, "", err // includes dialog.ErrCancelled
+		return nil, err // includes dialog.ErrCancelled
 	}
 	cfg, err := app_config.Load(path)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to load config %q: %w", path, err)
+		return nil, fmt.Errorf("failed to load config %q: %w", path, err)
 	}
-	outputDir := filepath.Dir(path)
-	return cfg, outputDir, nil
+	return cfg, nil
 }
 
 // showNewProjectDialogs prompts the user to select an input directory and then
 // an output directory, then initialises a new project.
 // Must be called from a background goroutine.
-func showNewProjectDialogs() (*app_config.ProjectSettings, string, error) {
+func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
+
+	// Prompt for the input directory
 	inputDir, err := dialog.Directory().
 		Title("Select Input Directory (raw images)").Browse()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
+	// Prompt for the output directory
 	outputDir, err := dialog.Directory().
 		Title("Select Output Directory (stores masks and config)").Browse()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	impl, err := superpixel_factory.NewSuperpixelImplementationByName("slic")
+	cfg, err := app_config.New(outputDir, inputDir, app_config.NewSuperpixelSettings())
 	if err != nil {
-		return nil, "", err
+		return nil, fmt.Errorf("failed to initialize project: %w", err)
 	}
-	impl.SetRecommendedParameters()
-	spCfg, err := app_config.SuperpixelSettingsFromImpl(impl)
-	if err != nil {
-		return nil, "", err
-	}
-
-	cfg, err := app_config.InitNew(outputDir, inputDir, spCfg)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to initialize project: %w", err)
-	}
-	return cfg, outputDir, nil
+	return cfg, nil
 }

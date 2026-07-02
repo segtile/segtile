@@ -5,8 +5,12 @@ import (
 )
 
 func HasNonZeroPixels(img *image.Gray16) bool {
-	_, maxVal := MinMax(img)
-	return maxVal > 0
+	for _, p := range img.Pix {
+		if p != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func IsBinaryMask(img *image.Gray16) bool {

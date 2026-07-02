@@ -16,6 +16,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/theme"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 func Layout(appState *app_config.AppState, gtx layout.Context) {
@@ -79,16 +80,22 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						var children []layout.FlexChild
 
-						for _, param := range appState.SuperpixelImplementation.GetSupportedParameters() {
+						parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
+						if err != nil {
+							fmt.Printf("Error listing parameter info: %v\n", err)
+							return layout.Dimensions{}
+						}
+
+						for paramId, paramInfo := range parameterInfo {
 							children = append(children,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									label := material.Body1(&appState.Theme.GioTheme, param.Title())
+									label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
 									label.Color = appState.Theme.GioTheme.Palette.Fg
 									return label.Layout(gtx)
 								}),
 
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									currentEditor := appState.SuperpixelParameterEditors[param]
+									currentEditor := appState.SuperpixelParameterEditors[paramId]
 
 									editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
 									editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
@@ -144,7 +151,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						appState.InitialFocusDone = true
 					}
 
-					if appState.Settings == nil {
+					if appState.Settings.InputDirectory == "" {
 						// No project loaded: show centered New Project / Open Project buttons.
 						promptText := "Create a new project or open an existing one."
 						if appState.CurrentlyLoadingProject {

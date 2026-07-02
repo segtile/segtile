@@ -89,6 +89,7 @@ func (this *SpResult) computeOverlapCounts(mask *image.Gray16) (spPixelCount []i
 func (this *SpResult) SelectionToMask(selection []bool) *image.Gray16 {
 	spBounds := this.LabelMap.Bounds()
 	mask := image.NewGray16(spBounds)
+
 	for x := 0; x < spBounds.Dx(); x++ {
 		for y := 0; y < spBounds.Dy(); y++ {
 			if selection[this.LabelMap.Gray16At(x, y).Y] {
