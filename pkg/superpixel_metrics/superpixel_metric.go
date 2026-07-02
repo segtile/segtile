@@ -27,7 +27,7 @@ type SpMetricParameterInfo struct {
 type spMetricRegistryEntry struct {
 	Title        string
 	Description  string
-	PerfectScore float64
+	OptimalScore float64
 	Run          func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error)
 	Parameters   map[string]SpMetricParameterInfo
 }
@@ -38,7 +38,7 @@ func RegisterSpMetric(
 	id string,
 	title string,
 	description string,
-	perfectScore float64,
+	optimalScore float64,
 	run func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error),
 	parameters map[string]SpMetricParameterInfo) {
 	if _, exists := spMetricRegistry[id]; exists {
@@ -48,7 +48,7 @@ func RegisterSpMetric(
 	spMetricRegistry[id] = spMetricRegistryEntry{
 		Title:        title,
 		Description:  description,
-		PerfectScore: perfectScore,
+		OptimalScore: optimalScore,
 		Run:          run,
 		Parameters:   parameters,
 	}
