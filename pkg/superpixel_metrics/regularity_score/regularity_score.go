@@ -4,53 +4,83 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"math/rand/v2"
 
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type SpMetricRegularityScore struct {
-	superpixel_metrics.SpMetricsData
-	maxIslands int
-}
-
-func (e *SpMetricRegularityScore) PerfectScore() float64 {
-	return 1.0
-}
-
-func (e *SpMetricRegularityScore) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
-	switch parameter {
-	case MaxIslands:
-		e.maxIslands = int(value)
-		return nil
-	default:
-		return fmt.Errorf("Unknown parameter for Regularity Score metric: %s", parameter)
+func init() {
+	parameterInfo := map[string]superpixel_metrics.SpMetricParameterInfo{
+		"max_islands": {
+			Kind:        superpixel_metrics.SpMetricParameterKindInt,
+			Title:       "Max Islands",
+			Description: "Maximum number of islands to consider for the regularity score calculation. If set to 0, all islands will be considered.",
+			Default:     5,
+			Min:         0,
+			Max:         math.MaxInt,
+		},
 	}
+	superpixel_metrics.RegisterSpMetric(
+		"regularity_score",
+		"Regularity Score",
+		"Computes the regularity score of the superpixel segmentation.",
+		1.0,
+		runWithParams,
+		parameterInfo,
+	)
 }
 
-func (e *SpMetricRegularityScore) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
-	switch parameter {
-	case MaxIslands:
-		return float64(e.maxIslands), nil
-	default:
-		return 0, fmt.Errorf("Unknown parameter for Regularity Score metric: %s", parameter)
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
+	return Run(result, groundTruth, uint16(params["max_islands"].(int)))
+}
+
+func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint16) (regularityCalibrationScore float64, err error) {
+
+	// Check that images are valid
+	if result.LabelMap.Bounds() != groundTruth.Bounds() {
+		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
-}
 
-func (e *SpMetricRegularityScore) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
-	return []superpixel_metrics.SpMetricParameter{
-		MaxIslands,
+	// Find islands in GT
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
+
+	// Prepare metrics
+	cumulativeRegularityCalibrationScore := 0.0
+
+	// Choose the number of islands to evaluate
+	if maxIslands <= 0 {
+		maxIslands = groundTruthIslandCount
 	}
+	if maxIslands > groundTruthIslandCount {
+		maxIslands = groundTruthIslandCount
+	}
+
+	// Return early
+	if maxIslands == 0 {
+		return 0.0, nil
+	}
+
+	// Evaluate islands
+	for i := uint16(1); i <= maxIslands; i++ {
+		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, i)
+
+		// Regularity Calibration Score
+		groundTruthFillRatio := fillRatioOfOwnBoundingBox(currentGroundTruthIsland)
+		superpixelFillRatio := fillRatioOfOwnBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
+		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
+			cumulativeRegularityCalibrationScore += math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+		}
+	}
+
+	// Calculate the final metric
+	regularityCalibrationScore = cumulativeRegularityCalibrationScore / float64(maxIslands)
+
+	return regularityCalibrationScore, nil
+
 }
 
-func (e *SpMetricRegularityScore) GetScore() (regularityCalibrationScore float64, err error) {
-
-	islandMap, islandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
-
-	return e.GetScoreWithCachedIslands(islandMap, islandCount)
-}
-
+/*
 func (e *SpMetricRegularityScore) GetScoreWithCachedIslands(islandMap *image.Gray16, islandCount uint16) (regularityCalibrationScore float64, err error) {
 
 	// Prepare metrics
@@ -94,3 +124,4 @@ func (e *SpMetricRegularityScore) GetScoreWithCachedIslands(islandMap *image.Gra
 
 	return regularityCalibrationScore, nil
 }
+*/

@@ -1,82 +1,43 @@
 package labeling_calibration_score
 
 import (
-	"fmt"
+	"image"
+	"math"
 
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type SpMetricLabelingCalibrationScore struct {
-	superpixel_metrics.SpMetricsData
-	maxIslands int
-}
-
-func (e *SpMetricLabelingCalibrationScore) PerfectScore() float64 {
-	return 1.0
-}
-
-func (e *SpMetricLabelingCalibrationScore) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
-	switch parameter {
-	case MaxIslands:
-		e.maxIslands = int(value)
-		return nil
-	default:
-		return fmt.Errorf("Unknown parameter for Labeling Calibration Score metric: %s", parameter)
+func init() {
+	parameterInfo := map[string]superpixel_metrics.SpMetricParameterInfo{
+		"max_islands": {
+			Kind:        superpixel_metrics.SpMetricParameterKindInt,
+			Title:       "Max Islands",
+			Description: "Maximum number of islands to consider for density and regularity score calculations. If set to 0, all islands will be considered.",
+			Default:     5,
+			Min:         0,
+			Max:         math.MaxInt,
+		},
 	}
+	superpixel_metrics.RegisterSpMetric(
+		"labeling_calibration_score",
+		"Labeling Calibration Score",
+		"Computes the labeling calibration score as a product of density, weighted F1, and regularity scores.",
+		1.0,
+		Run,
+		parameterInfo,
+	)
 }
 
-func (e *SpMetricLabelingCalibrationScore) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
-	switch parameter {
-	case MaxIslands:
-		return float64(e.maxIslands), nil
-	default:
-		return 0, fmt.Errorf("Unknown parameter for Labeling Calibration Score metric: %s", parameter)
-	}
-}
+func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
+	maxIslands := uint16(params["max_islands"].(int))
 
-func (e *SpMetricLabelingCalibrationScore) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
-	return []superpixel_metrics.SpMetricParameter{
-		MaxIslands,
-	}
-}
-
-func (e *SpMetricLabelingCalibrationScore) GetScore() (labelingCalibrationScore float64, err error) {
-
-	spResult := e.GetSpResult()
-	gtSegmentation := e.GetGroundTruthSegmentation()
-
-	islandMap, islandCount := superpixel_utils.FindIslands(gtSegmentation)
-
-	maxIslands := e.maxIslands
-	if maxIslands <= 0 {
-		maxIslands = 5
-	}
-
-	// Density Score
-	densityScoreEvaluator := density_score.SpMetricDensityScore{}
-	densityScoreEvaluator.SetSpResult(spResult)
-	densityScoreEvaluator.SetGroundTruthSegmentation(gtSegmentation)
-	densityScoreEvaluator.SetParameter(density_score.MaxIslands, float64(maxIslands))
-	densityScore, _ := densityScoreEvaluator.GetScoreWithCachedIslands(islandMap, islandCount)
-
-	// Weighted F1 Score
-	weightedF1ScoreEvaluator := weighted_f1_score.SpMetricWeightedF1Score{}
-	weightedF1ScoreEvaluator.SetSpResult(spResult)
-	weightedF1ScoreEvaluator.SetGroundTruthSegmentation(gtSegmentation)
-	weightedF1Score, _ := weightedF1ScoreEvaluator.GetScore()
-
-	// Regularity Score
-	regularityScoreEvaluator := regularity_score.SpMetricRegularityScore{}
-	regularityScoreEvaluator.SetSpResult(spResult)
-	regularityScoreEvaluator.SetGroundTruthSegmentation(gtSegmentation)
-	regularityScoreEvaluator.SetParameter(regularity_score.MaxIslands, float64(maxIslands))
-	regularityScore, _ := regularityScoreEvaluator.GetScoreWithCachedIslands(islandMap, islandCount)
-
-	//fmt.Printf("Density Score: %f, Weighted F1 Score: %f, Regularity Score: %f\n", densityScore, weightedF1Score, regularityScore)
+	densityScore, _ := density_score.Run(result, groundTruth, maxIslands)
+	weightedF1Score, _ := weighted_f1_score.Run(result, groundTruth)
+	regularityScore, _ := regularity_score.Run(result, groundTruth, maxIslands)
 
 	return densityScore * weightedF1Score * regularityScore, nil
 }

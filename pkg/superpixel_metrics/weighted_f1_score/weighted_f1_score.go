@@ -2,52 +2,59 @@ package weighted_f1_score
 
 import (
 	"fmt"
+	"image"
 
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type SpMetricWeightedF1Score struct {
-	superpixel_metrics.SpMetricsData
+func init() {
+	parameterInfo := map[string]superpixel_metrics.SpMetricParameterInfo{}
+	superpixel_metrics.RegisterSpMetric(
+		"weighted_f1_score",
+		"Weighted F1 Score",
+		"Computes the F1 score of the superpixel segmentation against the ground truth mask, weighted by distance to the nearest boundary pixel.",
+		1.0,
+		runWithParams,
+		parameterInfo,
+	)
 }
 
-func (e *SpMetricWeightedF1Score) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
-	return fmt.Errorf("No parameters available for WeightedF1Score metric.")
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
+	return Run(result, groundTruth)
 }
 
-func (e *SpMetricWeightedF1Score) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
-	return 0, fmt.Errorf("No parameters available for WeightedF1Score metric.")
-}
+func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
 
-func (e *SpMetricWeightedF1Score) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
-	return []superpixel_metrics.SpMetricParameter{}
-}
-
-func (e *SpMetricWeightedF1Score) PerfectScore() float64 {
-	return 1.0
-}
-
-func (e *SpMetricWeightedF1Score) GetScore() (f1Score float64, err error) {
-
-	maskOriginal := e.GetGroundTruthSegmentation()
-	selectionFromGroundTruth := e.GetSpResult().SelectFromMask(maskOriginal, 0.5)
-	maskApproximated := e.GetSpResult().SelectionToMask(selectionFromGroundTruth)
-
-	if maskOriginal.Bounds() != maskApproximated.Bounds() {
-		return 0, fmt.Errorf("Masks must have the same dimensions")
+	// Check that images are valid
+	if !superpixel_utils.IsBinaryMask(groundTruth) {
+		return 0, fmt.Errorf("Ground truth mask must be a binary mask for this metric.")
 	}
 
-	distanceMap := superpixel_utils.DistanceToNextBoundaryPixel(maskOriginal)
+	if result.LabelMap.Bounds() != groundTruth.Bounds() {
+		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
+	}
 
+	// Approximate the ground truth mask using the superpixel segmentation
+	selectionFromGroundTruth := result.SelectFromMask(groundTruth, 0.5)
+	maskApproximated := result.SelectionToMask(selectionFromGroundTruth)
+
+	// Create the boundary distance map which dictates the weight for the union calculation
+	distanceMap := superpixel_utils.DistanceToNextBoundaryPixel(groundTruth)
+
+	// Tally up the weighted F1 score
 	var intersection, union int
-	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
-		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
-			pOriginal := maskOriginal.Gray16At(x, y)
+	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
+		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
+			pOriginal := groundTruth.Gray16At(x, y)
 			pApproximated := maskApproximated.Gray16At(x, y)
 			if pOriginal.Y > 0 && pApproximated.Y > 0 {
 				intersection++
 				union += 2
 			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
+
+				// Use the distance to the nearest boundary pixel as a weight for the union
 				union += int(distanceMap.Gray16At(x, y).Y)
 			}
 		}

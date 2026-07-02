@@ -1,4 +1,4 @@
-package superpixel_metrics
+package superpixel_utils
 
 import (
 	"image"
@@ -18,15 +18,4 @@ func Area(mask *image.Gray16) int {
 	}
 
 	return covered
-}
-
-func HasNonZeroPixels(img *image.Gray16) bool {
-	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
-		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
-			if img.Gray16At(x, y).Y > 0 {
-				return true
-			}
-		}
-	}
-	return false
 }
