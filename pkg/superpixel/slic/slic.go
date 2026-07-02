@@ -29,16 +29,134 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
+func init() {
+	parameterInfo := map[string]superpixel.SpParameterInfo{
+		"count": {
+			Title:       "Superpixel Count",
+			Description: "The number of superpixels to generate.",
+			Kind:        superpixel.SpParameterKindInt,
+			Default:     500,
+			Min:         2,
+			Max:         32768,
+		},
+		"compactness": {
+			Title:       "Compactness",
+			Description: "The compactness of the superpixels. Higher values result in more compact superpixels.",
+			Kind:        superpixel.SpParameterKindFloat,
+			Default:     10.0,
+			Min:         0,
+			Max:         250,
+		},
+		"initialPerturbationNeighborhoodRadius": {
+			Title:       "Initial Perturbation Neighborhood Radius",
+			Description: "The radius of the neighborhood in which the initial cluster centers are perturbed to avoid placing them on edges.",
+			Kind:        superpixel.SpParameterKindInt,
+			Default:     1,
+			Min:         0,
+			Max:         16,
+		},
+		"iterations": {
+			Title:       "Iterations",
+			Description: "The number of iterations to run the SLIC algorithm.",
+			Kind:        superpixel.SpParameterKindInt,
+			Default:     8,
+			Min:         1,
+			Max:         100,
+		},
+	}
+	runFromMap := func(img image.Image, params map[string]any) (superpixel.SpResult, error) {
+		return Run(img, params["count"].(int), params["compactness"].(float64), params["initialPerturbationNeighborhoodRadius"].(int), params["iterations"].(int))
+	}
+	superpixel.RegisterSpAlgorithm("slic", "SLIC", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
+}
+
+// This is the new run function.
+// It works like the old one, but no longer uses a stateful struct, instead it is completely functional.
+func Run(img image.Image, count int, compactness float64, initialPerturbationNeighborhoodRadius int, iterations int) (superpixel.SpResult, error) {
+
+	// Validate Parameters
+
+	if count < 2 {
+		return superpixel.SpResult{}, errors.New("Superpixel count must be at least 2.")
+	}
+
+	if compactness < 0 {
+		return superpixel.SpResult{}, errors.New("Compactness can not be negative.")
+	}
+
+	if initialPerturbationNeighborhoodRadius < 0 {
+		return superpixel.SpResult{}, errors.New("Initial perturbation neighborhood radius can not be negative.")
+	}
+
+	if iterations < 1 {
+		return superpixel.SpResult{}, errors.New("Iterations must be at least 1.")
+	}
+
+	if img == nil {
+		return superpixel.SpResult{}, errors.New("Image is nil.")
+	}
+
+	// Get image dimensions
+	width := img.Bounds().Dx()
+	height := img.Bounds().Dy()
+	pixelCount := width * height
+
+	// Prepare the state
+	state := slicState{
+		img:                                   img,
+		imgHeight:                             height,
+		imgWidth:                              width,
+		imgPixelCount:                         pixelCount,
+		count:                                 count,
+		compactness:                           compactness,
+		initialPerturbationNeighborhoodRadius: initialPerturbationNeighborhoodRadius,
+		iterations:                            iterations,
+		labelMap:                              make([]int, pixelCount),
+		labCache:                              make([][3]float64, pixelCount),
+	}
+
+	// Perform algorithm steps
+	state.buildLabCache()
+	state.initializeClusters()
+
+	for i := 0; i < state.iterations; i++ {
+		state.resetDistances()
+		state.labelPixels()
+		state.recalculateClusterCenters()
+	}
+
+	state.enforceConnectivity()
+
+	// Write the final result into a SpResult struct#
+	resultLabelMap := image.NewGray16(image.Rect(0, 0, width, height))
+	maxLabel := 0
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			label := state.labelMap[y*width+x]
+			if label > maxLabel {
+				maxLabel = label
+			}
+			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
+		}
+	}
+	result := superpixel.MakeSpResult(resultLabelMap)
+	return result, nil
+
+}
+
 type slicSpCluster struct {
 	x, y    int
 	l, a, b float64
 }
 
-type SpSlic struct {
+type slicState struct {
 	// Generic algorithm data
-	superpixel.SpAlgorithmData
+	img           image.Image
+	imgWidth      int
+	imgHeight     int
+	imgPixelCount int
 
-	// Specific parameters
+	// Specific parameters (no longer needed, we use them directly from the Run method)
 	count                                 int
 	compactness                           float64
 	initialPerturbationNeighborhoodRadius int
@@ -55,135 +173,48 @@ type SpSlic struct {
 
 }
 
-func (this *SpSlic) SetRecommendedParameters() {
-	this.count = 1000
-	this.compactness = 30
-	this.initialPerturbationNeighborhoodRadius = 1
-	this.iterations = 8
-}
-
-func (this *SpSlic) GetSupportedParameters() []superpixel.SpParameter {
-	return []superpixel.SpParameter{
-		Count,
-		Compactness,
-		InitialPerturbationNeighborhoodRadius,
-		Iterations,
-	}
-}
-
-func (this *SpSlic) GetParameter(parameter superpixel.SpParameter) (float64, error) {
-	switch parameter {
-	case Count:
-		return float64(this.count), nil
-	case Compactness:
-		return this.compactness, nil
-	case InitialPerturbationNeighborhoodRadius:
-		return float64(this.initialPerturbationNeighborhoodRadius), nil
-	case Iterations:
-		return float64(this.iterations), nil
-	default:
-		return 0, errors.New("SLIC does not have this parameter.")
-	}
-}
-
-func (this *SpSlic) SetParameterByName(parameterName string, value float64) error {
-	return this.SetParameter(SlicParameter(parameterName), value)
-}
-
-func (this *SpSlic) SetParameter(parameter superpixel.SpParameter, value float64) error {
-
-	switch parameter {
-	case Count:
-		if value < 2 {
-			this.count = 2
-			return errors.New("Superpixel count must be at least 2.")
-		}
-		this.count = int(value)
-		return nil
-	case Compactness:
-		if value < 0 {
-			this.compactness = 0
-			return errors.New("Compactness can not be negative.")
-		}
-		this.compactness = value
-		return nil
-	case InitialPerturbationNeighborhoodRadius:
-		if value < 0 {
-			this.initialPerturbationNeighborhoodRadius = 0
-			return errors.New("Initial perturbation neighborhood radius can not be negative.")
-		}
-		this.initialPerturbationNeighborhoodRadius = int(value)
-		return nil
-	case Iterations:
-		iterations := int(value)
-		if iterations < 1 {
-			return errors.New("Iterations must be at least 1.")
-		}
-		this.iterations = iterations
-		return nil
-	default:
-		return errors.New("SLIC does not support this parameter.")
-	}
-
-}
-
-func (this *SpSlic) SetImage(img image.Image) {
-	this.Img = img
-	this.bestDistancesMap = nil
-	this.Result = superpixel.SpResult{}
-	this.clusters = nil
-	this.gridInterval = 0
-	this.bestDistancesMap = nil
-	this.labelMap = nil
-
-	this.buildLabCache()
-
-}
-
 // The distance measure SLIC uses to assign pixels to clusters, see Equation 1 in the original paper
 // clL, clA, clB are the pre-computed LAB values of the cluster center, to avoid recomputing them for every pixel.
-func (this *SpSlic) distance(cluster slicSpCluster, pixelX int, pixelY int) (gradient float64, err error) {
+func (state *slicState) distance(cluster slicSpCluster, pixelX int, pixelY int) (gradient float64, err error) {
 
 	// If the pixel is out of bounds, we return infinity and an error to make sure it is not assigned to any cluster.
-	width := this.Img.Bounds().Dx()
-	if pixelX < 0 || pixelY < 0 || pixelX >= width || pixelY >= this.Img.Bounds().Dy() {
+
+	if pixelX < 0 || pixelY < 0 || pixelX >= state.imgWidth || pixelY >= state.imgHeight {
 		return math.Inf(1), errors.New("Out of bounds, assuming infinite distance")
 	}
 
 	// Look up the pixel LAB values from the cache
-	lab := this.labCache[pixelY*width+pixelX]
+	lab := state.labCache[pixelY*state.imgWidth+pixelX]
 	pixelL, pixelA, pixelB := lab[0], lab[1], lab[2]
 
 	// Calculate the distance in LAB and XY and combine it.
 	distanceLab := math.Sqrt((cluster.l-pixelL)*(cluster.l-pixelL) + (cluster.a-pixelA)*(cluster.a-pixelA) + (cluster.b-pixelB)*(cluster.b-pixelB))
 	distanceXY := math.Sqrt(float64((cluster.x-pixelX)*(cluster.x-pixelX) + (cluster.y-pixelY)*(cluster.y-pixelY)))
-	distance := distanceLab + (this.compactness/float64(this.gridInterval))*distanceXY
+	distance := distanceLab + (state.compactness/float64(state.gridInterval))*distanceXY
 	return distance, nil
 
 }
 
 // Implements the gradient function SLIC uses to avoid placing cluster centers on edges.
 // See Equation 2 in the original paper.
-func (this *SpSlic) gradient(pixelX int, pixelY int) float64 {
-	width := this.Img.Bounds().Dx()
-	height := this.Img.Bounds().Dy()
+func (state *slicState) gradient(pixelX int, pixelY int) float64 {
 
 	// The original equation does not specify what to do near the image borders,
 	// but since having cluster centers right near the edge is generally undesirable,
 	// we just return infinity to make this very unlikely to be chosen as a cluster center.
-	if pixelX < 1 || pixelY < 1 || pixelX > width-2 || pixelY > height-2 {
+	if pixelX < 1 || pixelY < 1 || pixelX > state.imgWidth-2 || pixelY > state.imgHeight-2 {
 		return math.Inf(1)
 	}
 
 	// Get the color components of the neighboring pixels from the cache
-	rightIndex := pixelY*width + (pixelX + 1)
-	rightL, rightA, rightB := this.labCache[rightIndex][0], this.labCache[rightIndex][1], this.labCache[rightIndex][2]
-	leftIndex := pixelY*width + (pixelX - 1)
-	leftL, leftA, leftB := this.labCache[leftIndex][0], this.labCache[leftIndex][1], this.labCache[leftIndex][2]
-	downIndex := (pixelY+1)*width + pixelX
-	downL, downA, downB := this.labCache[downIndex][0], this.labCache[downIndex][1], this.labCache[downIndex][2]
-	upIndex := (pixelY-1)*width + pixelX
-	upL, upA, upB := this.labCache[upIndex][0], this.labCache[upIndex][1], this.labCache[upIndex][2]
+	rightIndex := pixelY*state.imgWidth + (pixelX + 1)
+	rightL, rightA, rightB := state.labCache[rightIndex][0], state.labCache[rightIndex][1], state.labCache[rightIndex][2]
+	leftIndex := pixelY*state.imgWidth + (pixelX - 1)
+	leftL, leftA, leftB := state.labCache[leftIndex][0], state.labCache[leftIndex][1], state.labCache[leftIndex][2]
+	downIndex := (pixelY+1)*state.imgWidth + pixelX
+	downL, downA, downB := state.labCache[downIndex][0], state.labCache[downIndex][1], state.labCache[downIndex][2]
+	upIndex := (pixelY-1)*state.imgWidth + pixelX
+	upL, upA, upB := state.labCache[upIndex][0], state.labCache[upIndex][1], state.labCache[upIndex][2]
 
 	// Calculate the gradient
 	gradient := (rightL-leftL)*(rightL-leftL) + (rightA-leftA)*(rightA-leftA) + (rightB-leftB)*(rightB-leftB) + (downL-upL)*(downL-upL) + (downA-upA)*(downA-upA) + (downB-upB)*(downB-upB)
@@ -192,39 +223,34 @@ func (this *SpSlic) gradient(pixelX int, pixelY int) float64 {
 }
 
 // This step is not discussed in detail in the original paper which is why this function leans more on the existing implementation mentioned above.
-func (this *SpSlic) enforceConnectivity() {
-
-	// Get image dimensions
-	width := this.Img.Bounds().Dx()
-	height := this.Img.Bounds().Dy()
-	totalPixelCount := width * height
+func (state *slicState) enforceConnectivity() {
 
 	// Minimum component size: components smaller than minimumSpPixelCount pixels are merged into a neighbor.
-	minimumSpPixelCount := (this.gridInterval * this.gridInterval) / 4
+	minimumSpPixelCount := (state.gridInterval * state.gridInterval) / 4
 
 	// Read current labels into a flat int slice for efficient access during flood fill.
-	labels := make([]int, totalPixelCount)
-	copy(labels, this.labelMap)
+	labels := make([]int, state.imgPixelCount)
+	copy(labels, state.labelMap)
 
 	// Templates for creating the 4-connected neighborhood of a pixel
 	dx4 := [4]int{-1, 0, 1, 0}
 	dy4 := [4]int{0, -1, 0, 1}
 
 	// Vectors for the flood fill.
-	xVector := make([]int, totalPixelCount)
-	yVector := make([]int, totalPixelCount)
+	xVector := make([]int, state.imgPixelCount)
+	yVector := make([]int, state.imgPixelCount)
 
 	originIndex := 0
 	adjacentLabel := 0
 
 	label := 0
-	newLabelMap := make([]int, totalPixelCount)
+	newLabelMap := make([]int, state.imgPixelCount)
 	for i := range newLabelMap {
 		newLabelMap[i] = -1
 	}
 
-	for indexHeight := range height {
-		for indexWidth := range width {
+	for indexHeight := range state.imgHeight {
+		for indexWidth := range state.imgWidth {
 			if newLabelMap[originIndex] < 0 {
 				newLabelMap[originIndex] = label
 
@@ -236,8 +262,8 @@ func (this *SpSlic) enforceConnectivity() {
 				for n := range 4 {
 					x := xVector[0] + dx4[n]
 					y := yVector[0] + dy4[n]
-					if x >= 0 && x < width && y >= 0 && y < height {
-						newIndex := y*width + x
+					if x >= 0 && x < state.imgWidth && y >= 0 && y < state.imgHeight {
+						newIndex := y*state.imgWidth + x
 						if newLabelMap[newIndex] >= 0 {
 							adjacentLabel = newLabelMap[newIndex]
 						}
@@ -251,8 +277,8 @@ func (this *SpSlic) enforceConnectivity() {
 					for n := range 4 {
 						x := xVector[c] + dx4[n]
 						y := yVector[c] + dy4[n]
-						if x >= 0 && x < width && y >= 0 && y < height {
-							nindex := y*width + x
+						if x >= 0 && x < state.imgWidth && y >= 0 && y < state.imgHeight {
+							nindex := y*state.imgWidth + x
 							if newLabelMap[nindex] < 0 && labels[nindex] == originLabel {
 								xVector[count] = x
 								yVector[count] = y
@@ -266,7 +292,7 @@ func (this *SpSlic) enforceConnectivity() {
 				// If the component is too small, absorb it into an adjacent segment
 				if count <= minimumSpPixelCount {
 					for c := 0; c < count; c++ {
-						ind := yVector[c]*width + xVector[c]
+						ind := yVector[c]*state.imgWidth + xVector[c]
 						newLabelMap[ind] = adjacentLabel
 					}
 					label--
@@ -278,13 +304,11 @@ func (this *SpSlic) enforceConnectivity() {
 	}
 
 	// Write new labels back to the label map
-	copy(this.labelMap, newLabelMap)
+	copy(state.labelMap, newLabelMap)
 }
 
-func (this *SpSlic) labelPixels() {
+func (state *slicState) labelPixels() {
 
-	width := this.Img.Bounds().Dx()
-	height := this.Img.Bounds().Dy()
 	workers := runtime.NumCPU()
 
 	var wg sync.WaitGroup
@@ -292,30 +316,30 @@ func (this *SpSlic) labelPixels() {
 
 	// Process the image in bands
 	for w := range workers {
-		bandStart := w * height / workers
-		bandEnd := (w + 1) * height / workers
+		bandStart := w * state.imgHeight / workers
+		bandEnd := (w + 1) * state.imgHeight / workers
 
 		go func(rowStart, rowEnd int) {
 			defer wg.Done()
 
 			// For every cluster, test the distance metric of pixels in a 2*gridInterval x 2*gridInterval neighborhood around the cluster center.
 			// Assign them to the cluster if they are closer than their previous best cluster.
-			for clusterIndex, cluster := range this.clusters {
-				for iX := -this.gridInterval; iX <= this.gridInterval; iX++ {
+			for clusterIndex, cluster := range state.clusters {
+				for iX := -state.gridInterval; iX <= state.gridInterval; iX++ {
 					pixelX := cluster.x + iX
 					// Clamp the iY range so this goroutine only touches rows in its band.
-					iYMin := max(-this.gridInterval, rowStart-cluster.y)
-					iYMax := min(this.gridInterval, rowEnd-1-cluster.y)
+					iYMin := max(-state.gridInterval, rowStart-cluster.y)
+					iYMax := min(state.gridInterval, rowEnd-1-cluster.y)
 					for iY := iYMin; iY <= iYMax; iY++ {
 						pixelY := cluster.y + iY
-						distance, err := this.distance(cluster, pixelX, pixelY)
+						distance, err := state.distance(cluster, pixelX, pixelY)
 						if err != nil {
 							continue // Skip out of bounds pixels
 						}
-						index := pixelY*width + pixelX
-						if distance < this.bestDistancesMap[index] {
-							this.bestDistancesMap[index] = distance
-							this.labelMap[index] = clusterIndex
+						index := pixelY*state.imgWidth + pixelX
+						if distance < state.bestDistancesMap[index] {
+							state.bestDistancesMap[index] = distance
+							state.labelMap[index] = clusterIndex
 						}
 					}
 				}
@@ -326,28 +350,24 @@ func (this *SpSlic) labelPixels() {
 	wg.Wait()
 }
 
-func (this *SpSlic) recalculateClusterCenters() {
-
-	// Get image dimensions
-	width := this.Img.Bounds().Dx()
-	height := this.Img.Bounds().Dy()
+func (state *slicState) recalculateClusterCenters() {
 
 	// For every cluster, calculate the mean position and color of pixels assigned to it and update the cluster center.
-	clusterPixelCount := make([]uint64, len(this.clusters))
-	clusterXPos := make([]uint64, len(this.clusters))
-	clusterYPos := make([]uint64, len(this.clusters))
-	clusterL := make([]float64, len(this.clusters))
-	clusterA := make([]float64, len(this.clusters))
-	clusterB := make([]float64, len(this.clusters))
+	clusterPixelCount := make([]uint64, len(state.clusters))
+	clusterXPos := make([]uint64, len(state.clusters))
+	clusterYPos := make([]uint64, len(state.clusters))
+	clusterL := make([]float64, len(state.clusters))
+	clusterA := make([]float64, len(state.clusters))
+	clusterB := make([]float64, len(state.clusters))
 
 	// Sum up all pixel counts, positions, and LAB color values
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			label := this.labelMap[y*width+x]
+	for y := 0; y < state.imgHeight; y++ {
+		for x := 0; x < state.imgWidth; x++ {
+			label := state.labelMap[y*state.imgWidth+x]
 			clusterPixelCount[label]++
 			clusterXPos[label] += uint64(x)
 			clusterYPos[label] += uint64(y)
-			lab := this.labCache[y*width+x]
+			lab := state.labCache[y*state.imgWidth+x]
 			clusterL[label] += lab[0]
 			clusterA[label] += lab[1]
 			clusterB[label] += lab[2]
@@ -355,45 +375,43 @@ func (this *SpSlic) recalculateClusterCenters() {
 	}
 
 	// Divide sums by pixel count to get the averages and save the result
-	for i := 0; i < len(this.clusters); i++ {
+	for i := 0; i < len(state.clusters); i++ {
 		if clusterPixelCount[i] < 1 {
 			clusterPixelCount[i] = 1
 		}
 		count := clusterPixelCount[i]
-		this.clusters[i].x = int(clusterXPos[i] / count)
-		this.clusters[i].y = int(clusterYPos[i] / count)
-		this.clusters[i].l = clusterL[i] / float64(count)
-		this.clusters[i].a = clusterA[i] / float64(count)
-		this.clusters[i].b = clusterB[i] / float64(count)
+		state.clusters[i].x = int(clusterXPos[i] / count)
+		state.clusters[i].y = int(clusterYPos[i] / count)
+		state.clusters[i].l = clusterL[i] / float64(count)
+		state.clusters[i].a = clusterA[i] / float64(count)
+		state.clusters[i].b = clusterB[i] / float64(count)
 	}
 
 }
 
-func (this *SpSlic) buildLabCache() {
-	width := this.Img.Bounds().Dx()
-	height := this.Img.Bounds().Dy()
-	this.labCache = make([][3]float64, width*height)
+func (state *slicState) buildLabCache() {
+	state.labCache = make([][3]float64, state.imgWidth*state.imgHeight)
 
 	workers := runtime.NumCPU()
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
 	for w := range workers {
-		bandStart := w * height / workers
-		bandEnd := (w + 1) * height / workers
+		bandStart := w * state.imgHeight / workers
+		bandEnd := (w + 1) * state.imgHeight / workers
 
 		go func(rowStart, rowEnd int) {
 			defer wg.Done()
 			for y := rowStart; y < rowEnd; y++ {
-				for x := 0; x < width; x++ {
-					c, _ := colorful.MakeColor(this.Img.At(x, y))
+				for x := 0; x < state.imgWidth; x++ {
+					c, _ := colorful.MakeColor(state.img.At(x, y))
 					l, a, b := c.Lab()
 					// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
 					// so we scale the lab values by 100 to match the scale the compactness parameter is calibrated for.
 					l *= 100
 					a *= 100
 					b *= 100
-					this.labCache[y*width+x] = [3]float64{l, a, b}
+					state.labCache[y*state.imgWidth+x] = [3]float64{l, a, b}
 				}
 			}
 		}(bandStart, bandEnd)
@@ -402,43 +420,39 @@ func (this *SpSlic) buildLabCache() {
 	wg.Wait()
 }
 
-func (this *SpSlic) resetDistances() {
-	if this.bestDistancesMap == nil {
-		this.bestDistancesMap = make([]float64, this.Img.Bounds().Dx()*this.Img.Bounds().Dy())
+func (state *slicState) resetDistances() {
+	if state.bestDistancesMap == nil {
+		state.bestDistancesMap = make([]float64, state.imgWidth*state.imgHeight)
 	}
-	for index := range this.bestDistancesMap {
-		this.bestDistancesMap[index] = math.Inf(1)
+	for index := range state.bestDistancesMap {
+		state.bestDistancesMap[index] = math.Inf(1)
 	}
 }
 
-func (this *SpSlic) initializeClusters() {
-
-	// Get image dimensions
-	width := this.GetImage().Bounds().Dx()
-	height := this.GetImage().Bounds().Dy()
+func (state *slicState) initializeClusters() {
 
 	// Initialize clusters
 	var points []image.Point
-	points, this.gridInterval = superpixel_utils.RegularGridPoints(width, height, this.count)
-	this.clusters = make([]slicSpCluster, len(points))
+	points, state.gridInterval = superpixel_utils.RegularGridPoints(state.imgWidth, state.imgHeight, state.count)
+	state.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
-		this.clusters[index].x = point.X
-		this.clusters[index].y = point.Y
-		this.clusters[index].l = this.labCache[point.Y*width+point.X][0]
-		this.clusters[index].a = this.labCache[point.Y*width+point.X][1]
-		this.clusters[index].b = this.labCache[point.Y*width+point.X][2]
+		state.clusters[index].x = point.X
+		state.clusters[index].y = point.Y
+		state.clusters[index].l = state.labCache[point.Y*state.imgWidth+point.X][0]
+		state.clusters[index].a = state.labCache[point.Y*state.imgWidth+point.X][1]
+		state.clusters[index].b = state.labCache[point.Y*state.imgWidth+point.X][2]
 	}
 
 	// Move cluster centers to lowest gradient position in neighborhood.
 	// In the original paper, this is explicitly defined as a 3x3 neighborhood, but we make it adjustable.
-	for index, cluster := range this.clusters {
+	for index, cluster := range state.clusters {
 		minGradient := math.Inf(1)
 		newCenterX := cluster.x
 		newCenterY := cluster.y
 
-		for iX := -this.initialPerturbationNeighborhoodRadius; iX <= this.initialPerturbationNeighborhoodRadius; iX++ {
-			for iY := -this.initialPerturbationNeighborhoodRadius; iY <= this.initialPerturbationNeighborhoodRadius; iY++ {
-				gradient := this.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
+		for iX := -state.initialPerturbationNeighborhoodRadius; iX <= state.initialPerturbationNeighborhoodRadius; iX++ {
+			for iY := -state.initialPerturbationNeighborhoodRadius; iY <= state.initialPerturbationNeighborhoodRadius; iY++ {
+				gradient := state.gradient(int(cluster.x)+iX, int(cluster.y)+iY)
 				if gradient < minGradient {
 					minGradient = gradient
 					newCenterX = cluster.x + iX
@@ -446,11 +460,12 @@ func (this *SpSlic) initializeClusters() {
 				}
 			}
 		}
-		this.clusters[index].x = newCenterX
-		this.clusters[index].y = newCenterY
+		state.clusters[index].x = newCenterX
+		state.clusters[index].y = newCenterY
 	}
 }
 
+/*
 func (this *SpSlic) Run() error {
 
 	// Do not run without image
@@ -479,8 +494,8 @@ func (this *SpSlic) Run() error {
 	// Write the final result into this.Result
 	resultLabelMap := image.NewGray16(image.Rect(0, 0, width, height))
 	maxLabel := 0
-	for y := range height {
-		for x := range width {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
 			label := this.labelMap[y*width+x]
 			if label > maxLabel {
 				maxLabel = label
@@ -495,4 +510,4 @@ func (this *SpSlic) Run() error {
 	this.bestDistancesMap = nil
 
 	return nil
-}
+}*/
