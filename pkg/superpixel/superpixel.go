@@ -44,6 +44,18 @@ func RegisterSpAlgorithm(id string, title string, description string, run func(i
 	}
 }
 
+func GetDefaultParameters(id string) (params map[string]any, err error) {
+	entry, exists := spRegistry[id]
+	if !exists {
+		return nil, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)
+	}
+	params = make(map[string]any)
+	for paramName, paramInfo := range entry.Parameters {
+		params[paramName] = paramInfo.Default
+	}
+	return params, nil
+}
+
 func ListAlgorithms() []string {
 	algorithms := make([]string, 0, len(spRegistry))
 	for id := range spRegistry {

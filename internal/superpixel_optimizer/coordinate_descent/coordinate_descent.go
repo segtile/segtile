@@ -13,18 +13,56 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
-type SpOptimizerCoordinateDescent struct {
-	superpixel_optimizer.SpOptimizerData
-	score      float64
-	bestParams map[superpixel.SpParameter]float64
+func init() {
+	parameterInfo := map[string]superpixel_optimizer.SpOptimizerParameterInfo{
+		"passes": {
+			Kind:        superpixel_optimizer.SpOptimizerParameterKindInt,
+			Title:       "Passes",
+			Description: "Number of passes to perform over the parameters. Each pass will attempt to optimize each parameter in turn.",
+			Default:     3,
+			Min:         1,
+			Max:         math.MaxInt,
+		},
+	}
+	superpixel_optimizer.RegisterSpOptimizer(
+		"coordinate_descent",
+		"Coordinate Descent Optimizer",
+		"Optimizes superpixel algorithm parameters using a coordinate descent approach.",
+		runWithParams,
+		parameterInfo,
+	)
 }
 
-func (o *SpOptimizerCoordinateDescent) GetSupportedParameters() []superpixel_optimizer.SpOptimizerParameter {
-	return []superpixel_optimizer.SpOptimizerParameter{}
+func runWithParams(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error) {
+	return Run(imagePairs, metric, algorithms, optimizer_params["passes"].(int))
 }
 
-func (o *SpOptimizerCoordinateDescent) SetParameter(parameter superpixel_optimizer.SpOptimizerParameter, value float64) error {
-	return fmt.Errorf("Setting parameters is not supported for this optimizer.")
+func Run(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, passes int) (best_score float64, best_score_algorithm_params map[string]any, err error) {
+
+	// Ensure that there is one image pair
+	if len(imagePairs) == 0 {
+		return 0, nil, fmt.Errorf("No image and ground truth paths provided for optimization.")
+	}
+
+	// Ensure that all algorithms and metrics are available
+	allAlgorithms := superpixel_factory.ListImplementations()
+	for _, algorithm := range algorithms {
+		if !contains(allAlgorithms, algorithm) {
+			return 0, nil, fmt.Errorf("Unknown superpixel algorithm %s", algorithm)
+		}
+	}
+
+	allMetrics := superpixel_metric_factory.ListMetrics()
+	if !contains(allMetrics, metric) {
+		return 0, nil, fmt.Errorf("Unknown superpixel metric %s", metric)
+	}
+
+	for _, algorithm := range algorithms {
+
+		
+
+
+
 }
 
 func (o *SpOptimizerCoordinateDescent) Run() (score float64, parameters map[superpixel.SpParameter]float64, err error) {

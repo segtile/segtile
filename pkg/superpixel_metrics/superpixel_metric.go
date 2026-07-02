@@ -54,12 +54,12 @@ func RegisterSpMetric(
 	}
 }
 
-func ListSpMetricAlgorithms() []string {
-	algorithms := make([]string, 0, len(spMetricRegistry))
+func ListSpMetrics() []string {
+	metrics := make([]string, 0, len(spMetricRegistry))
 	for id := range spMetricRegistry {
-		algorithms = append(algorithms, id)
+		metrics = append(metrics, id)
 	}
-	return algorithms
+	return metrics
 }
 
 func GetSpMetricInfo(id string) (title string, description string, parameters map[string]SpMetricParameterInfo, err error) {
@@ -68,6 +68,18 @@ func GetSpMetricInfo(id string) (title string, description string, parameters ma
 		return "", "", nil, fmt.Errorf("Superpixel metric with id %s is not registered", id)
 	}
 	return entry.Title, entry.Description, entry.Parameters, nil
+}
+
+func GetDefaultSpMetricParameters(id string) (params map[string]any, err error) {
+	entry, exists := spMetricRegistry[id]
+	if !exists {
+		return nil, fmt.Errorf("Superpixel metric with id %s is not registered", id)
+	}
+	params = make(map[string]any)
+	for paramName, paramInfo := range entry.Parameters {
+		params[paramName] = paramInfo.Default
+	}
+	return params, nil
 }
 
 // Run executes the registered superpixel metric with the given id.

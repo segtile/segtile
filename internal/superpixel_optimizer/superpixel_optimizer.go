@@ -1,58 +1,86 @@
 package superpixel_optimizer
 
 import (
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	"fmt"
+	"image"
 )
 
-type SpOptimizerImagePair struct {
-	ImagePath       string
-	GroundTruthPath string
+type SpOptimizerInputPair struct {
+	Image       image.Image
+	GroundTruth *image.Gray16
 }
 
-type SpOptimizer interface {
+type SpOptimizerParameterKind int
 
-	// Set a map of image paths and corresponding ground truth selection paths to be used for optimization.
-	SetImageAndGroundTruthPaths([]SpOptimizerImagePair)
+const (
+	SpOptimizerParameterKindInt SpOptimizerParameterKind = iota
+	SpOptimizerParameterKindFloat
+	SpOptimizerParameterKindBool
+)
 
-	// Set a superpixel implementation to be evaluated and optimized.
-	SetImplementation(implementation superpixel.SpImplementation)
-
-	// Sets the parameters that will be optimized during the optimization process.
-	SetOptimizationTargetParameters([]superpixel.SpParameter)
-
-	// Gets the parameters that will be optimized during the optimization process.
-	GetOptimizationTargetParameters() []superpixel.SpParameter
-
-	// Get available optimizer parameters
-	GetSupportedParameters() []SpOptimizerParameter
-
-	// Set a parameter value for the optimizer.
-	SetParameter(parameter SpOptimizerParameter, value float64) error
-
-	// Run the optimization process
-	Run() (score float64, parameters map[superpixel.SpParameter]float64, err error)
+type SpOptimizerParameterInfo struct {
+	Kind        SpOptimizerParameterKind
+	Title       string
+	Description string
+	Default     float64
+	Min         float64
+	Max         float64
 }
 
-type SpOptimizerData struct {
-	AnnotationPairs              []SpOptimizerImagePair
-	SpImplementation             superpixel.SpImplementation
-	SpMetric                     superpixel_metrics.SpMetric
-	OptimizationTargetParameters []superpixel.SpParameter
+type spOptimizerRegistryEntry struct {
+	Title       string
+	Description string
+	Run         func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error)
+	Parameters  map[string]SpOptimizerParameterInfo
 }
 
-func (o *SpOptimizerData) SetImageAndGroundTruthPaths(paths []SpOptimizerImagePair) {
-	o.AnnotationPairs = paths
+var spOptimizerRegistry = make(map[string]spOptimizerRegistryEntry)
+
+func RegisterSpOptimizer(id string, title string, description string, run func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error), parameters map[string]SpOptimizerParameterInfo) {
+	if _, exists := spOptimizerRegistry[id]; exists {
+		panic("Superpixel optimizer with id " + id + " is already registered")
+	}
+
+	spOptimizerRegistry[id] = spOptimizerRegistryEntry{
+		Title:       title,
+		Description: description,
+		Run:         run,
+		Parameters:  parameters,
+	}
 }
 
-func (o *SpOptimizerData) SetImplementation(implementation superpixel.SpImplementation) {
-	o.SpImplementation = implementation
+func ListOptimizers() []string {
+	optimizers := make([]string, 0, len(spOptimizerRegistry))
+	for id := range spOptimizerRegistry {
+		optimizers = append(optimizers, id)
+	}
+	return optimizers
 }
 
-func (o *SpOptimizerData) SetOptimizationTargetParameters(params []superpixel.SpParameter) {
-	o.OptimizationTargetParameters = params
+func GetDefaultSpOptimizerParameters(id string) (params map[string]any, err error) {
+	entry, exists := spOptimizerRegistry[id]
+	if !exists {
+		return nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
+	}
+	params = make(map[string]any)
+	for paramName, paramInfo := range entry.Parameters {
+		params[paramName] = paramInfo.Default
+	}
+	return params, nil
 }
 
-func (o *SpOptimizerData) GetOptimizationTargetParameters() []superpixel.SpParameter {
-	return o.OptimizationTargetParameters
+func GetOptimizerInfo(id string) (title string, description string, parameters map[string]SpOptimizerParameterInfo, err error) {
+	entry, exists := spOptimizerRegistry[id]
+	if !exists {
+		return "", "", nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
+	}
+	return entry.Title, entry.Description, entry.Parameters, nil
+}
+
+func Run(id string, imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error) {
+	entry, exists := spOptimizerRegistry[id]
+	if !exists {
+		return 0, nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
+	}
+	return entry.Run(imagePairs, metric, algorithms, optimizer_params)
 }
