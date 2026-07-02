@@ -30,13 +30,13 @@ type SpOptimizerParameterInfo struct {
 type spOptimizerRegistryEntry struct {
 	Title       string
 	Description string
-	Run         func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error)
+	Run         func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error)
 	Parameters  map[string]SpOptimizerParameterInfo
 }
 
 var spOptimizerRegistry = make(map[string]spOptimizerRegistryEntry)
 
-func RegisterSpOptimizer(id string, title string, description string, run func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error), parameters map[string]SpOptimizerParameterInfo) {
+func RegisterSpOptimizer(id string, title string, description string, run func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error), parameters map[string]SpOptimizerParameterInfo) {
 	if _, exists := spOptimizerRegistry[id]; exists {
 		panic("Superpixel optimizer with id " + id + " is already registered")
 	}
@@ -57,12 +57,12 @@ func ListOptimizers() []string {
 	return optimizers
 }
 
-func GetDefaultSpOptimizerParameters(id string) (params map[string]any, err error) {
+func GetDefaultSpOptimizerParameters(id string) (params map[string]float64, err error) {
 	entry, exists := spOptimizerRegistry[id]
 	if !exists {
 		return nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
 	}
-	params = make(map[string]any)
+	params = make(map[string]float64)
 	for paramName, paramInfo := range entry.Parameters {
 		params[paramName] = paramInfo.Default
 	}
@@ -77,10 +77,10 @@ func GetOptimizerInfo(id string) (title string, description string, parameters m
 	return entry.Title, entry.Description, entry.Parameters, nil
 }
 
-func Run(id string, imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]any) (best_score float64, best_score_algorithm_params map[string]any, err error) {
+func Run(id string, imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
 	entry, exists := spOptimizerRegistry[id]
 	if !exists {
-		return 0, nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
+		return 0, "", nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
 	}
 	return entry.Run(imagePairs, metric, algorithms, optimizer_params)
 }

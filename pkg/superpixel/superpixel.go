@@ -25,13 +25,13 @@ type SpParameterInfo struct {
 type spRegistryEntry struct {
 	Title       string
 	Description string
-	Run         func(img image.Image, params map[string]any) (result SpResult, err error)
+	Run         func(img image.Image, params map[string]float64) (result SpResult, err error)
 	Parameters  map[string]SpParameterInfo
 }
 
 var spRegistry = make(map[string]spRegistryEntry)
 
-func RegisterSpAlgorithm(id string, title string, description string, run func(img image.Image, params map[string]any) (result SpResult, err error), parameters map[string]SpParameterInfo) {
+func RegisterSpAlgorithm(id string, title string, description string, run func(img image.Image, params map[string]float64) (result SpResult, err error), parameters map[string]SpParameterInfo) {
 	if _, exists := spRegistry[id]; exists {
 		panic("Superpixel algorithm with id " + id + " is already registered")
 	}
@@ -52,12 +52,12 @@ func ListParameterInfo(algorithmId string) (map[string]SpParameterInfo, error) {
 	return entry.Parameters, nil
 }
 
-func GetDefaultParameters(id string) (params map[string]any, err error) {
+func GetDefaultParameters(id string) (params map[string]float64, err error) {
 	entry, exists := spRegistry[id]
 	if !exists {
 		return nil, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)
 	}
-	params = make(map[string]any)
+	params = make(map[string]float64)
 	for paramName, paramInfo := range entry.Parameters {
 		params[paramName] = paramInfo.Default
 	}
@@ -80,7 +80,7 @@ func GetAlgorithmInfo(id string) (title string, description string, parameters m
 	return entry.Title, entry.Description, entry.Parameters, nil
 }
 
-func Run(id string, img image.Image, params map[string]any) (result SpResult, err error) {
+func Run(id string, img image.Image, params map[string]float64) (result SpResult, err error) {
 	entry, exists := spRegistry[id]
 	if !exists {
 		return SpResult{}, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)

@@ -32,8 +32,8 @@ func init() {
 	)
 }
 
-func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
-	maxIslands := uint16(params["max_islands"].(int))
+func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+	maxIslands := uint16(params["max_islands"])
 
 	densityScore, _ := density_score.Run(result, groundTruth, maxIslands)
 	weightedF1Score, _ := weighted_f1_score.Run(result, groundTruth)

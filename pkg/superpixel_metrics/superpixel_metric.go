@@ -28,7 +28,7 @@ type spMetricRegistryEntry struct {
 	Title        string
 	Description  string
 	OptimalScore float64
-	Run          func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error)
+	Run          func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error)
 	Parameters   map[string]SpMetricParameterInfo
 }
 
@@ -39,7 +39,7 @@ func RegisterSpMetric(
 	title string,
 	description string,
 	optimalScore float64,
-	run func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error),
+	run func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error),
 	parameters map[string]SpMetricParameterInfo) {
 	if _, exists := spMetricRegistry[id]; exists {
 		panic("Superpixel metric with id " + id + " is already registered")
@@ -70,12 +70,12 @@ func GetSpMetricInfo(id string) (title string, description string, parameters ma
 	return entry.Title, entry.Description, entry.Parameters, nil
 }
 
-func GetDefaultSpMetricParameters(id string) (params map[string]any, err error) {
+func GetDefaultSpMetricParameters(id string) (params map[string]float64, err error) {
 	entry, exists := spMetricRegistry[id]
 	if !exists {
 		return nil, fmt.Errorf("Superpixel metric with id %s is not registered", id)
 	}
-	params = make(map[string]any)
+	params = make(map[string]float64)
 	for paramName, paramInfo := range entry.Parameters {
 		params[paramName] = paramInfo.Default
 	}
@@ -85,7 +85,7 @@ func GetDefaultSpMetricParameters(id string) (params map[string]any, err error) 
 // Run executes the registered superpixel metric with the given id.
 // It takes the superpixel result, the original image, the ground truth mask, and a map of parameters as input.
 // Not all algorithms may use all parameters.
-func Run(id string, result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
+func Run(id string, result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
 	entry, exists := spMetricRegistry[id]
 	if !exists {
 		return 0, fmt.Errorf("Superpixel metric with id %s is not registered", id)

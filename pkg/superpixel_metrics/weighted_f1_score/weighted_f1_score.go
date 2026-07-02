@@ -21,7 +21,7 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 

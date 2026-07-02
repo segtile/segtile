@@ -63,7 +63,7 @@ func (appState *AppState) OptimizeSpParameters() {
 		return
 	}
 
-	score, params, err := superpixel_optimizer.Run(
+	score, bestAlgorithm, bestParams, err := superpixel_optimizer.Run(
 		"coordinate_descent",
 		samples,
 		"labeling_calibration_score",
@@ -74,12 +74,12 @@ func (appState *AppState) OptimizeSpParameters() {
 		log.Printf("Optimization failed: %v", err)
 		return
 	}
-	log.Printf("Optimization completed: score=%.4f, params=%v", score, params)
+	log.Printf("Optimization completed: score=%.4f, algorithm=%s, params=%v", score, bestAlgorithm, bestParams)
 
-	for paramName, newValue := range params {
-		if paramName == "algorithm" {
-			continue
-		}
+	appState.Settings.Superpixel.SpAlgorithmId = bestAlgorithm
+
+	// TODO: Actually rebuild properly
+	for paramName, newValue := range bestParams {
 		if _, ok := appState.Settings.Superpixel.SpAlgorithmParameters[paramName]; ok {
 			appState.Settings.Superpixel.SpAlgorithmParameters[paramName] = newValue
 			log.Printf("Set parameter %s to %v", paramName, newValue)

@@ -27,8 +27,8 @@ const defaultSpAlgorithmId = "slic"
 // SuperpixelSettings stores the algorithm name and its parameters.
 // This is used for yaml persistence.
 type SuperpixelSettings struct {
-	SpAlgorithmId         string         `yaml:"algorithm"`
-	SpAlgorithmParameters map[string]any `yaml:"parameters"`
+	SpAlgorithmId         string             `yaml:"algorithm"`
+	SpAlgorithmParameters map[string]float64 `yaml:"parameters"`
 }
 
 // ProjectSettings stores all settings of a project,

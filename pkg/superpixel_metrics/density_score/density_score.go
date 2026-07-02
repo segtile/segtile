@@ -31,8 +31,8 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]any) (score float64, err error) {
-	return Run(result, groundTruth, uint16(params["max_islands"].(int)))
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+	return Run(result, groundTruth, uint16(params["max_islands"]))
 }
 
 func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint16) (densityCalibrationScore float64, err error) {
