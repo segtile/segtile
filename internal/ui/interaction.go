@@ -28,13 +28,8 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			}
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
-					setErr := appState.SuperpixelImplementation.SetParameter(param, v)
-					if setErr != nil {
-						fmt.Printf("Error setting %s: %v\n", param.Title(), setErr)
-					}
-					newValue, _ := appState.SuperpixelImplementation.GetParameter(param)
-					editor.SetText(fmt.Sprintf("%v", newValue))
-					fmt.Printf("Set %s to %v\n", param.Title(), newValue)
+					appState.Settings.Superpixel.SpAlgorithmParameters[param] = v
+					fmt.Printf("Set %s to %v\n", param, v)
 
 					recalculate = true
 				}
@@ -42,23 +37,18 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 	}
 	if recalculate {
+
+		appState.SyncEditors()
+
 		if appState.CurrentImage != nil {
 			appState.RecalculateSuperpixels()
 		}
 
 		// Persist updated parameters to config.
-		if appState.Settings != nil {
-			spCfg, err := app_config.SuperpixelSettingsFromImpl(appState.SuperpixelImplementation)
-			if err == nil {
-				settings := &app_config.ProjectSettings{
-					InputDirectory: appState.Settings.InputDirectory,
-					Superpixel:     spCfg,
-				}
-				if err := app_config.Save(settings, appState.OutputDirectory); err != nil {
-					fmt.Println("Warning: could not save config:", err)
-				}
-			}
+		if err := app_config.Save(appState.Settings); err != nil {
+			fmt.Println("Warning: could not save config:", err)
 		}
+
 	}
 }
 
@@ -98,7 +88,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		imageY := (pe.Position.Y - appState.ViewOffsetY) / appState.ViewScale
 
 		// Check if the position is within the bounds of the image
-		inImageBounds := imageX >= 0 && imageY >= 0 && int(imageX) < appState.CurrentImage.Bounds().Dx() && int(imageY) < appState.CurrentImage.Bounds().Dy()
+		inImageBounds := appState.ActiveResult.LabelMap != nil && imageX >= 0 && imageY >= 0 && int(imageX) < appState.CurrentImage.Bounds().Dx() && int(imageY) < appState.CurrentImage.Bounds().Dy()
 
 		// We start with actions that always fire, even if the cursor is outside the image bounds
 
@@ -141,7 +131,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		// Handle simple move and update the hover preview
 		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
 			if inImageBounds {
-				labelMap := appState.SuperpixelImplementation.GetResult().LabelMap
+				labelMap := appState.ActiveResult.LabelMap
 				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(int(imageX), int(imageY)).Y)
 			} else {
 				appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
@@ -152,7 +142,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		if inImageBounds {
 			// Sample the current superpixel label at the pointer position
-			labelMap := appState.SuperpixelImplementation.GetResult().LabelMap
+			labelMap := appState.ActiveResult.LabelMap
 			label := labelMap.Gray16At(int(imageX), int(imageY)).Y
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
@@ -172,7 +162,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if selectionChanged {
-				labelMap := appState.SuperpixelImplementation.GetResult().LabelMap
+				labelMap := appState.ActiveResult.LabelMap
 				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
 				// Clear the existing mask orange outline once the user starts painting.
 				if appState.ExistingMask != nil {
@@ -220,6 +210,11 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.NewProjectButton {
 		triggerNewProject(appState)
+		return
+	}
+
+	if button == &appState.OptimizeButton {
+		appState.OptimizeSpParameters()
 		return
 	}
 

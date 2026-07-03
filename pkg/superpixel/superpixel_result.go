@@ -1,7 +1,6 @@
 package superpixel
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 )
@@ -89,6 +88,7 @@ func (this *SpResult) computeOverlapCounts(mask *image.Gray16) (spPixelCount []i
 func (this *SpResult) SelectionToMask(selection []bool) *image.Gray16 {
 	spBounds := this.LabelMap.Bounds()
 	mask := image.NewGray16(spBounds)
+
 	for x := 0; x < spBounds.Dx(); x++ {
 		for y := 0; y < spBounds.Dy(); y++ {
 			if selection[this.LabelMap.Gray16At(x, y).Y] {
@@ -114,26 +114,4 @@ func (this *SpResult) SelectFromMask(mask *image.Gray16, threshold float64) []bo
 		}
 	}
 	return selection
-}
-
-// OverlapHistogram computes a histogram of the overlap ratios between the superpixels and the given ground truth mask.
-// The histogram has 101 bins corresponding to overlap ratios from 0% to 100% (inclusive).
-// Each bin counts how many superpixels have an overlap ratio that falls within that percentage range.
-func (this *SpResult) OverlapHistogram(groundTruth *image.Gray16, threshold float64) ([]int, error) {
-
-	if this.LabelMap.Bounds() != groundTruth.Bounds() {
-		return nil, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
-	}
-
-	spPixelCount, spOverlapCount := this.computeOverlapCounts(groundTruth)
-	overlapHistogram := make([]int, 101)
-
-	for spLabel := 0; spLabel < this.SpCount; spLabel++ {
-		if spPixelCount[spLabel] == 0 {
-			continue
-		}
-		overlapRatio := float64(spOverlapCount[spLabel]) / float64(spPixelCount[spLabel])
-		overlapHistogram[int(overlapRatio*100)]++
-	}
-	return overlapHistogram, nil
 }

@@ -2,39 +2,45 @@ package f1_score
 
 import (
 	"fmt"
+	"image"
 
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type SpMetricF1Score struct {
-	superpixel_metrics.SpMetricsData
+func init() {
+	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
+	superpixel_metrics.RegisterSpMetric(
+		"f1_score",
+		"F1 Score",
+		"Computes the F1 score of the superpixel segmentation against the ground truth mask.",
+		1.0,
+		Run,
+		parameterInfo,
+	)
 }
 
-func (e *SpMetricF1Score) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
-	return fmt.Errorf("No parameters available for F1Score metric.")
-}
+func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
 
-func (e *SpMetricF1Score) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
-	return 0, fmt.Errorf("No parameters available for F1Score metric.")
-}
-
-func (e *SpMetricF1Score) PerfectScore() float64 {
-	return 1.0
-}
-
-func (e *SpMetricF1Score) GetScore() (f1Score float64, err error) {
-
-	maskOriginal := e.GetGroundTruthSegmentation()
-	selectionFromGroundTruth := e.GetSpResult().SelectFromMask(maskOriginal, 0.5)
-	maskApproximated := e.GetSpResult().SelectionToMask(selectionFromGroundTruth)
-
-	if maskOriginal.Bounds() != maskApproximated.Bounds() {
-		return 0, fmt.Errorf("Masks must have the same dimensions")
+	// Check that images are valid
+	if !superpixel_utils.IsBinaryMask(groundTruth) {
+		return 0, fmt.Errorf("Ground truth mask must be a binary mask for this metric.")
 	}
+
+	if result.LabelMap.Bounds() != groundTruth.Bounds() {
+		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
+	}
+
+	// Approximate the ground truth mask using the superpixel segmentation
+	selectionFromGroundTruth := result.SelectFromMask(groundTruth, 0.5)
+	maskApproximated := result.SelectionToMask(selectionFromGroundTruth)
+
+	// Tally up the F1 score
 	var intersection, union int
-	for y := 0; y < maskOriginal.Bounds().Dy(); y++ {
-		for x := 0; x < maskOriginal.Bounds().Dx(); x++ {
-			pOriginal := maskOriginal.Gray16At(x, y)
+	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
+		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
+			pOriginal := groundTruth.Gray16At(x, y)
 			pApproximated := maskApproximated.Gray16At(x, y)
 			if pOriginal.Y > 0 && pApproximated.Y > 0 {
 				intersection++

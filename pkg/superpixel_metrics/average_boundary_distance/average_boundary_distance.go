@@ -3,115 +3,54 @@ package average_boundary_distance
 import (
 	"fmt"
 	"image"
-	"math"
-	"math/rand/v2"
 
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type SpMetricAverageBoundaryDistance struct {
-	superpixel_metrics.SpMetricsData
+func init() {
+	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
+	superpixel_metrics.RegisterSpMetric(
+		"average_boundary_distance",
+		"Average Boundary Distance",
+		"Computes the average distance from each boundary pixel in the ground truth mask to the nearest boundary pixel in the superpixel segmentation mask.",
+		0.0,
+		runWithParams,
+		parameterInfo,
+	)
 }
 
-func (e *SpMetricAverageBoundaryDistance) PerfectScore() float64 {
-	return 1.0
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+	return Run(result, groundTruth)
 }
 
-func (e *SpMetricAverageBoundaryDistance) SetParameter(parameter superpixel_metrics.SpMetricParameter, value float64) error {
-	return fmt.Errorf("No parameters available for AverageBoundaryDistance metric.")
-}
+func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
 
-func (e *SpMetricAverageBoundaryDistance) GetParameter(parameter superpixel_metrics.SpMetricParameter) (float64, error) {
-	return 0, fmt.Errorf("No parameters available for AverageBoundaryDistance metric.")
-}
-
-func (e *SpMetricAverageBoundaryDistance) GetSupportedParameters() []superpixel_metrics.SpMetricParameter {
-	return []superpixel_metrics.SpMetricParameter{}
-}
-
-func (e *SpMetricAverageBoundaryDistance) GetScore() (averageBoundaryDistance float64) {
-
-	const maxIslands = 5
-
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(e.GetGroundTruthSegmentation())
-
-	// Prepare metrics
-	averageBoundaryDistance = 0.0
-
-	// Build a list of all island labels
-	islandLabels := make([]uint16, groundTruthIslandCount)
-	for i := uint16(0); i < groundTruthIslandCount; i++ {
-		islandLabels[i] = i + 1
+	if result.LabelMap.Bounds() != groundTruth.Bounds() {
+		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
-	// Shuffle the island labels and pick up to 10 for evaluation
-	rand.Shuffle(len(islandLabels), func(i, j int) {
-		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
-	})
-	if len(islandLabels) > maxIslands {
-		islandLabels = islandLabels[:maxIslands]
+	cumulativeBoundaryDistance := 0.0
+
+	// Find all boundary pixels in the ground truth segmentation
+	boundariesGroundTruth := superpixel_utils.BoundaryPoints(groundTruth, false)
+	if len(boundariesGroundTruth) == 0 {
+		return 0, fmt.Errorf("No boundary pixels found in ground truth segmentation")
 	}
 
-	for _, islandLabel := range islandLabels {
+	// Create the boundary distance map for the SP segmentation
+	boundaryDistanceMap := superpixel_utils.DistanceToNextBoundaryPixel(result.LabelMap)
 
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, islandLabel)
-
-		selectionFromCurrentIsland := e.GetSpResult().SelectFromMask(currentGroundTruthIsland, 0.5)
-		currentApproximatedMask := e.GetSpResult().SelectionToMask(selectionFromCurrentIsland)
-
-		currentAverageBoundaryDistance, _ := AverageBoundaryDistance(currentGroundTruthIsland, currentApproximatedMask)
-		averageBoundaryDistance += currentAverageBoundaryDistance
-
+	// For every boundary in the grount truth segmentation, get the distance to the nearest boundary in the SP segmentation and add it to the average
+	for _, p := range boundariesGroundTruth {
+		distance := boundaryDistanceMap.Gray16At(p.X, p.Y).Y
+		cumulativeBoundaryDistance += float64(distance)
 	}
 
-	averageBoundaryDistance /= float64(len(islandLabels))
+	// Divide the cumulative boundary distance by the number of boundary pixels in the ground truth segmentation to get the average
+	averageBoundaryDistance := cumulativeBoundaryDistance / float64(len(boundariesGroundTruth))
 
-	return averageBoundaryDistance
-}
+	return averageBoundaryDistance, nil
 
-// AverageBoundaryDistance computes the average distance from each boundary pixel in maskOriginal to the nearest boundary pixel in maskApproximated.
-func AverageBoundaryDistance(maskOriginal, maskApproximated *image.Gray16) (float64, error) {
-	if maskOriginal.Bounds() != maskApproximated.Bounds() {
-		return 0, fmt.Errorf("Masks must have the same dimensions")
-	}
-
-	bounds := maskOriginal.Bounds()
-
-	maxDistance2 := float64(bounds.Dx()*bounds.Dx() + bounds.Dy()*bounds.Dy()) // Max possible distance squared
-
-	// Collect boundary pixel positions for both masks
-	type point struct{ x, y int }
-	var boundariesOriginal, boundariesApproximated []point
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			if maskOriginal.Gray16At(x, y).Y > 0 && (maskOriginal.Gray16At(x-1, y).Y == 0 || maskOriginal.Gray16At(x+1, y).Y == 0 || maskOriginal.Gray16At(x, y-1).Y == 0 || maskOriginal.Gray16At(x, y+1).Y == 0) {
-				boundariesOriginal = append(boundariesOriginal, point{x, y})
-			}
-			if maskApproximated.Gray16At(x, y).Y > 0 && (maskApproximated.Gray16At(x-1, y).Y == 0 || maskApproximated.Gray16At(x+1, y).Y == 0 || maskApproximated.Gray16At(x, y-1).Y == 0 || maskApproximated.Gray16At(x, y+1).Y == 0) {
-				boundariesApproximated = append(boundariesApproximated, point{x, y})
-			}
-		}
-	}
-
-	if len(boundariesOriginal) == 0 || len(boundariesApproximated) == 0 {
-		return 0, nil
-	}
-
-	// Check each boundary pixel in maskOriginal against all boundary pixels in maskApproximated
-	bestDistancesSum := 0.0
-	for _, p := range boundariesOriginal {
-		bestDistance2 := maxDistance2 // Max possible distance squared
-		for _, q := range boundariesApproximated {
-			deltaX := float64(p.x - q.x)
-			deltaY := float64(p.y - q.y)
-			distance2 := deltaX*deltaX + deltaY*deltaY
-			if distance2 < bestDistance2 {
-				bestDistance2 = distance2
-			}
-		}
-		bestDistancesSum += math.Sqrt(bestDistance2)
-	}
-
-	return bestDistancesSum / float64(len(boundariesOriginal)), nil
 }
