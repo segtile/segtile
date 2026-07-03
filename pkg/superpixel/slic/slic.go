@@ -30,8 +30,9 @@ import (
 )
 
 func init() {
-	parameterInfo := map[string]superpixel.SpParameterInfo{
-		"count": {
+	parameterInfo := []superpixel.SpParameterInfo{
+		{
+			Id:          "count",
 			Title:       "Superpixel Count",
 			Description: "The number of superpixels to generate.",
 			Kind:        superpixel.SpParameterKindInt,
@@ -39,7 +40,8 @@ func init() {
 			Min:         2,
 			Max:         32768,
 		},
-		"compactness": {
+		{
+			Id:          "compactness",
 			Title:       "Compactness",
 			Description: "The compactness of the superpixels. Higher values result in more compact superpixels.",
 			Kind:        superpixel.SpParameterKindFloat,
@@ -47,7 +49,8 @@ func init() {
 			Min:         0,
 			Max:         250,
 		},
-		"initialPerturbationNeighborhoodRadius": {
+		{
+			Id:          "initialPerturbationNeighborhoodRadius",
 			Title:       "Initial Perturbation Neighborhood Radius",
 			Description: "The radius of the neighborhood in which the initial cluster centers are perturbed to avoid placing them on edges.",
 			Kind:        superpixel.SpParameterKindInt,
@@ -55,7 +58,8 @@ func init() {
 			Min:         0,
 			Max:         16,
 		},
-		"iterations": {
+		{
+			Id:          "iterations",
 			Title:       "Iterations",
 			Description: "The number of iterations to run the SLIC algorithm.",
 			Kind:        superpixel.SpParameterKindInt,

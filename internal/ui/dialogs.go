@@ -71,7 +71,7 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
 		return nil, err
 	}
 
-	cfg, err := app_config.New(outputDir, inputDir, app_config.NewSuperpixelSettings())
+	cfg, err := app_config.NewProjectSettings(outputDir, inputDir, app_config.NewSuperpixelSettings())
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize project: %w", err)
 	}

@@ -80,54 +80,61 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						var children []layout.FlexChild
 
-						parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
-						if err != nil {
-							fmt.Printf("Error listing parameter info: %v\n", err)
-							return layout.Dimensions{}
-						}
+						if appState.Settings != nil {
 
-						for paramId, paramInfo := range parameterInfo {
-							children = append(children,
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
-									label.Color = appState.Theme.GioTheme.Palette.Fg
-									return label.Layout(gtx)
-								}),
+							parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
+							if err != nil {
+								fmt.Printf("Error listing parameter info: %v\n", err)
+								return layout.Dimensions{}
+							}
 
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									currentEditor := appState.SuperpixelParameterEditors[paramId]
+							for _, paramInfo := range parameterInfo {
+								children = append(children,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
+										label.Color = appState.Theme.GioTheme.Palette.Fg
+										return label.Layout(gtx)
+									}),
 
-									editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
-									editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-									return editorStyle.Layout(gtx)
-								}),
-							)
-						}
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										currentEditor := appState.SuperpixelParameterEditors[paramInfo.Id]
+										if currentEditor == nil {
+											fmt.Printf("Editor for parameter %s not found\n", paramInfo.Id)
+											return layout.Dimensions{}
+										}
 
-						// Spacer between param editors and navigation controls.
-						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
+										editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
+										editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
+										return editorStyle.Layout(gtx)
+									}),
+								)
+							}
 
-						// Image counter label.
-						if len(appState.ImageFiles) > 0 {
-							counter := fmt.Sprintf("%d / %d  —  %s",
-								appState.CurrentIndex+1,
-								len(appState.ImageFiles),
-								filepath.Base(appState.ImageFiles[appState.CurrentIndex]),
-							)
+							// Spacer between param editors and navigation controls.
+							children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
+
+							// Image counter label.
+							if len(appState.ImageFiles) > 0 {
+								counter := fmt.Sprintf("%d / %d  —  %s",
+									appState.CurrentIndex+1,
+									len(appState.ImageFiles),
+									filepath.Base(appState.ImageFiles[appState.CurrentIndex]),
+								)
+								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Body2(&appState.Theme.GioTheme, counter)
+									lbl.Color = appState.Theme.GioTheme.ContrastFg
+									return lbl.Layout(gtx)
+								}))
+							}
+
+							// Spacer
+							children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
+
+							// Image navigation buttons.
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								lbl := material.Body2(&appState.Theme.GioTheme, counter)
-								lbl.Color = appState.Theme.GioTheme.ContrastFg
-								return lbl.Layout(gtx)
+								return drawImageNavigationButtons(appState, gtx)
 							}))
 						}
-
-						// Spacer
-						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
-
-						// Image navigation buttons.
-						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return drawImageNavigationButtons(appState, gtx)
-						}))
 
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 					})
@@ -151,7 +158,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						appState.InitialFocusDone = true
 					}
 
-					if appState.Settings.InputDirectory == "" {
+					if appState.Settings == nil {
 						// No project loaded: show centered New Project / Open Project buttons.
 						promptText := "Create a new project or open an existing one."
 						if appState.CurrentlyLoadingProject {

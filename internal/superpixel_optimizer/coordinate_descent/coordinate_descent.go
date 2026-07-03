@@ -78,7 +78,7 @@ func optimizeAlgorithm(
 	passes int) (float64, map[string]float64, error) {
 
 	// Get default parameters for the algorithm
-	defaultParams, err := superpixel.GetDefaultParameters(algorithm)
+	defaultParams, err := superpixel.GetDefaultParameterValues(algorithm)
 	if err != nil {
 		return 0, nil, err
 	}

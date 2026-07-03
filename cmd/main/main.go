@@ -21,7 +21,7 @@ func main() {
 		appWindow := new(app.Window)
 		appWindow.Option(
 			app.Title("Annotation Tool"),
-			app.Size(unit.Dp(1280), unit.Dp(900)),
+			app.Size(unit.Dp(1200), unit.Dp(800)),
 		)
 
 		appState := app_config.NewAppState()
@@ -34,7 +34,7 @@ func main() {
 			if err != nil {
 				log.Printf("Warning: failed to load config %q: %v", configPath, err)
 			} else {
-				appState.ApplyProject(*cfg)
+				appState.ApplyProject(cfg)
 			}
 		}
 

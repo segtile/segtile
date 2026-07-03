@@ -22,27 +22,10 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-const defaultSpAlgorithmId = "slic"
-
-// SuperpixelSettings stores the algorithm name and its parameters.
-// This is used for yaml persistence.
-type SuperpixelSettings struct {
-	SpAlgorithmId         string             `yaml:"algorithm"`
-	SpAlgorithmParameters map[string]float64 `yaml:"parameters"`
-}
-
-// ProjectSettings stores all settings of a project,
-// it is used for yaml persistence.
-type ProjectSettings struct {
-	OutputDirectory string             `yaml:"-"`
-	InputDirectory  string             `yaml:"input_directory"`
-	Superpixel      SuperpixelSettings `yaml:"superpixel"`
-}
-
 type AppState struct {
 
 	// Project
-	Settings   ProjectSettings
+	Settings   *ProjectSettings
 	ImageFiles []string
 
 	// ActiveResult
@@ -97,7 +80,7 @@ type AppState struct {
 }
 
 func NewSuperpixelSettings() SuperpixelSettings {
-	defaultParameters, _ := superpixel.GetDefaultParameters(defaultSpAlgorithmId)
+	defaultParameters, _ := superpixel.GetDefaultParameterValues(defaultSpAlgorithmId)
 	return SuperpixelSettings{
 		SpAlgorithmId:         defaultSpAlgorithmId,
 		SpAlgorithmParameters: defaultParameters,
@@ -106,13 +89,7 @@ func NewSuperpixelSettings() SuperpixelSettings {
 
 func NewAppState() *AppState {
 
-	settings := ProjectSettings{
-		InputDirectory: "",
-		Superpixel:     NewSuperpixelSettings(),
-	}
-
 	appState := AppState{
-		Settings:                   settings,
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
 		Theme:                      theme.Theme,
@@ -127,13 +104,26 @@ func NewAppState() *AppState {
 
 // Set up the editors for the current superpixel parameters.
 func (appState *AppState) RebuildEditors() {
+
+	// Overwrite existing editors
 	appState.SuperpixelParameterEditors = make(map[string]*widget.Editor)
+
+	// No editors if there are no settings
+	if appState.Settings == nil {
+		return
+	}
+
+	if err := appState.Settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
+		log.Printf("Failed to normalize superpixel settings: %v", err)
+		return
+	}
+
+	// Turn list of parameters into editors for the UI
 	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
 		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
 		ed.SetText(fmt.Sprintf("%g", paramValue))
 		appState.SuperpixelParameterEditors[paramName] = ed
 	}
-	appState.SyncEditors()
 }
 
 // SyncEditors updates each superpixel parameter editor's text to reflect
@@ -144,7 +134,7 @@ func (appState *AppState) SyncEditors() error {
 		if ed, ok := appState.SuperpixelParameterEditors[paramName]; ok {
 			ed.SetText(fmt.Sprintf("%g", paramValue))
 		} else {
-			return fmt.Errorf("editor for parameter %s not found", paramName)
+			return fmt.Errorf("Editor for parameter %s not found", paramName)
 		}
 	}
 
@@ -160,7 +150,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 	appState.Settings.Superpixel.SpAlgorithmId = id
 
 	// Load the right set of parameters
-	defaultParameters, err := superpixel.GetDefaultParameters(id)
+	defaultParameters, err := superpixel.GetDefaultParameterValues(id)
 	if err != nil {
 		return err
 	}
@@ -174,7 +164,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 
 // ApplyProject configures the AppState for the given project, saves any current mask,
 // and loads the first image.
-func (appState *AppState) ApplyProject(projectSettings ProjectSettings) error {
+func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
@@ -213,17 +203,17 @@ func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 		log.Printf("Failed to open project: %v", r.Err)
 		return
 	}
-	appState.ApplyProject(*r.Settings)
+	appState.ApplyProject(r.Settings)
 }
 
-func (appState *AppState) RecalculateSuperpixels() error {
+func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
 
 	fmt.Println("Calculating superpixels...")
 	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
 	var oldSelectionMask *image.Gray16
-	if appState.ActiveResult.SpCount > 0 && len(appState.SelectionIndex) > 0 {
+	if preserveSelection && appState.ActiveResult.SpCount > 0 && len(appState.SelectionIndex) > 0 {
 		oldSelectionMask = appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
 	}
 
@@ -254,6 +244,10 @@ func (appState *AppState) RecalculateSuperpixels() error {
 	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
 	return nil
 
+}
+
+func (appState *AppState) RecalculateSuperpixels() error {
+	return appState.recalculateSuperpixels(true)
 }
 
 func (appState *AppState) LoadNextImage() {
@@ -313,7 +307,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Update the current image and run the superpixel algorithm
 	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	err := appState.RecalculateSuperpixels()
+	err := appState.recalculateSuperpixels(false)
 	if err != nil {
 		return err
 	}

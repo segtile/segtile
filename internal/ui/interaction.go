@@ -45,7 +45,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 
 		// Persist updated parameters to config.
-		if err := app_config.Save(&appState.Settings); err != nil {
+		if err := app_config.Save(appState.Settings); err != nil {
 			fmt.Println("Warning: could not save config:", err)
 		}
 
