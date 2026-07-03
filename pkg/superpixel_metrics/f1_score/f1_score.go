@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	parameterInfo := map[string]superpixel_metrics.SpMetricParameterInfo{}
+	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
 	superpixel_metrics.RegisterSpMetric(
 		"f1_score",
 		"F1 Score",

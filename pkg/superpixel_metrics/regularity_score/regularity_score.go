@@ -11,8 +11,9 @@ import (
 )
 
 func init() {
-	parameterInfo := map[string]superpixel_metrics.SpMetricParameterInfo{
-		"max_islands": {
+	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{
+		{
+			Id:          "max_islands",
 			Kind:        superpixel_metrics.SpMetricParameterKindInt,
 			Title:       "Max Islands",
 			Description: "Maximum number of islands to consider for the regularity score calculation. If set to 0, all islands will be considered.",

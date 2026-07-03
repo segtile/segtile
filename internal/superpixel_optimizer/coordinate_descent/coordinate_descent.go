@@ -13,8 +13,9 @@ import (
 )
 
 func init() {
-	parameterInfo := map[string]superpixel_optimizer.SpOptimizerParameterInfo{
-		"passes": {
+	parameterInfo := []superpixel_optimizer.SpOptimizerParameterInfo{
+		{
+			Id:          "passes",
 			Kind:        superpixel_optimizer.SpOptimizerParameterKindInt,
 			Title:       "Passes",
 			Description: "Number of passes to perform over the parameters. Each pass will attempt to optimize each parameter in turn.",

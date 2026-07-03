@@ -50,7 +50,7 @@ func init() {
 			Max:         250,
 		},
 		{
-			Id:          "initialPerturbationNeighborhoodRadius",
+			Id:          "initial_perturbation_neighborhood_radius",
 			Title:       "Initial Perturbation Neighborhood Radius",
 			Description: "The radius of the neighborhood in which the initial cluster centers are perturbed to avoid placing them on edges.",
 			Kind:        superpixel.SpParameterKindInt,
@@ -69,7 +69,7 @@ func init() {
 		},
 	}
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
-		return Run(img, int(params["count"]), params["compactness"], int(params["initialPerturbationNeighborhoodRadius"]), int(params["iterations"]))
+		return Run(img, int(params["count"]), params["compactness"], int(params["initial_perturbation_neighborhood_radius"]), int(params["iterations"]))
 	}
 	superpixel.RegisterSpAlgorithm("slic", "SLIC", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
 }

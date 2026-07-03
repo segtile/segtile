@@ -3,41 +3,55 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 
 	_ "golang.org/x/image/tiff"
 
 	"github.com/struffel/annotation-tool/internal/cli"
-	util "github.com/struffel/annotation-tool/internal/cli"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/actual_superpixel_count"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/average_boundary_distance"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/f1_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_bordering_superpixel_count"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_superpixel_count"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type benchmarkRun struct {
 	imagePath  string
-	parameters map[superpixel.SpParameter]float64
+	parameters map[string]float64
 }
 
 type benchmarkResult struct {
-	imagePath                  string
-	actualSpCount              int
-	parameters                 map[superpixel.SpParameter]float64
-	f1Score                    float64
-	averageBoundaryDistance    float64
-	selectedSpCount            int
-	selectedBorderingSpCount   int
-	labelingCalibrationScore   float64
-	densityCalibrationScore    float64
-	regularityCalibrationScore float64
+	imagePath    string
+	parameters   map[string]float64
+	metricScores map[string]float64
 }
 
-func buildRunParameterSets(parameterRanges []cli.ParameterRange) ([]map[superpixel.SpParameter]float64, error) {
+func cloneParameterMap(params map[string]float64) map[string]float64 {
+	cloned := make(map[string]float64, len(params))
+	for key, value := range params {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func buildRunParameterSets(defaultParameters map[string]float64, parameterRanges []cli.ParameterRange) ([]map[string]float64, error) {
 	// Determine how many results there will be
 	numResults := 1
 	for _, pR := range parameterRanges {
@@ -45,9 +59,9 @@ func buildRunParameterSets(parameterRanges []cli.ParameterRange) ([]map[superpix
 	}
 
 	// Allocate results
-	var runConfigurations []map[superpixel.SpParameter]float64 = make([]map[superpixel.SpParameter]float64, numResults)
+	var runConfigurations []map[string]float64 = make([]map[string]float64, numResults)
 	for i := range runConfigurations {
-		runConfigurations[i] = make(map[superpixel.SpParameter]float64)
+		runConfigurations[i] = cloneParameterMap(defaultParameters)
 	}
 
 	// Create runConfigurations, containing one parameter from each range
@@ -56,12 +70,27 @@ func buildRunParameterSets(parameterRanges []cli.ParameterRange) ([]map[superpix
 		rangeValues := pR.Values()
 		for i := 0; i < numResults; i++ {
 			valueIndex := (i / step) % len(rangeValues)
-			runConfigurations[i][superpixel.SpParameter(pR.Name)] = rangeValues[valueIndex]
+			runConfigurations[i][pR.Name] = rangeValues[valueIndex]
 		}
 		step *= len(rangeValues)
 	}
 
 	return runConfigurations, nil
+}
+
+func evaluateBenchmark(result superpixel.SpResult, img image.Image, groundTruthMask *image.Gray16, metricIDs []string, metricParams map[string]map[string]float64) (benchmarkResult, error) {
+	metricScores := make(map[string]float64, len(metricIDs))
+	for _, metricID := range metricIDs {
+		score, err := superpixel_metrics.Run(metricID, result, img, groundTruthMask, metricParams[metricID])
+		if err != nil {
+			return benchmarkResult{}, fmt.Errorf("metric %s failed: %w", metricID, err)
+		}
+		metricScores[metricID] = score
+	}
+
+	return benchmarkResult{
+		metricScores: metricScores,
+	}, nil
 }
 
 func main() {
@@ -74,7 +103,12 @@ func main() {
 
 	// Read parameters
 	algorithmName := os.Args[4]
-	_, err := superpixel_factory.NewSuperpixelImplementationByName(algorithmName)
+	_, _, _, err := superpixel.GetAlgorithmInfo(algorithmName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	defaultParameters, err := superpixel.GetDefaultParameterValues(algorithmName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -102,16 +136,27 @@ func main() {
 	utils.ShuffleInUnison(images, masks)
 
 	// Build parameter ranges
-	parameterRanges, err := util.ParseParameterRanges(os.Args[5:])
+	parameterRanges, err := cli.ParseParameterRanges(os.Args[5:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing parameter ranges: %v\n", err)
 		os.Exit(1)
 	}
 
-	runParameters, err := buildRunParameterSets(parameterRanges)
+	runParameters, err := buildRunParameterSets(defaultParameters, parameterRanges)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error building run configurations: %v\n", err)
 		os.Exit(1)
+	}
+	metricIDs := superpixel_metrics.ListSpMetrics()
+	sort.Strings(metricIDs)
+	metricParameters := make(map[string]map[string]float64, len(metricIDs))
+	for _, metricID := range metricIDs {
+		params, err := superpixel_metrics.GetDefaultSpMetricParameters(metricID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading metric defaults: %v\n", err)
+			os.Exit(1)
+		}
+		metricParameters[metricID] = params
 	}
 
 	// Print configuration
@@ -130,28 +175,24 @@ func main() {
 	defer writer.Flush()
 
 	// Establish a stable sorted order for parameters in the CSV output
-	parameterKeys := make([]superpixel.SpParameter, 0, len(runParameters[0]))
+	parameterKeys := make([]string, 0, len(runParameters[0]))
 	for param := range runParameters[0] {
 		parameterKeys = append(parameterKeys, param)
 	}
-	//sort.Slice(parameterKeys, func(i, j int) bool { return parameterKeys[i] < parameterKeys[j] })
+	sort.Strings(parameterKeys)
 
 	// Prepare the header
 	csvHeader := []string{
-		"ImageName",
-		"Algorithm",
-		"Actual Superpixel Count",
-		"Selected Superpixel Count",
-		"Selected Bordering Superpixel Count",
-		"Average Boundary Distance",
-		"F1 Score",
-		"Density Calibration Score",
-		"Regularity Calibration Score",
-		"Labeling Calibration Score",
+		"image_name",
+		"algorithm",
 	}
 	for _, param := range parameterKeys {
-		csvHeader = append(csvHeader, param.Title())
+		csvHeader = append(csvHeader, param)
 	}
+	for _, metricID := range metricIDs {
+		csvHeader = append(csvHeader, metricID)
+	}
+
 	writer.Write(csvHeader)
 	writer.Flush()
 
@@ -170,7 +211,7 @@ func main() {
 		}
 
 		// Test if ground truth mask contains at least one non-zero pixel
-		if !evaluation.HasNonZeroPixels(groundTruthMask) {
+		if !superpixel_utils.HasNonZeroPixels(groundTruthMask) {
 			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this pair.\n", masks[index_img])
 			continue
 		}
@@ -197,51 +238,28 @@ func main() {
 			go func() {
 				defer wg.Done()
 
-				// Set up superpixel algorithm
-				sp, _ := superpixel_factory.NewSuperpixelImplementationByName(algorithmName)
-				sp.SetImage(img)
-				sp.SetRecommendedParameters()
-
 				for item := range workCh {
-
-					// Set parameters
-					for param, value := range item.parameters {
-						sp.SetParameter(param, value)
-					}
-
 					// Perform the actual run
-					if err := sp.Run(); err != nil {
+					spResult, err := superpixel.Run(algorithmName, img, item.parameters)
+					if err != nil {
 						fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
 						return
 					}
 
-					// Get the result
-					spResult := sp.GetResult()
-
-					labelingCalibrationScore,
-						f1Score,
-						densityCalibrationScore,
-						regularityCalibrationScore,
-						averageBoundaryDistance,
-						selectedSpCount,
-						selectedBorderingSpCount := evaluation.SuperpixelEvaluation(groundTruthMask, spResult, 5)
+					metrics, err := evaluateBenchmark(spResult, img, groundTruthMask, metricIDs, metricParameters)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error evaluating superpixel result: %v\n", err)
+						return
+					}
 
 					// Print progress indicator
 					fmt.Fprintf(os.Stderr, ".")
 
 					// Send the result out
 					resultCh <- benchmarkResult{
-						imagePath:                images[index_img],
-						parameters:               item.parameters,
-						actualSpCount:            spResult.SpCount,
-						selectedSpCount:          selectedSpCount,
-						selectedBorderingSpCount: selectedBorderingSpCount,
-						averageBoundaryDistance:  averageBoundaryDistance,
-
-						f1Score:                    f1Score,
-						densityCalibrationScore:    densityCalibrationScore,
-						regularityCalibrationScore: regularityCalibrationScore,
-						labelingCalibrationScore:   labelingCalibrationScore,
+						imagePath:    images[index_img],
+						parameters:   item.parameters,
+						metricScores: metrics.metricScores,
 					}
 				}
 			}()
@@ -264,17 +282,12 @@ func main() {
 			imageName := filepath.Base(r.imagePath)
 			newCsvLines[i] = []string{
 				fmt.Sprintf("%s", imageName),
-				fmt.Sprintf("%s", algorithmName),
-				fmt.Sprintf("%d", r.actualSpCount),
-				fmt.Sprintf("%d", r.selectedSpCount),
-				fmt.Sprintf("%d", r.selectedBorderingSpCount),
-				fmt.Sprintf("%.4f", r.averageBoundaryDistance),
-				fmt.Sprintf("%.4f", r.f1Score),
-				fmt.Sprintf("%.4f", r.densityCalibrationScore),
-				fmt.Sprintf("%.4f", r.regularityCalibrationScore),
-				fmt.Sprintf("%.4f", r.labelingCalibrationScore)}
+				fmt.Sprintf("%s", algorithmName)}
 			for _, param := range parameterKeys {
 				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%v", r.parameters[param]))
+			}
+			for _, metricID := range metricIDs {
+				newCsvLines[i] = append(newCsvLines[i], fmt.Sprintf("%.4f", r.metricScores[metricID]))
 			}
 		}
 

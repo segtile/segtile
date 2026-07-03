@@ -16,6 +16,7 @@ const (
 )
 
 type SpMetricParameterInfo struct {
+	Id          string
 	Kind        SpMetricParameterKind
 	Title       string
 	Description string
@@ -25,11 +26,12 @@ type SpMetricParameterInfo struct {
 }
 
 type spMetricRegistryEntry struct {
-	Title        string
-	Description  string
-	OptimalScore float64
-	Run          func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error)
-	Parameters   map[string]SpMetricParameterInfo
+	Title          string
+	Description    string
+	OptimalScore   float64
+	Run            func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error)
+	Parameters     []SpMetricParameterInfo
+	ParameterIndex map[string]int // Maps parameter id to its index in the Parameters slice
 }
 
 var spMetricRegistry = make(map[string]spMetricRegistryEntry)
@@ -40,17 +42,31 @@ func RegisterSpMetric(
 	description string,
 	optimalScore float64,
 	run func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error),
-	parameters map[string]SpMetricParameterInfo) {
+	parameters []SpMetricParameterInfo) {
 	if _, exists := spMetricRegistry[id]; exists {
 		panic("Superpixel metric with id " + id + " is already registered")
 	}
 
+	paramIds := make(map[string]bool)
+	for _, param := range parameters {
+		if _, exists := paramIds[param.Id]; exists {
+			panic("Attempted to register duplicate parameter id " + param.Id + " for superpixel metric " + id)
+		}
+		paramIds[param.Id] = true
+	}
+
+	parameterIndex := make(map[string]int)
+	for i, param := range parameters {
+		parameterIndex[param.Id] = i
+	}
+
 	spMetricRegistry[id] = spMetricRegistryEntry{
-		Title:        title,
-		Description:  description,
-		OptimalScore: optimalScore,
-		Run:          run,
-		Parameters:   parameters,
+		Title:          title,
+		Description:    description,
+		OptimalScore:   optimalScore,
+		Run:            run,
+		Parameters:     parameters,
+		ParameterIndex: parameterIndex,
 	}
 }
 
@@ -62,7 +78,7 @@ func ListSpMetrics() []string {
 	return metrics
 }
 
-func GetSpMetricInfo(id string) (title string, description string, parameters map[string]SpMetricParameterInfo, err error) {
+func GetSpMetricInfo(id string) (title string, description string, parameters []SpMetricParameterInfo, err error) {
 	entry, exists := spMetricRegistry[id]
 	if !exists {
 		return "", "", nil, fmt.Errorf("Superpixel metric with id %s is not registered", id)
@@ -76,8 +92,8 @@ func GetDefaultSpMetricParameters(id string) (params map[string]float64, err err
 		return nil, fmt.Errorf("Superpixel metric with id %s is not registered", id)
 	}
 	params = make(map[string]float64)
-	for paramName, paramInfo := range entry.Parameters {
-		params[paramName] = paramInfo.Default
+	for _, paramInfo := range entry.Parameters {
+		params[paramInfo.Id] = paramInfo.Default
 	}
 	return params, nil
 }

@@ -19,6 +19,7 @@ const (
 )
 
 type SpOptimizerParameterInfo struct {
+	Id          string
 	Kind        SpOptimizerParameterKind
 	Title       string
 	Description string
@@ -28,24 +29,39 @@ type SpOptimizerParameterInfo struct {
 }
 
 type spOptimizerRegistryEntry struct {
-	Title       string
-	Description string
-	Run         func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error)
-	Parameters  map[string]SpOptimizerParameterInfo
+	Title          string
+	Description    string
+	Run            func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error)
+	Parameters     []SpOptimizerParameterInfo
+	ParameterIndex map[string]int // Maps parameter id to its index in the Parameters slice
 }
 
 var spOptimizerRegistry = make(map[string]spOptimizerRegistryEntry)
 
-func RegisterSpOptimizer(id string, title string, description string, run func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error), parameters map[string]SpOptimizerParameterInfo) {
+func RegisterSpOptimizer(id string, title string, description string, run func(imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error), parameters []SpOptimizerParameterInfo) {
 	if _, exists := spOptimizerRegistry[id]; exists {
 		panic("Superpixel optimizer with id " + id + " is already registered")
 	}
 
+	paramIds := make(map[string]bool)
+	for _, param := range parameters {
+		if _, exists := paramIds[param.Id]; exists {
+			panic("Attempted to register duplicate parameter id " + param.Id + " for superpixel optimizer " + id)
+		}
+		paramIds[param.Id] = true
+	}
+
+	parameterIndex := make(map[string]int)
+	for i, param := range parameters {
+		parameterIndex[param.Id] = i
+	}
+
 	spOptimizerRegistry[id] = spOptimizerRegistryEntry{
-		Title:       title,
-		Description: description,
-		Run:         run,
-		Parameters:  parameters,
+		Title:          title,
+		Description:    description,
+		Run:            run,
+		Parameters:     parameters,
+		ParameterIndex: parameterIndex,
 	}
 }
 
@@ -63,13 +79,13 @@ func GetDefaultSpOptimizerParameters(id string) (params map[string]float64, err 
 		return nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
 	}
 	params = make(map[string]float64)
-	for paramName, paramInfo := range entry.Parameters {
-		params[paramName] = paramInfo.Default
+	for _, paramInfo := range entry.Parameters {
+		params[paramInfo.Id] = paramInfo.Default
 	}
 	return params, nil
 }
 
-func GetOptimizerInfo(id string) (title string, description string, parameters map[string]SpOptimizerParameterInfo, err error) {
+func GetOptimizerInfo(id string) (title string, description string, parameters []SpOptimizerParameterInfo, err error) {
 	entry, exists := spOptimizerRegistry[id]
 	if !exists {
 		return "", "", nil, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)

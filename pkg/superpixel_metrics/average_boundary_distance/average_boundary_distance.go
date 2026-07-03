@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	parameterInfo := map[string]superpixel_metrics.SpMetricParameterInfo{}
+	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
 	superpixel_metrics.RegisterSpMetric(
 		"average_boundary_distance",
 		"Average Boundary Distance",
