@@ -103,12 +103,7 @@ func main() {
 
 	// Read parameters
 	algorithmName := os.Args[4]
-	_, _, _, err := superpixel.GetAlgorithmInfo(algorithmName)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	defaultParameters, err := superpixel.GetDefaultParameterValues(algorithmName)
+	defaultParameters, err := cli.LoadDefaultSuperpixelParameters(algorithmName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
