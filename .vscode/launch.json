@@ -131,7 +131,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Lung Segmentation\\IMAGES_SMALL\\CHNCXR_0001_0.png",
+				"\\\\lennart\\sync\\MasterThesisData\\Projects\\LungSegmentation\\settings.yaml",
 				"slic",
 				"count=600",
 				"compactness=15"
