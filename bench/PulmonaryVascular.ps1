@@ -3,5 +3,5 @@ go run ./cmd/bench `
     "S:\MasterThesisData\Datasets\PulmonaryVascular\MASKS\" `
     "S:\MasterThesisData\BenchmarkResults\SLIC\PulmonaryVascular.csv" `
     slic `
-    "count=20,1000,20" `
+    "count=50,2000,50" `
     "compactness=0,50,5"
