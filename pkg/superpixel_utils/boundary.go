@@ -29,14 +29,31 @@ func BoundaryPoints(img *image.Gray16, singleSided bool) []image.Point {
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			value := img.Gray16At(x, y).Y
-			if singleSided {
-				if img.Gray16At(x-1, y).Y < value || img.Gray16At(x+1, y).Y < value || img.Gray16At(x, y-1).Y < value || img.Gray16At(x, y+1).Y < value {
-					points = append(points, image.Point{X: x, Y: y})
+			hasBoundaryNeighbor := false
+
+			for _, neighbor := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+				neighborX := x + neighbor[0]
+				neighborY := y + neighbor[1]
+
+				// Skip out-of-bounds neighbors
+				if neighborX < bounds.Min.X || neighborX >= bounds.Max.X || neighborY < bounds.Min.Y || neighborY >= bounds.Max.Y {
+					continue
 				}
-			} else {
-				if img.Gray16At(x-1, y).Y != value || img.Gray16At(x+1, y).Y != value || img.Gray16At(x, y-1).Y != value || img.Gray16At(x, y+1).Y != value {
-					points = append(points, image.Point{X: x, Y: y})
+
+				// Check if the neighbor has a different value
+				neighborValue := img.Gray16At(neighborX, neighborY).Y
+				if singleSided {
+					if neighborValue < value {
+						hasBoundaryNeighbor = true
+						break
+					}
+				} else if neighborValue != value {
+					hasBoundaryNeighbor = true
+					break
 				}
+			}
+			if hasBoundaryNeighbor {
+				points = append(points, image.Point{X: x, Y: y})
 			}
 		}
 	}
