@@ -11,6 +11,7 @@ import (
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 )
 
 func main() {
