@@ -228,6 +228,11 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.SaveButton {
+		appState.SaveCurrentMask()
+		return
+	}
+
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {

@@ -60,6 +60,7 @@ type AppState struct {
 	OpenProjectButton          widget.Clickable
 	NewProjectButton           widget.Clickable
 	OptimizeButton             widget.Clickable
+	SaveButton                 widget.Clickable
 
 	// Loading state
 	CurrentlyLoadingProject bool
@@ -168,7 +169,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
-		appState.saveCurrentMask()
+		appState.SaveCurrentMask()
 		appState.CurrentImage = nil
 	}
 
@@ -302,7 +303,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
 	if appState.CurrentImage != nil && appState.selectionMade() {
-		appState.saveCurrentMask()
+		appState.SaveCurrentMask()
 	}
 
 	// Update the current image and run the superpixel algorithm
@@ -342,8 +343,8 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 }
 
-// saveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
-func (appState *AppState) saveCurrentMask() {
+// SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
+func (appState *AppState) SaveCurrentMask() {
 
 	/*if appState.ActiveResult.SpCount == 0 {
 		return
