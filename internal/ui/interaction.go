@@ -238,6 +238,8 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
 		)
 		if !ok {
 			break
@@ -276,13 +278,22 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// Tab: next image, Shift+Tab: previous image
+		// Space: next image, Shift+Space: previous image
+		// Alternatively: Left/Right arrow keys
 		if ke.State == key.Press && ke.Name == key.NameSpace {
 			if ke.Modifiers.Contain(key.ModShift) {
 				appState.LoadPreviousImage()
 			} else {
 				appState.LoadNextImage()
 			}
+			continue
+		}
+		if ke.State == key.Press && ke.Name == key.NameLeftArrow {
+			appState.LoadPreviousImage()
+			continue
+		}
+		if ke.State == key.Press && ke.Name == key.NameRightArrow {
+			appState.LoadNextImage()
 			continue
 		}
 	}
