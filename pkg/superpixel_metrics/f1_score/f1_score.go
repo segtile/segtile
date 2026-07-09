@@ -6,7 +6,6 @@ import (
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 func init() {
@@ -22,11 +21,6 @@ func init() {
 }
 
 func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
-
-	// Check that images are valid
-	if !superpixel_utils.IsBinaryMask(groundTruth) {
-		return 0, fmt.Errorf("Ground truth mask must be a binary mask for this metric.")
-	}
 
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
