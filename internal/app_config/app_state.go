@@ -346,9 +346,9 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 // SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
 func (appState *AppState) SaveCurrentMask() {
 
-	/*if appState.ActiveResult.SpCount == 0 {
+	if appState.ActiveResult.SpCount == 0 {
 		return
-	}*/
+	}
 	mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
 	outPath := appState.maskPathForIndex(appState.CurrentIndex)
 	io_utils.SaveImage(outPath, mask)
