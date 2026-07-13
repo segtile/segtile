@@ -1,6 +1,7 @@
 package density_score_2
 
 import (
+	"fmt"
 	"image"
 	"math"
 
@@ -37,22 +38,80 @@ func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *ima
 
 func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint16) (densityCalibrationScore float64, err error) {
 
-	labelMapBoundaries := superpixel_utils.BoundaryPoints(result.LabelMap, true)
-
-	selectionFromCurrentIsland := result.SelectFromMask(currentGroundTruthIsland, 0.5)
-	currentApproximatedMask := result.SelectionToMask(selectionFromCurrentIsland)
-
-	for _, boundaryPoint := range labelMapBoundaries {
-
+	// Check that images are valid
+	if result.LabelMap.Bounds() != groundTruth.Bounds() {
+		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
-	// For every boundary point:
+	// Find islands in GT
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
 
-	// Is it in selection?
+	// Prepare metrics
+	cumulativeDensityScore := 0.0
+	pixelCount := groundTruth.Bounds().Dx() * groundTruth.Bounds().Dy()
 
-	// Does it have a neighbor pixel not in the selection?
+	// Choose the number of islands to evaluate
+	if maxIslands <= 0 {
+		maxIslands = groundTruthIslandCount
+	}
+	if maxIslands > groundTruthIslandCount {
+		maxIslands = groundTruthIslandCount
+	}
 
-	// Boundary with no neighboor outside selection -> Inside Boundary
-	// Boudary with neighbour outside selection -> Outside Boundary
-	return 0, nil
+	// Return early
+	if maxIslands == 0 {
+		return 0.0, nil
+	}
+
+	// Evaluate islands
+	for i := uint16(1); i <= maxIslands; i++ {
+
+		// Make a selection of the current island and get its area
+		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, i)
+		currentGroundTruthIslandArea := superpixel_utils.Area(currentGroundTruthIsland)
+
+		// Get the desired ratio for the current island
+		desiredOutsideRatio := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(pixelCount)), 2)
+
+		// Count inside and outside boundaries for the current island approximation
+		labelMapBoundaries := superpixel_utils.BoundaryPoints(result.LabelMap, false)
+		selectionFromCurrentIsland := result.SelectFromMask(currentGroundTruthIsland, 0.5)
+		currentApproximatedMask := result.SelectionToMask(selectionFromCurrentIsland)
+		boundariesInside := 0
+		boundariesOutside := 0
+
+		for _, boundaryPoint := range labelMapBoundaries {
+
+			// Is the boundary in the approximated selection?
+			if currentApproximatedMask.Gray16At(boundaryPoint.X, boundaryPoint.Y).Y == 0 {
+				continue
+			}
+
+			// Does it have a neighbor pixel not in the selection?
+			hasNeighborOutsideSelection := false
+			for _, neighbor := range superpixel_utils.Neighbors(boundaryPoint, result.LabelMap.Bounds(), true) {
+				if currentApproximatedMask.Gray16At(neighbor.X, neighbor.Y).Y == 0 {
+					hasNeighborOutsideSelection = true
+					break
+				}
+			}
+
+			if hasNeighborOutsideSelection {
+				boundariesOutside++
+			} else {
+				boundariesInside++
+			}
+		}
+
+		if boundariesInside+boundariesOutside == 0 {
+			continue
+		}
+
+		outsideRatio := float64(boundariesOutside) / float64(boundariesInside+boundariesOutside)
+		cumulativeDensityScore += math.Min(outsideRatio, desiredOutsideRatio) / math.Max(outsideRatio, desiredOutsideRatio)
+	}
+
+	densityCalibrationScore = cumulativeDensityScore / float64(maxIslands)
+
+	return densityCalibrationScore, nil
 }
