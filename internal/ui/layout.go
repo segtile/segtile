@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"path/filepath"
 
 	"gioui.org/f32"
@@ -15,7 +14,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/internal/app_config"
-	"github.com/struffel/annotation-tool/internal/theme"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
@@ -45,15 +44,19 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					HandleUiButtonClick(appState, gtx, &appState.NewProjectButton)
-					return appState.Theme.MenuBarButton(&appState.NewProjectButton, "New").Layout(gtx)
+					return drawMenuBarButton(gtx, &appState.NewProjectButton, appState.Theme, app_theme.IconNew, "New")
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					HandleUiButtonClick(appState, gtx, &appState.OpenProjectButton)
-					return appState.Theme.MenuBarButton(&appState.OpenProjectButton, "Open").Layout(gtx)
+					return drawMenuBarButton(gtx, &appState.OpenProjectButton, appState.Theme, app_theme.IconOpen, "Open")
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
-					return appState.Theme.MenuBarButton(&appState.OptimizeButton, "Optimize").Layout(gtx)
+					return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Optimize")
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					HandleUiButtonClick(appState, gtx, &appState.SaveButton)
+					return drawMenuBarButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save")
 				}),
 			)
 		}),
@@ -65,8 +68,8 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
 					// Set fixed width for the sidebar
-					gtx.Constraints.Min.X = gtx.Dp(theme.SidebarWidth)
-					gtx.Constraints.Max.X = gtx.Dp(theme.SidebarWidth)
+					gtx.Constraints.Min.X = gtx.Dp(app_theme.SidebarWidth)
+					gtx.Constraints.Max.X = gtx.Dp(app_theme.SidebarWidth)
 
 					// Draw sidebar background
 					sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
@@ -180,7 +183,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										gtx = gtx.Disabled()
 									}
 									gtx.Constraints.Min.X = gtx.Dp(220)
-									return appState.Theme.DefaultButton(&appState.NewProjectButton, "New Project", 16).Layout(gtx)
+									return drawBigButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
 								}),
 								layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -191,7 +194,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										gtx = gtx.Disabled()
 									}
 									gtx.Constraints.Min.X = gtx.Dp(220)
-									return appState.Theme.DefaultButton(&appState.OpenProjectButton, "Open Project", 16).Layout(gtx)
+									return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
 								}),
 							)
 						})
@@ -229,11 +232,14 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
 
 							if appState.RenderSelectionOutlines {
-								// Halo (wider, dark stroke drawn first)
+								// Draw selection outline for the current selection
 								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
 
-								// Draw existing mask outline (orange) for any mask loaded from disk
-								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
+								if !appState.SelectionMade() {
+
+									// Draw existing mask outline for any mask loaded from disk
+									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
+								}
 							}
 						}
 
@@ -245,102 +251,4 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 			)
 		}),
 	)
-}
-
-func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
-	atFirstImage := appState.CurrentIndex == 0
-	atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
-
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atFirstImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.FirstButton)
-			}
-			return appState.Theme.IconButton(&appState.FirstButton, theme.IconFirst, "First").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atFirstImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
-			}
-			return appState.Theme.IconButton(&appState.PrevUnlabeledButton, theme.IconPrevUnlabeled, "Previous Unlabeled").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atFirstImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.PrevButton)
-			}
-			return appState.Theme.IconButton(&appState.PrevButton, theme.IconPrev, "Previous").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-
-			if atLastImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.NextButton)
-			}
-			return appState.Theme.IconButton(&appState.NextButton, theme.IconNext, "Next").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atLastImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
-			}
-			return appState.Theme.IconButton(&appState.NextUnlabeledButton, theme.IconNextUnlabeled, "Next Unlabeled").Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atLastImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.LastButton)
-			}
-			return appState.Theme.IconButton(&appState.LastButton, theme.IconLast, "Last").Layout(gtx)
-		}),
-	)
-}
-
-// drawStroke adds the drawing operations for an outline to the graphics context
-// The halo is an additional outline around the main line.
-func drawStroke(
-	stack *op.TransformStack,
-	gtx layout.Context,
-	transformation f32.Affine2D,
-	viewScale float32,
-	pathSpec clip.PathSpec,
-	strokeColor color.NRGBA,
-	strokeWidth float32,
-	haloWidth float32) {
-
-	if haloWidth > 0 {
-		// Halo/Outline
-		*stack = op.Affine(transformation).Push(gtx.Ops)
-		paint.FillShape(gtx.Ops,
-			color.NRGBA{R: 0, G: 0, B: 0, A: 200},
-			clip.Stroke{
-				Path:  pathSpec,
-				Width: (strokeWidth + haloWidth) / viewScale,
-			}.Op())
-		stack.Pop()
-	}
-	if strokeWidth > 0 {
-		// Colored stroke on top
-		*stack = op.Affine(transformation).Push(gtx.Ops)
-		paint.FillShape(gtx.Ops,
-			strokeColor,
-			clip.Stroke{
-				Path:  pathSpec,
-				Width: strokeWidth / viewScale,
-			}.Op())
-		stack.Pop()
-	}
 }

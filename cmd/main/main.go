@@ -54,6 +54,10 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 	for {
 		switch e := appWindow.Event().(type) {
 		case app.DestroyEvent:
+
+			// Save the current mask before exiting.
+			appState.SaveCurrentMask(false, false)
+
 			return e.Err
 		case app.FrameEvent:
 			// The list of draw operations

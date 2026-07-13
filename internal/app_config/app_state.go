@@ -17,7 +17,7 @@ import (
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/internal/theme"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -48,7 +48,7 @@ type AppState struct {
 	// UI state
 	Window                     *app.Window
 	CanvasTag                  bool
-	Theme                      *theme.AppTheme
+	Theme                      *app_theme.AppTheme
 	SuperpixelParameterEditors map[string]*widget.Editor
 	RenderSelectionOutlines    bool
 	FirstButton                widget.Clickable
@@ -60,6 +60,7 @@ type AppState struct {
 	OpenProjectButton          widget.Clickable
 	NewProjectButton           widget.Clickable
 	OptimizeButton             widget.Clickable
+	SaveButton                 widget.Clickable
 
 	// Loading state
 	CurrentlyLoadingProject bool
@@ -92,7 +93,7 @@ func NewAppState() *AppState {
 	appState := AppState{
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
-		Theme:                      theme.Theme,
+		Theme:                      app_theme.Theme,
 		SuperpixelParameterEditors: make(map[string]*widget.Editor),
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
 	}
@@ -168,7 +169,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
-		appState.saveCurrentMask()
+		appState.SaveCurrentMask(false, true)
 		appState.CurrentImage = nil
 	}
 
@@ -301,8 +302,8 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
-	if appState.CurrentImage != nil && appState.selectionMade() {
-		appState.saveCurrentMask()
+	if appState.CurrentImage != nil && appState.SelectionMade() {
+		appState.SaveCurrentMask(false, false)
 	}
 
 	// Update the current image and run the superpixel algorithm
@@ -321,7 +322,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ExistingMask = loadedMask
-			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(*loadedMask)
+			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
 		}
 	}
 
@@ -342,15 +343,24 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 }
 
-// saveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
-func (appState *AppState) saveCurrentMask() {
+// SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
+func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
-	/*if appState.ActiveResult.SpCount == 0 {
-		return
-	}*/
-	mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
-	outPath := appState.maskPathForIndex(appState.CurrentIndex)
-	io_utils.SaveImage(outPath, mask)
+	if appState.ActiveResult.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
+
+		// Rasterize the current selection
+		mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
+
+		// Save as image
+		outPath := appState.maskPathForIndex(appState.CurrentIndex)
+		io_utils.SaveImage(outPath, mask)
+
+		if recalculateOutline {
+			// Recalculate the ExistingMaskPathSpec
+			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
+		}
+	}
+
 }
 
 // maskPathForIndex returns the output PNG path for image at index i.
@@ -362,7 +372,7 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	return filepath.Join(appState.Settings.OutputDirectory, name)
 }
 
-func (appState *AppState) selectionMade() bool {
+func (appState *AppState) SelectionMade() bool {
 	for _, selected := range appState.SelectionIndex {
 		if selected {
 			return true

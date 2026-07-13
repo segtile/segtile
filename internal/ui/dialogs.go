@@ -77,3 +77,7 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
 	}
 	return cfg, nil
 }
+
+func showSaveEmptyMaskWarning() (ok bool) {
+	return dialog.Message("%s", "No new annotation has been made . Save anyways?").Title("Save empty annotation?").YesNo()
+}
