@@ -128,7 +128,7 @@ func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool)
 // CalculateOutlineFromMask computes a clip.PathSpec that traces the border between
 // non-zero (masked) and zero (unmasked) pixels in mask. The resulting outline can be
 // drawn directly at image-pixel coordinates without any superpixel approximation.
-func CalculateOutlineFromMask(mask image.Gray16) clip.PathSpec {
+func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 	width := mask.Bounds().Dx()
 	height := mask.Bounds().Dy()
 	pix := mask.Pix
