@@ -23,6 +23,7 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/actual_superpixel_count"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/average_boundary_distance"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score_2"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/f1_score"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
