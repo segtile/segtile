@@ -229,7 +229,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	}
 
 	if button == &appState.SaveButton {
-		appState.SaveCurrentMask()
+		appState.SaveCurrentMask(true)
 		return
 	}
 

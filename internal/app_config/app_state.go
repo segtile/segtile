@@ -17,7 +17,7 @@ import (
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/internal/theme"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -48,7 +48,7 @@ type AppState struct {
 	// UI state
 	Window                     *app.Window
 	CanvasTag                  bool
-	Theme                      *theme.AppTheme
+	Theme                      *app_theme.AppTheme
 	SuperpixelParameterEditors map[string]*widget.Editor
 	RenderSelectionOutlines    bool
 	FirstButton                widget.Clickable
@@ -93,7 +93,7 @@ func NewAppState() *AppState {
 	appState := AppState{
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
-		Theme:                      theme.Theme,
+		Theme:                      app_theme.Theme,
 		SuperpixelParameterEditors: make(map[string]*widget.Editor),
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
 	}
@@ -169,7 +169,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
-		appState.SaveCurrentMask()
+		appState.SaveCurrentMask(false)
 		appState.CurrentImage = nil
 	}
 
@@ -303,7 +303,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
 	if appState.CurrentImage != nil && appState.selectionMade() {
-		appState.SaveCurrentMask()
+		appState.SaveCurrentMask(false)
 	}
 
 	// Update the current image and run the superpixel algorithm
@@ -344,14 +344,14 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 }
 
 // SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
-func (appState *AppState) SaveCurrentMask() {
+func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 
-	if appState.ActiveResult.SpCount == 0 {
-		return
+	if appState.ActiveResult.SpCount != 0 && (appState.selectionMade() || evenIfEmpty) {
+		mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
+		outPath := appState.maskPathForIndex(appState.CurrentIndex)
+		io_utils.SaveImage(outPath, mask)
 	}
-	mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
-	outPath := appState.maskPathForIndex(appState.CurrentIndex)
-	io_utils.SaveImage(outPath, mask)
+
 }
 
 // maskPathForIndex returns the output PNG path for image at index i.
