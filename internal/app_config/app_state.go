@@ -9,15 +9,18 @@ import (
 	"slices"
 	"time"
 
+	"github.com/reiver/go-giotoast"
+
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/widget"
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/internal/theme"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -47,8 +50,9 @@ type AppState struct {
 
 	// UI state
 	Window                     *app.Window
+	Toasts                     giotoast.Queue
 	CanvasTag                  bool
-	Theme                      *theme.AppTheme
+	Theme                      *app_theme.AppTheme
 	SuperpixelParameterEditors map[string]*widget.Editor
 	RenderSelectionOutlines    bool
 	FirstButton                widget.Clickable
@@ -60,6 +64,7 @@ type AppState struct {
 	OpenProjectButton          widget.Clickable
 	NewProjectButton           widget.Clickable
 	OptimizeButton             widget.Clickable
+	SaveButton                 widget.Clickable
 
 	// Loading state
 	CurrentlyLoadingProject bool
@@ -92,7 +97,7 @@ func NewAppState() *AppState {
 	appState := AppState{
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
-		Theme:                      theme.Theme,
+		Theme:                      app_theme.Theme,
 		SuperpixelParameterEditors: make(map[string]*widget.Editor),
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
 	}
@@ -120,7 +125,7 @@ func (appState *AppState) RebuildEditors() {
 
 	// Turn list of parameters into editors for the UI
 	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
 		ed.SetText(fmt.Sprintf("%g", paramValue))
 		appState.SuperpixelParameterEditors[paramName] = ed
 	}
@@ -168,7 +173,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
-		appState.saveCurrentMask()
+		appState.SaveCurrentMask(false, true)
 		appState.CurrentImage = nil
 	}
 
@@ -206,7 +211,7 @@ func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.ApplyProject(r.Settings)
 }
 
-func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
+func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
 	fmt.Println("Calculating superpixels...")
 	start := time.Now().UnixMicro()
@@ -242,12 +247,13 @@ func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
 	// Log
 	end := time.Now().UnixMicro()
 	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+
+	if showToast {
+		// Add a toast
+		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeSuccess, "Rebuilt superpixels.", 1*time.Second)
+	}
 	return nil
 
-}
-
-func (appState *AppState) RecalculateSuperpixels() error {
-	return appState.recalculateSuperpixels(true)
 }
 
 func (appState *AppState) LoadNextImage() {
@@ -301,13 +307,13 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
-	if appState.CurrentImage != nil && appState.selectionMade() {
-		appState.saveCurrentMask()
+	if appState.CurrentImage != nil && appState.SelectionMade() {
+		appState.SaveCurrentMask(false, false)
 	}
 
 	// Update the current image and run the superpixel algorithm
 	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	err := appState.recalculateSuperpixels(false)
+	err := appState.RecalculateSuperpixels(false, false)
 	if err != nil {
 		return err
 	}
@@ -321,7 +327,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ExistingMask = loadedMask
-			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(*loadedMask)
+			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
 		}
 	}
 
@@ -342,15 +348,34 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 }
 
-// saveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
-func (appState *AppState) saveCurrentMask() {
+// SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
+func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
-	/*if appState.ActiveResult.SpCount == 0 {
-		return
-	}*/
-	mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
-	outPath := appState.maskPathForIndex(appState.CurrentIndex)
-	io_utils.SaveImage(outPath, mask)
+	if appState.ActiveResult.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
+
+		// Rasterize the current selection
+		mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
+
+		// Save as image
+		outPath := appState.maskPathForIndex(appState.CurrentIndex)
+		err := io_utils.SaveImage(outPath, mask)
+
+		if err != nil {
+			log.Printf("Failed to save mask to %s: %v", outPath, err)
+			appState.Toasts.EnqueueType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
+			return
+		} else {
+
+			if recalculateOutline {
+				// Recalculate the ExistingMaskPathSpec
+				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
+			}
+
+			// Add toast
+			appState.Toasts.EnqueueType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 2*time.Second)
+		}
+	}
+
 }
 
 // maskPathForIndex returns the output PNG path for image at index i.
@@ -362,11 +387,22 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	return filepath.Join(appState.Settings.OutputDirectory, name)
 }
 
-func (appState *AppState) selectionMade() bool {
+func (appState *AppState) SelectionMade() bool {
 	for _, selected := range appState.SelectionIndex {
 		if selected {
 			return true
 		}
 	}
 	return false
+}
+
+func (appState *AppState) ClearSelection(showToast bool) {
+	for i := range appState.SelectionIndex {
+		appState.SelectionIndex[i] = false
+	}
+	appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
+	appState.Window.Invalidate()
+	if showToast {
+		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
+	}
 }

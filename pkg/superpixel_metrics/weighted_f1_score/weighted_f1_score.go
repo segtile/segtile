@@ -27,11 +27,6 @@ func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *ima
 
 func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
 
-	// Check that images are valid
-	if !superpixel_utils.IsBinaryMask(groundTruth) {
-		return 0, fmt.Errorf("Ground truth mask must be a binary mask for this metric.")
-	}
-
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}

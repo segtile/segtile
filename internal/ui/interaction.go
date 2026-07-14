@@ -41,7 +41,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		appState.SyncEditors()
 
 		if appState.CurrentImage != nil {
-			appState.RecalculateSuperpixels()
+			appState.RecalculateSuperpixels(true, true)
 		}
 
 		// Persist updated parameters to config.
@@ -164,11 +164,6 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if selectionChanged {
 				labelMap := appState.ActiveResult.LabelMap
 				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
-				// Clear the existing mask orange outline once the user starts painting.
-				if appState.ExistingMask != nil {
-					appState.ExistingMask = nil
-					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
-				}
 				appState.Window.Invalidate()
 			}
 		}
@@ -228,6 +223,14 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.SaveButton {
+		if appState.SelectionMade() || showSaveEmptyMaskWarning() {
+			appState.SaveCurrentMask(true, true)
+		}
+
+		return
+	}
+
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
@@ -236,8 +239,11 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.FocusFilter{Target: &appState.KeyboardTag},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "F"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "S"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
 		)
 		if !ok {
 			break
@@ -256,11 +262,15 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 
 		// [C]lear selection
 		if ke.State == key.Press && ke.Name == "C" {
-			for i := range appState.SelectionIndex {
-				appState.SelectionIndex[i] = false
+			appState.ClearSelection(true)
+			continue
+		}
+
+		// [S]ave mask
+		if ke.State == key.Press && ke.Name == "S" {
+			if appState.SelectionMade() || showSaveEmptyMaskWarning() {
+				appState.SaveCurrentMask(true, true)
 			}
-			appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
-			appState.Window.Invalidate()
 			continue
 		}
 
@@ -276,13 +286,22 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// Tab: next image, Shift+Tab: previous image
+		// Space: next image, Shift+Space: previous image
+		// Alternatively: Left/Right arrow keys
 		if ke.State == key.Press && ke.Name == key.NameSpace {
 			if ke.Modifiers.Contain(key.ModShift) {
 				appState.LoadPreviousImage()
 			} else {
 				appState.LoadNextImage()
 			}
+			continue
+		}
+		if ke.State == key.Press && ke.Name == key.NameLeftArrow {
+			appState.LoadPreviousImage()
+			continue
+		}
+		if ke.State == key.Press && ke.Name == key.NameRightArrow {
+			appState.LoadNextImage()
 			continue
 		}
 	}
