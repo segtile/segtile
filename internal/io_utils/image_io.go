@@ -1,6 +1,7 @@
 package io_utils
 
 import (
+	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -44,10 +45,10 @@ func ToGray16(src image.Image) *image.Gray16 {
 	return dst
 }
 
-func SaveImage(path string, img image.Image) {
+func SaveImage(path string, img image.Image) error {
 	f, err := os.Create(filepath.Clean(path))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer f.Close()
 	ext := filepath.Ext(path)
@@ -59,11 +60,12 @@ func SaveImage(path string, img image.Image) {
 	case ".tiff", ".tif":
 		err = tiff.Encode(f, img, nil)
 	default:
-		panic("Unsupported file format: " + ext)
+		return fmt.Errorf("Unsupported file format: %s", ext)
 	}
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("Failed to save image: %v", err)
 	}
+	return nil
 }
 
 func CopyImage(src image.Image) *image.NRGBA {

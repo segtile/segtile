@@ -9,6 +9,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/reiver/go-giotoast"
+
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/op/clip"
@@ -48,6 +50,7 @@ type AppState struct {
 
 	// UI state
 	Window                     *app.Window
+	Toasts                     giotoast.Queue
 	CanvasTag                  bool
 	Theme                      *app_theme.AppTheme
 	SuperpixelParameterEditors map[string]*widget.Editor
@@ -208,7 +211,7 @@ func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.ApplyProject(r.Settings)
 }
 
-func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
+func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
 	fmt.Println("Calculating superpixels...")
 	start := time.Now().UnixMicro()
@@ -244,12 +247,13 @@ func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
 	// Log
 	end := time.Now().UnixMicro()
 	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+
+	if showToast {
+		// Add a toast
+		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeSuccess, "Rebuilt superpixels.", 1*time.Second)
+	}
 	return nil
 
-}
-
-func (appState *AppState) RecalculateSuperpixels() error {
-	return appState.recalculateSuperpixels(true)
 }
 
 func (appState *AppState) LoadNextImage() {
@@ -309,7 +313,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Update the current image and run the superpixel algorithm
 	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	err := appState.recalculateSuperpixels(false)
+	err := appState.RecalculateSuperpixels(false, false)
 	if err != nil {
 		return err
 	}
@@ -354,11 +358,21 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 		// Save as image
 		outPath := appState.maskPathForIndex(appState.CurrentIndex)
-		io_utils.SaveImage(outPath, mask)
+		err := io_utils.SaveImage(outPath, mask)
 
-		if recalculateOutline {
-			// Recalculate the ExistingMaskPathSpec
-			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
+		if err != nil {
+			log.Printf("Failed to save mask to %s: %v", outPath, err)
+			appState.Toasts.EnqueueType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
+			return
+		} else {
+
+			if recalculateOutline {
+				// Recalculate the ExistingMaskPathSpec
+				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
+			}
+
+			// Add toast
+			appState.Toasts.EnqueueType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 2*time.Second)
 		}
 	}
 
@@ -380,4 +394,15 @@ func (appState *AppState) SelectionMade() bool {
 		}
 	}
 	return false
+}
+
+func (appState *AppState) ClearSelection(showToast bool) {
+	for i := range appState.SelectionIndex {
+		appState.SelectionIndex[i] = false
+	}
+	appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
+	appState.Window.Invalidate()
+	if showToast {
+		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
+	}
 }
