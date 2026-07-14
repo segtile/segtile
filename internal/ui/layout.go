@@ -35,10 +35,10 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	bgClip.Pop()
 
 	// Entire application layout
-	layout.Stack{}.Layout(gtx,
+	layout.Stack{Alignment: layout.S}.Layout(gtx,
 
 		// Main content layout
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 
 				// Top menu bar
@@ -244,7 +244,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 		}),
 
 		// Toasts
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return appState.Toasts.Layout(gtx, &appState.Theme.GioTheme)
 		}),
 	)

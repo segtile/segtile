@@ -87,6 +87,6 @@ func (appState *AppState) OptimizeSpParameters() {
 	}
 
 	appState.SyncEditors()
-	appState.RecalculateSuperpixels()
+	appState.RecalculateSuperpixels(true, true)
 	appState.Window.Invalidate()
 }

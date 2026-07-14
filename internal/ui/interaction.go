@@ -41,7 +41,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		appState.SyncEditors()
 
 		if appState.CurrentImage != nil {
-			appState.RecalculateSuperpixels()
+			appState.RecalculateSuperpixels(true, true)
 		}
 
 		// Persist updated parameters to config.
@@ -239,6 +239,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.FocusFilter{Target: &appState.KeyboardTag},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "F"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "S"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
@@ -261,11 +262,15 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 
 		// [C]lear selection
 		if ke.State == key.Press && ke.Name == "C" {
-			for i := range appState.SelectionIndex {
-				appState.SelectionIndex[i] = false
+			appState.ClearSelection(true)
+			continue
+		}
+
+		// [S]ave mask
+		if ke.State == key.Press && ke.Name == "S" {
+			if appState.SelectionMade() || showSaveEmptyMaskWarning() {
+				appState.SaveCurrentMask(true, true)
 			}
-			appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
-			appState.Window.Invalidate()
 			continue
 		}
 
