@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 
 	"gioui.org/f32"
@@ -13,6 +14,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string) layout.Dimensions {
@@ -26,6 +28,51 @@ func drawBigButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.A
 	buttonStyle := material.Button(&theme.GioTheme, btn, txt)
 	buttonStyle.TextSize = unit.Sp(size)
 	return buttonStyle.Layout(gtx)
+}
+
+func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+
+	if appState.Settings == nil {
+		return layout.Dimensions{}
+	}
+
+	var children []layout.FlexChild
+
+	// Get the list of available parameters
+	parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
+	if err != nil {
+		fmt.Printf("Error listing parameter info: %v\n", err)
+		return layout.Dimensions{}
+	}
+
+	for _, paramInfo := range parameterInfo {
+		children = append(children,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+					layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+						label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
+						label.Color = appState.Theme.GioTheme.Palette.Fg
+						return label.Layout(gtx)
+					}),
+
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						currentEditor := appState.SuperpixelParameterEditors[paramInfo.Id]
+						if currentEditor == nil {
+							fmt.Printf("Editor for parameter %s not found\n", paramInfo.Id)
+							return layout.Dimensions{}
+						}
+
+						editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
+						editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
+						return editorStyle.Layout(gtx)
+					}),
+				)
+			}),
+		)
+	}
+
+	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
+
 }
 
 func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {

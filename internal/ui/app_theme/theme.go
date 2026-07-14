@@ -26,10 +26,8 @@ const (
 	MenuBarVerticalSpacing   = 2
 	MenuBarIconSpacing       = 3
 	MenuBarIconSize          = 18
+	SidebarWidth             = 220
 )
-
-// Sidebar
-const SidebarWidth = 220
 
 // Theme configuration for the application
 var palette = material.Palette{

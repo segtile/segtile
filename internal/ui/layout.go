@@ -15,10 +15,12 @@ import (
 	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 func Layout(appState *app_config.AppState, gtx layout.Context) {
+
+	// Determine if a project is loaded
+	projectLoaded := appState.Settings != nil
 
 	// This is the size of the window
 	size := gtx.Constraints.Max
@@ -37,6 +39,10 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 		// Top menu bar
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// Do not render menu bar if no project is loaded
+			if !projectLoaded {
+				return layout.Dimensions{}
+			}
 			// Disable while loading
 			if appState.CurrentlyLoadingProject {
 				gtx = gtx.Disabled()
@@ -64,8 +70,14 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 		// Main content window
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+
 				// Sidebar
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+
+					// Do not render sidebar if no project is loaded
+					if !projectLoaded {
+						return layout.Dimensions{}
+					}
 
 					// Set fixed width for the sidebar
 					gtx.Constraints.Min.X = gtx.Dp(app_theme.SidebarWidth)
@@ -83,61 +95,35 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						var children []layout.FlexChild
 
-						if appState.Settings != nil {
-
-							parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
-							if err != nil {
-								fmt.Printf("Error listing parameter info: %v\n", err)
-								return layout.Dimensions{}
-							}
-
-							for _, paramInfo := range parameterInfo {
-								children = append(children,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
-										label.Color = appState.Theme.GioTheme.Palette.Fg
-										return label.Layout(gtx)
-									}),
-
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										currentEditor := appState.SuperpixelParameterEditors[paramInfo.Id]
-										if currentEditor == nil {
-											fmt.Printf("Editor for parameter %s not found\n", paramInfo.Id)
-											return layout.Dimensions{}
-										}
-
-										editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
-										editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-										return editorStyle.Layout(gtx)
-									}),
-								)
-							}
-
-							// Spacer between param editors and navigation controls.
-							children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
-
-							// Image counter label.
-							if len(appState.ImageFiles) > 0 {
-								counter := fmt.Sprintf("%d / %d  —  %s",
-									appState.CurrentIndex+1,
-									len(appState.ImageFiles),
-									filepath.Base(appState.ImageFiles[appState.CurrentIndex]),
-								)
-								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									lbl := material.Body2(&appState.Theme.GioTheme, counter)
-									lbl.Color = appState.Theme.GioTheme.ContrastFg
-									return lbl.Layout(gtx)
-								}))
-							}
-
-							// Spacer
-							children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
-
-							// Image navigation buttons.
+						// Image counter label.
+						if len(appState.ImageFiles) > 0 {
+							counter := fmt.Sprintf("%d / %d  —  %s",
+								appState.CurrentIndex+1,
+								len(appState.ImageFiles),
+								filepath.Base(appState.ImageFiles[appState.CurrentIndex]),
+							)
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return drawImageNavigationButtons(appState, gtx)
+								lbl := material.Body2(&appState.Theme.GioTheme, counter)
+								lbl.Color = appState.Theme.GioTheme.ContrastFg
+								return lbl.Layout(gtx)
 							}))
 						}
+
+						// Spacer
+						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
+
+						// Image navigation buttons.
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return drawImageNavigationButtons(appState, gtx)
+						}))
+
+						// Spacer between param editors and navigation controls.
+						children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
+
+						// Draw the superpixel parameter editors
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return drawSpSettingsEditors(gtx, appState)
+						}))
 
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 					})
@@ -161,7 +147,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						appState.InitialFocusDone = true
 					}
 
-					if appState.Settings == nil {
+					if !projectLoaded {
 						// No project loaded: show centered New Project / Open Project buttons.
 						promptText := "Create a new project or open an existing one."
 						if appState.CurrentlyLoadingProject {

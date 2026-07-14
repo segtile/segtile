@@ -13,6 +13,7 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/widget"
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
@@ -121,7 +122,7 @@ func (appState *AppState) RebuildEditors() {
 
 	// Turn list of parameters into editors for the UI
 	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
+		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
 		ed.SetText(fmt.Sprintf("%g", paramValue))
 		appState.SuperpixelParameterEditors[paramName] = ed
 	}
