@@ -9,6 +9,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/reiver/go-giotoast"
+
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/op/clip"
@@ -48,6 +50,7 @@ type AppState struct {
 
 	// UI state
 	Window                     *app.Window
+	Toasts                     giotoast.Queue
 	CanvasTag                  bool
 	Theme                      *app_theme.AppTheme
 	SuperpixelParameterEditors map[string]*widget.Editor
@@ -360,6 +363,8 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			// Recalculate the ExistingMaskPathSpec
 			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
 		}
+
+		appState.Toasts.Enqueue(time.Now(), fmt.Sprintf("Saved %s", filepath.Base(outPath)), 2*time.Second)
 	}
 
 }
