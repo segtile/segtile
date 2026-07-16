@@ -23,8 +23,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/lucasb-eyer/go-colorful"
-
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -120,7 +118,7 @@ func Run(img image.Image, count int, compactness float64, initialPerturbationNei
 	}
 
 	// Perform algorithm steps
-	state.buildLabCache()
+	superpixel_utils.BuildLab(img, &state.labCache)
 	state.initializeClusters()
 
 	for i := 0; i < state.iterations; i++ {
@@ -181,7 +179,7 @@ type slicState struct {
 // clL, clA, clB are the pre-computed LAB values of the cluster center, to avoid recomputing them for every pixel.
 func (state *slicState) distance(cluster slicSpCluster, pixelX int, pixelY int) (gradient float64, err error) {
 
-	// If the pixel is out of bounds, we return infinity and an error to make sure it is not assigned to any cluster.
+	// If the pixel is out of bounds, we return infinity and an error.
 
 	if pixelX < 0 || pixelY < 0 || pixelX >= state.imgWidth || pixelY >= state.imgHeight {
 		return math.Inf(1), errors.New("Out of bounds, assuming infinite distance")
@@ -391,37 +389,6 @@ func (state *slicState) recalculateClusterCenters() {
 		state.clusters[i].b = clusterB[i] / float64(count)
 	}
 
-}
-
-func (state *slicState) buildLabCache() {
-	state.labCache = make([][3]float64, state.imgWidth*state.imgHeight)
-
-	workers := runtime.NumCPU()
-	var wg sync.WaitGroup
-	wg.Add(workers)
-
-	for w := range workers {
-		bandStart := w * state.imgHeight / workers
-		bandEnd := (w + 1) * state.imgHeight / workers
-
-		go func(rowStart, rowEnd int) {
-			defer wg.Done()
-			for y := rowStart; y < rowEnd; y++ {
-				for x := 0; x < state.imgWidth; x++ {
-					c, _ := colorful.MakeColor(state.img.At(x, y))
-					l, a, b := c.Lab()
-					// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
-					// so we scale the lab values by 100 to match the scale the compactness parameter is calibrated for.
-					l *= 100
-					a *= 100
-					b *= 100
-					state.labCache[y*state.imgWidth+x] = [3]float64{l, a, b}
-				}
-			}
-		}(bandStart, bandEnd)
-	}
-
-	wg.Wait()
 }
 
 func (state *slicState) resetDistances() {

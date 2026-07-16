@@ -123,12 +123,10 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 					for i := range appState.SpAlgorithmMenuAlgorithmIds {
 
 						button := &appState.SpAlgorithmMenuButtons[i]
-						//id := appState.SpAlgorithmMenuAlgorithmIds[i]
-						title := appState.SpAlgoritmMenuTitles[i]
 
 						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							HandleUiButtonClick(appState, gtx, button)
-							return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
+							return component.MenuItem(&appState.Theme.GioTheme, button, appState.SpAlgoritmMenuTitles[i]).Layout(gtx)
 						}))
 					}
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)

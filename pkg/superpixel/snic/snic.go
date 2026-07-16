@@ -21,8 +21,6 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/lucasb-eyer/go-colorful"
-
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -64,7 +62,6 @@ func init() {
 }
 
 // Run executes the SNIC algorithm on the given image.
-// It is fully functional and does not rely on a stateful struct.
 func Run(img image.Image, count int, compactness float64, initialPerturbationNeighborhoodRadius int) (superpixel.SpResult, error) {
 
 	// Validate parameters
@@ -108,7 +105,7 @@ func Run(img image.Image, count int, compactness float64, initialPerturbationNei
 	}
 
 	// Perform algorithm steps
-	state.buildLabCache()
+	superpixel_utils.BuildLab(img, &state.labCache)
 	state.initializeClusters()
 	state.growSuperpixels()
 
@@ -235,23 +232,6 @@ func (state *snicState) gradient(pixelX int, pixelY int) float64 {
 	gradient := (rightL-leftL)*(rightL-leftL) + (rightA-leftA)*(rightA-leftA) + (rightB-leftB)*(rightB-leftB) + (downL-upL)*(downL-upL) + (downA-upA)*(downA-upA) + (downB-upB)*(downB-upB)
 
 	return gradient
-}
-
-func (state *snicState) buildLabCache() {
-	state.labCache = make([][3]float64, state.imgWidth*state.imgHeight)
-
-	for y := 0; y < state.imgHeight; y++ {
-		for x := 0; x < state.imgWidth; x++ {
-			c, _ := colorful.MakeColor(state.img.At(x, y))
-			l, a, b := c.Lab()
-			// go-colorful returns LAB values in a different range than standard CIELAB (L in [0,1] instead of the official [0,100]),
-			// so we scale the lab values by 100 to match the scale the compactness parameter is calibrated for.
-			l *= 100
-			a *= 100
-			b *= 100
-			state.labCache[y*state.imgWidth+x] = [3]float64{l, a, b}
-		}
-	}
 }
 
 func (state *snicState) initializeClusters() {
