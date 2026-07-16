@@ -13,12 +13,10 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/f32"
-	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
-	"gioui.org/x/component"
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
@@ -67,10 +65,12 @@ type AppState struct {
 	NewProjectButton           widget.Clickable
 	OptimizeButton             widget.Clickable
 	SaveButton                 widget.Clickable
-	ChangeSpAlgorithmButton    widget.Clickable
-	SpAlgorithmMenu            component.MenuState
-	SpAlgorithmMenuOpen        bool
-	SpAlgorithmMenuButtons     map[string]widget.Clickable
+
+	ChangeSpAlgorithmButton     widget.Clickable
+	SpAlgorithmMenuButtons      []widget.Clickable
+	SpAlgorithmMenuAlgorithmIds []string
+	SpAlgoritmMenuTitles        []string
+	SpAlgorithmMenuOpen         bool
 
 	// Loading state
 	CurrentlyLoadingProject bool
@@ -110,28 +110,16 @@ func NewAppState() *AppState {
 
 	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.
 	for _, id := range superpixel.ListAlgorithms() {
-		title, _, _, _ := superpixel.GetAlgorithmInfo(id)
-		// if err != nil {
-		// 	log.Printf("Failed to get superpixel algorithm info: %v", err)
-		// 	continue
-		// }
 
 		button := new(widget.Clickable)
-		appState.SpAlgorithmMenu.Options = append(appState.SpAlgorithmMenu.Options, func(gtx layout.Context) layout.Dimensions {
+		appState.SpAlgorithmMenuButtons = append(appState.SpAlgorithmMenuButtons, *button)
+		appState.SpAlgorithmMenuAlgorithmIds = append(appState.SpAlgorithmMenuAlgorithmIds, id)
 
-			if button.Clicked(gtx) {
-				err := appState.SetSpAlgorithm(id)
-				if err != nil {
-					log.Printf("Failed to change superpixel algorithm: %v", err)
-				} else {
-					appState.SpAlgorithmMenuOpen = false
-					if appState.Window != nil {
-						appState.Window.Invalidate()
-					}
-				}
-			}
-			return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
-		})
+		title, _, _, err := superpixel.GetAlgorithmInfo(id)
+		if err != nil {
+			title = fmt.Sprintf("Untitled (%s)", id)
+		}
+		appState.SpAlgoritmMenuTitles = append(appState.SpAlgoritmMenuTitles, title)
 	}
 
 	appState.RebuildEditors()
@@ -182,7 +170,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Set the new algorithm id
 	if !slices.Contains(superpixel.ListAlgorithms(), id) {
-		return fmt.Errorf("unknown superpixel algorithm %s", id)
+		return fmt.Errorf("Unknown superpixel algorithm: %s", id)
 	}
 	appState.Settings.Superpixel.SpAlgorithmId = id
 

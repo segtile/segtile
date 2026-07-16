@@ -179,6 +179,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
+		return
 	}
 
 	if button == &appState.PrevUnlabeledButton {
@@ -231,6 +232,25 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 			appState.SaveCurrentMask(true, true)
 		}
 
+		return
+	}
+
+	for i := range appState.SpAlgorithmMenuButtons {
+
+		if button != &appState.SpAlgorithmMenuButtons[i] {
+			continue
+		}
+
+		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuAlgorithmIds[i])
+		if err != nil {
+			fmt.Printf("Failed to change superpixel algorithm: %v\n", err)
+			return
+		}
+		appState.SpAlgorithmMenuOpen = false
+
+		if appState.Window != nil {
+			appState.Window.Invalidate()
+		}
 		return
 	}
 

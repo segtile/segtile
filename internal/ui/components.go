@@ -84,6 +84,11 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 		return layout.Dimensions{}
 	}
 	HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
+	if appState.SpAlgorithmMenuOpen {
+		for i := range appState.SpAlgorithmMenuButtons {
+			HandleUiButtonClick(appState, gtx, &appState.SpAlgorithmMenuButtons[i])
+		}
+	}
 
 	var children []layout.FlexChild
 
@@ -134,10 +139,21 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if !appState.SpAlgorithmMenuOpen {
 						return layout.Dimensions{}
-					} else {
-						menu := component.Menu(&appState.Theme.GioTheme, &appState.SpAlgorithmMenu)
-						return menu.Layout(gtx)
 					}
+
+					children := make([]layout.FlexChild, 0, len(appState.SpAlgorithmMenuAlgorithmIds))
+					for i := range appState.SpAlgorithmMenuAlgorithmIds {
+
+						button := &appState.SpAlgorithmMenuButtons[i]
+						//id := appState.SpAlgorithmMenuAlgorithmIds[i]
+						title := appState.SpAlgoritmMenuTitles[i]
+
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							HandleUiButtonClick(appState, gtx, button)
+							return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
+						}))
+					}
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 				}),
 			)
 		}),
