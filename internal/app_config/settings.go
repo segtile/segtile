@@ -9,7 +9,7 @@ import (
 )
 
 const ConfigFileName = "settings.yaml"
-const defaultSpAlgorithmId = "slic"
+const defaultSpAlgorithmId = "snic"
 
 // ProjectLoadingResult carries the outcome of a background project-load dialog.
 type ProjectLoadingResult struct {

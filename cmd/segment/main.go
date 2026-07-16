@@ -16,6 +16,7 @@ import (
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 

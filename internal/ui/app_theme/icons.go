@@ -12,16 +12,17 @@ var aVPlayReverseArrow = []byte{
 }
 
 var (
-	IconFirst         = mustIcon(widget.NewIcon(icons.AVSkipPrevious))
-	IconPrevUnlabeled = mustIcon(widget.NewIcon(icons.AVFastRewind))
-	IconPrev          = mustIcon(widget.NewIcon(aVPlayReverseArrow))
-	IconNext          = mustIcon(widget.NewIcon(icons.AVPlayArrow))
-	IconNextUnlabeled = mustIcon(widget.NewIcon(icons.AVFastForward))
-	IconLast          = mustIcon(widget.NewIcon(icons.AVSkipNext))
-	IconNew           = mustIcon(widget.NewIcon(icons.ContentAdd))
-	IconOpen          = mustIcon(widget.NewIcon(icons.FileFolderOpen))
-	IconOptimize      = mustIcon(widget.NewIcon(icons.ImageTune))
-	IconSave          = mustIcon(widget.NewIcon(icons.ContentSave))
+	IconFirst           = mustIcon(widget.NewIcon(icons.AVSkipPrevious))
+	IconPrevUnlabeled   = mustIcon(widget.NewIcon(icons.AVFastRewind))
+	IconPrev            = mustIcon(widget.NewIcon(aVPlayReverseArrow))
+	IconNext            = mustIcon(widget.NewIcon(icons.AVPlayArrow))
+	IconNextUnlabeled   = mustIcon(widget.NewIcon(icons.AVFastForward))
+	IconLast            = mustIcon(widget.NewIcon(icons.AVSkipNext))
+	IconNew             = mustIcon(widget.NewIcon(icons.ContentAdd))
+	IconOpen            = mustIcon(widget.NewIcon(icons.FileFolderOpen))
+	IconOptimize        = mustIcon(widget.NewIcon(icons.ImageTune))
+	IconSave            = mustIcon(widget.NewIcon(icons.ContentSave))
+	IconChangeAlgorithm = mustIcon(widget.NewIcon(icons.ActionAutorenew))
 )
 
 func mustIcon(icon *widget.Icon, err error) *widget.Icon {

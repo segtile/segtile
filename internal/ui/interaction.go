@@ -18,8 +18,10 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 	recalculate := false
 
-	// Handle settings changes
-	for param, editor := range appState.SuperpixelParameterEditors {
+	// Handle settings changes.
+	for i := range appState.SuperpixelParameterEditors {
+		param := appState.SuperpixelParameterEditorIds[i]
+		editor := &appState.SuperpixelParameterEditors[i]
 		// Drain events and apply the value on Submit
 		for {
 			ev, ok := editor.Update(gtx)
@@ -171,10 +173,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 }
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
-
 func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
 
 	if !button.Clicked(gtx) {
+		return
+	}
+
+	if button == &appState.ChangeSpAlgorithmButton {
+		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 		return
 	}
 
@@ -228,6 +234,25 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 			appState.SaveCurrentMask(true, true)
 		}
 
+		return
+	}
+
+	for i := range appState.SpAlgorithmMenuButtons {
+
+		if button != &appState.SpAlgorithmMenuButtons[i] {
+			continue
+		}
+
+		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuAlgorithmIds[i])
+		if err != nil {
+			fmt.Printf("Failed to change superpixel algorithm: %v\n", err)
+			return
+		}
+		appState.SpAlgorithmMenuOpen = false
+
+		if appState.Window != nil {
+			appState.Window.Invalidate()
+		}
 		return
 	}
 

@@ -12,15 +12,24 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
-func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string) layout.Dimensions {
+// drawIconButton draws a button with an icon and handles its click event.
+func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string, filled bool) layout.Dimensions {
 	style := material.IconButton(&theme.GioTheme, btn, icon, description)
 	style.Size = unit.Dp(20)
 	style.Inset = layout.UniformInset(unit.Dp(4))
+	if filled {
+		style.Color = theme.GioTheme.Palette.ContrastFg
+		style.Background = theme.GioTheme.Palette.ContrastBg
+	} else {
+		style.Color = theme.GioTheme.Palette.Fg
+		style.Background = color.NRGBA{R: 0, G: 0, B: 0, A: 0}
+	}
 	return style.Layout(gtx)
 }
 
@@ -28,113 +37,6 @@ func drawBigButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.A
 	buttonStyle := material.Button(&theme.GioTheme, btn, txt)
 	buttonStyle.TextSize = unit.Sp(size)
 	return buttonStyle.Layout(gtx)
-}
-
-func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
-
-	if appState.Settings == nil {
-		return layout.Dimensions{}
-	}
-
-	var children []layout.FlexChild
-
-	// Get the list of available parameters
-	parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
-	if err != nil {
-		fmt.Printf("Error listing parameter info: %v\n", err)
-		return layout.Dimensions{}
-	}
-
-	for _, paramInfo := range parameterInfo {
-		children = append(children,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-					layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-						label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
-						label.Color = appState.Theme.GioTheme.Palette.Fg
-						return label.Layout(gtx)
-					}),
-
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						currentEditor := appState.SuperpixelParameterEditors[paramInfo.Id]
-						if currentEditor == nil {
-							fmt.Printf("Editor for parameter %s not found\n", paramInfo.Id)
-							return layout.Dimensions{}
-						}
-
-						editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
-						editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-						return editorStyle.Layout(gtx)
-					}),
-				)
-			}),
-		)
-	}
-
-	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
-
-}
-
-func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
-	atFirstImage := appState.CurrentIndex == 0
-	atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
-
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atFirstImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.FirstButton)
-			}
-			return drawIconButton(gtx, &appState.FirstButton, appState.Theme, app_theme.IconFirst, "First")
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atFirstImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
-			}
-			return drawIconButton(gtx, &appState.PrevUnlabeledButton, appState.Theme, app_theme.IconPrevUnlabeled, "Previous Unlabeled")
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atFirstImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.PrevButton)
-			}
-			return drawIconButton(gtx, &appState.PrevButton, appState.Theme, app_theme.IconPrev, "Previous")
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-
-			if atLastImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.NextButton)
-			}
-			return drawIconButton(gtx, &appState.NextButton, appState.Theme, app_theme.IconNext, "Next")
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atLastImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
-			}
-			return drawIconButton(gtx, &appState.NextUnlabeledButton, appState.Theme, app_theme.IconNextUnlabeled, "Next Unlabeled")
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if atLastImage {
-				gtx = gtx.Disabled()
-			} else {
-				HandleUiButtonClick(appState, gtx, &appState.LastButton)
-			}
-			return drawIconButton(gtx, &appState.LastButton, appState.Theme, app_theme.IconLast, "Last")
-		}),
-	)
 }
 
 func drawMenuBarButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, txt string) layout.Dimensions {
@@ -174,6 +76,159 @@ func drawMenuBarButton(gtx layout.Context, btn *widget.Clickable, theme *app_the
 			)
 		})
 	})
+}
+
+func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+
+	if appState.Settings == nil {
+		return layout.Dimensions{}
+	}
+	HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
+	if appState.SpAlgorithmMenuOpen {
+		for i := range appState.SpAlgorithmMenuButtons {
+			HandleUiButtonClick(appState, gtx, &appState.SpAlgorithmMenuButtons[i])
+		}
+	}
+
+	var children []layout.FlexChild
+
+	// Algorithm Name and change button
+	children = append(children,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+
+							superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.Settings.Superpixel.SpAlgorithmId)
+							if err != nil {
+								superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.Settings.Superpixel.SpAlgorithmId)
+							}
+
+							label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
+							label.Color = appState.Theme.GioTheme.Palette.Fg
+							return label.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconChangeAlgorithm, "Change Superpixel Algorithm", false)
+						}),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !appState.SpAlgorithmMenuOpen {
+						return layout.Dimensions{}
+					}
+
+					children := make([]layout.FlexChild, 0, len(appState.SpAlgorithmMenuAlgorithmIds))
+					for i := range appState.SpAlgorithmMenuAlgorithmIds {
+
+						button := &appState.SpAlgorithmMenuButtons[i]
+
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							HandleUiButtonClick(appState, gtx, button)
+							return component.MenuItem(&appState.Theme.GioTheme, button, appState.SpAlgoritmMenuTitles[i]).Layout(gtx)
+						}))
+					}
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+				}),
+			)
+		}),
+	)
+
+	if !appState.SpAlgorithmMenuOpen {
+
+		// Spacer
+		children = append(children,
+			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		)
+
+		for i := range appState.SuperpixelParameterEditors {
+			title := appState.SuperpixelParameterEditorTitles[i]
+			editor := &appState.SuperpixelParameterEditors[i]
+			children = append(children,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+							label := material.Body1(&appState.Theme.GioTheme, title)
+							label.Color = appState.Theme.GioTheme.Palette.Fg
+							return label.Layout(gtx)
+						}),
+
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
+							editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
+							return editorStyle.Layout(gtx)
+						}),
+					)
+				}),
+			)
+		}
+	}
+
+	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
+
+}
+
+func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
+	atFirstImage := appState.CurrentIndex == 0
+	atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
+
+	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.FirstButton)
+			}
+			return drawIconButton(gtx, &appState.FirstButton, appState.Theme, app_theme.IconFirst, "First", true)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
+			}
+			return drawIconButton(gtx, &appState.PrevUnlabeledButton, appState.Theme, app_theme.IconPrevUnlabeled, "Previous Unlabeled", true)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atFirstImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.PrevButton)
+			}
+			return drawIconButton(gtx, &appState.PrevButton, appState.Theme, app_theme.IconPrev, "Previous", true)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.NextButton)
+			}
+			return drawIconButton(gtx, &appState.NextButton, appState.Theme, app_theme.IconNext, "Next", true)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
+			}
+			return drawIconButton(gtx, &appState.NextUnlabeledButton, appState.Theme, app_theme.IconNextUnlabeled, "Next Unlabeled", true)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if atLastImage {
+				gtx = gtx.Disabled()
+			} else {
+				HandleUiButtonClick(appState, gtx, &appState.LastButton)
+			}
+			return drawIconButton(gtx, &appState.LastButton, appState.Theme, app_theme.IconLast, "Last", true)
+		}),
+	)
 }
 
 // drawStroke adds the drawing operations for an outline to the graphics context
