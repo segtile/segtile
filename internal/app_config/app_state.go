@@ -13,10 +13,12 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/f32"
+	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
+	"gioui.org/x/component"
 	"github.com/sqweek/dialog"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
@@ -66,6 +68,9 @@ type AppState struct {
 	OptimizeButton             widget.Clickable
 	SaveButton                 widget.Clickable
 	ChangeSpAlgorithmButton    widget.Clickable
+	SpAlgorithmMenu            component.MenuState
+	SpAlgorithmMenuOpen        bool
+	SpAlgorithmMenuButtons     map[string]widget.Clickable
 
 	// Loading state
 	CurrentlyLoadingProject bool
@@ -95,7 +100,7 @@ func NewSuperpixelSettings() SuperpixelSettings {
 
 func NewAppState() *AppState {
 
-	appState := AppState{
+	appState := &AppState{
 		FitToWindow:                true,
 		RenderSelectionOutlines:    true,
 		Theme:                      app_theme.Theme,
@@ -103,9 +108,35 @@ func NewAppState() *AppState {
 		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
 	}
 
+	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.
+	for _, id := range superpixel.ListAlgorithms() {
+		title, _, _, _ := superpixel.GetAlgorithmInfo(id)
+		// if err != nil {
+		// 	log.Printf("Failed to get superpixel algorithm info: %v", err)
+		// 	continue
+		// }
+
+		button := new(widget.Clickable)
+		appState.SpAlgorithmMenu.Options = append(appState.SpAlgorithmMenu.Options, func(gtx layout.Context) layout.Dimensions {
+
+			if button.Clicked(gtx) {
+				err := appState.SetSpAlgorithm(id)
+				if err != nil {
+					log.Printf("Failed to change superpixel algorithm: %v", err)
+				} else {
+					appState.SpAlgorithmMenuOpen = false
+					if appState.Window != nil {
+						appState.Window.Invalidate()
+					}
+				}
+			}
+			return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
+		})
+	}
+
 	appState.RebuildEditors()
 
-	return &appState
+	return appState
 }
 
 // Set up the editors for the current superpixel parameters.
@@ -164,6 +195,11 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Rebuild the editors for the new params
 	appState.RebuildEditors()
+
+	// Recalculate the superpixels for the current image
+	if appState.CurrentImage != nil {
+		appState.RecalculateSuperpixels(true, true)
+	}
 
 	return nil
 }
@@ -251,7 +287,7 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 
 	if showToast {
 		// Add a toast
-		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeSuccess, "Rebuilt superpixels.", 1*time.Second)
+		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeNeutral, "Rebuilt superpixels.", 1*time.Second)
 	}
 	return nil
 

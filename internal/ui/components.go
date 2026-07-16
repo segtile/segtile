@@ -12,6 +12,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
@@ -82,6 +83,7 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 	if appState.Settings == nil {
 		return layout.Dimensions{}
 	}
+	HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
 
 	var children []layout.FlexChild
 
@@ -110,22 +112,32 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 	// Algorithm Name and change button
 	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-				layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-					// Get the title of the current SP algorithm
-					superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.Settings.Superpixel.SpAlgorithmId)
-					if err != nil {
-						superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.Settings.Superpixel.SpAlgorithmId)
-					}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
 
-					label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
-					label.Color = appState.Theme.GioTheme.Palette.Fg
-					return label.Layout(gtx)
+							superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.Settings.Superpixel.SpAlgorithmId)
+							if err != nil {
+								superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.Settings.Superpixel.SpAlgorithmId)
+							}
+
+							label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
+							label.Color = appState.Theme.GioTheme.Palette.Fg
+							return label.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconOptimize, "Change Superpixel Algorithm", false)
+						}),
+					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					// Button for changing the SP algorithm
-					HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
-					return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconOptimize, "Change Superpixel Algorithm", false)
+					if !appState.SpAlgorithmMenuOpen {
+						return layout.Dimensions{}
+					} else {
+						menu := component.Menu(&appState.Theme.GioTheme, &appState.SpAlgorithmMenu)
+						return menu.Layout(gtx)
+					}
 				}),
 			)
 		}),

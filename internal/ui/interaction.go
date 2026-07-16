@@ -171,11 +171,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 }
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
-
 func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
 
 	if !button.Clicked(gtx) {
 		return
+	}
+
+	if button == &appState.ChangeSpAlgorithmButton {
+		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 	}
 
 	if button == &appState.PrevUnlabeledButton {
