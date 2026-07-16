@@ -286,7 +286,7 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 
 	if showToast {
 		// Add a toast
-		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeNeutral, "Rebuilt superpixels.", 1*time.Second)
+		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeNeutral, fmt.Sprintf("Rebuilt superpixels (%.1f ms)", float64(end-start)/1000), 1*time.Second)
 	}
 	return nil
 
