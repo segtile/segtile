@@ -49,22 +49,24 @@ type AppState struct {
 	ExistingMaskPathSpec clip.PathSpec
 
 	// UI state
-	Window                     *app.Window
-	Toasts                     giotoast.Queue
-	CanvasTag                  bool
-	Theme                      *app_theme.AppTheme
-	SuperpixelParameterEditors map[string]*widget.Editor
-	RenderSelectionOutlines    bool
-	FirstButton                widget.Clickable
-	LastButton                 widget.Clickable
-	PrevUnlabeledButton        widget.Clickable
-	PrevButton                 widget.Clickable
-	NextUnlabeledButton        widget.Clickable
-	NextButton                 widget.Clickable
-	OpenProjectButton          widget.Clickable
-	NewProjectButton           widget.Clickable
-	OptimizeButton             widget.Clickable
-	SaveButton                 widget.Clickable
+	Window                          *app.Window
+	Toasts                          giotoast.Queue
+	CanvasTag                       bool
+	Theme                           *app_theme.AppTheme
+	SuperpixelParameterEditors      []widget.Editor
+	SuperpixelParameterEditorIds    []string
+	SuperpixelParameterEditorTitles []string
+	RenderSelectionOutlines         bool
+	FirstButton                     widget.Clickable
+	LastButton                      widget.Clickable
+	PrevUnlabeledButton             widget.Clickable
+	PrevButton                      widget.Clickable
+	NextUnlabeledButton             widget.Clickable
+	NextButton                      widget.Clickable
+	OpenProjectButton               widget.Clickable
+	NewProjectButton                widget.Clickable
+	OptimizeButton                  widget.Clickable
+	SaveButton                      widget.Clickable
 
 	ChangeSpAlgorithmButton     widget.Clickable
 	SpAlgorithmMenuButtons      []widget.Clickable
@@ -101,11 +103,10 @@ func NewSuperpixelSettings() SuperpixelSettings {
 func NewAppState() *AppState {
 
 	appState := &AppState{
-		FitToWindow:                true,
-		RenderSelectionOutlines:    true,
-		Theme:                      app_theme.Theme,
-		SuperpixelParameterEditors: make(map[string]*widget.Editor),
-		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
+		FitToWindow:             true,
+		RenderSelectionOutlines: true,
+		Theme:                   app_theme.Theme,
+		ProjectLoadResult:       make(chan ProjectLoadingResult, 1),
 	}
 
 	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.
@@ -130,8 +131,10 @@ func NewAppState() *AppState {
 // Set up the editors for the current superpixel parameters.
 func (appState *AppState) RebuildEditors() {
 
-	// Overwrite existing editors
-	appState.SuperpixelParameterEditors = make(map[string]*widget.Editor)
+	// Overwrite existing editor data.
+	appState.SuperpixelParameterEditors = nil
+	appState.SuperpixelParameterEditorIds = nil
+	appState.SuperpixelParameterEditorTitles = nil
 
 	// No editors if there are no settings
 	if appState.Settings == nil {
@@ -143,24 +146,32 @@ func (appState *AppState) RebuildEditors() {
 		return
 	}
 
-	// Turn list of parameters into editors for the UI
-	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
-		ed.SetText(fmt.Sprintf("%g", paramValue))
-		appState.SuperpixelParameterEditors[paramName] = ed
+	parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
+	if err != nil {
+		log.Printf("Failed to list superpixel parameter info: %v", err)
+		return
+	}
+
+	// Turn the parameter list into aligned editor data for the UI.
+	for _, paramInfo := range parameterInfo {
+		paramValue := appState.Settings.Superpixel.SpAlgorithmParameters[paramInfo.Id]
+		editor := widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
+		editor.SetText(fmt.Sprintf("%g", paramValue))
+		appState.SuperpixelParameterEditors = append(appState.SuperpixelParameterEditors, editor)
+		appState.SuperpixelParameterEditorIds = append(appState.SuperpixelParameterEditorIds, paramInfo.Id)
+		appState.SuperpixelParameterEditorTitles = append(appState.SuperpixelParameterEditorTitles, paramInfo.Title)
 	}
 }
 
 // SyncEditors updates each superpixel parameter editor's text to reflect
 // the current values in the superpixel implementation.
 func (appState *AppState) SyncEditors() error {
-
-	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
-		if ed, ok := appState.SuperpixelParameterEditors[paramName]; ok {
-			ed.SetText(fmt.Sprintf("%g", paramValue))
-		} else {
-			return fmt.Errorf("Editor for parameter %s not found", paramName)
+	for i, paramId := range appState.SuperpixelParameterEditorIds {
+		paramValue, ok := appState.Settings.Superpixel.SpAlgorithmParameters[paramId]
+		if !ok {
+			return fmt.Errorf("Value for parameter %s not found", paramId)
 		}
+		appState.SuperpixelParameterEditors[i].SetText(fmt.Sprintf("%g", paramValue))
 	}
 
 	return nil

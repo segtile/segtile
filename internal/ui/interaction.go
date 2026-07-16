@@ -18,8 +18,10 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 	recalculate := false
 
-	// Handle settings changes
-	for param, editor := range appState.SuperpixelParameterEditors {
+	// Handle settings changes.
+	for i := range appState.SuperpixelParameterEditors {
+		param := appState.SuperpixelParameterEditorIds[i]
+		editor := &appState.SuperpixelParameterEditors[i]
 		// Drain events and apply the value on Submit
 		for {
 			ev, ok := editor.Update(gtx)

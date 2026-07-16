@@ -92,28 +92,6 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 
 	var children []layout.FlexChild
 
-	// Get the list of available parameters
-	parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
-	if err != nil {
-		fmt.Printf("Error listing parameter info: %v\n", err)
-		return layout.Dimensions{}
-	}
-
-	// Add the current SP algorithm as a row at the top
-
-	// Label: SP Algorithm
-	children = append(children,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					label := material.Caption(&appState.Theme.GioTheme, "Superpixel Algorithm")
-					label.Color = appState.Theme.GioTheme.Palette.Fg
-					return label.Layout(gtx)
-				}),
-			)
-		}),
-	)
-
 	// Algorithm Name and change button
 	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -132,7 +110,7 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 							return label.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconOptimize, "Change Superpixel Algorithm", false)
+							return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconChangeAlgorithm, "Change Superpixel Algorithm", false)
 						}),
 					)
 				}),
@@ -159,48 +137,34 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 		}),
 	)
 
-	// Spacer
-	children = append(children,
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-	)
+	if !appState.SpAlgorithmMenuOpen {
 
-	// Label: Parameters
-	children = append(children,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					label := material.Caption(&appState.Theme.GioTheme, "Parameters")
-					label.Color = appState.Theme.GioTheme.Palette.Fg
-					return label.Layout(gtx)
+		// Spacer
+		children = append(children,
+			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		)
+
+		for i := range appState.SuperpixelParameterEditors {
+			title := appState.SuperpixelParameterEditorTitles[i]
+			editor := &appState.SuperpixelParameterEditors[i]
+			children = append(children,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+							label := material.Body1(&appState.Theme.GioTheme, title)
+							label.Color = appState.Theme.GioTheme.Palette.Fg
+							return label.Layout(gtx)
+						}),
+
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
+							editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
+							return editorStyle.Layout(gtx)
+						}),
+					)
 				}),
 			)
-		}),
-	)
-
-	for _, paramInfo := range parameterInfo {
-		children = append(children,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-					layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-						label := material.Body1(&appState.Theme.GioTheme, paramInfo.Title)
-						label.Color = appState.Theme.GioTheme.Palette.Fg
-						return label.Layout(gtx)
-					}),
-
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						currentEditor := appState.SuperpixelParameterEditors[paramInfo.Id]
-						if currentEditor == nil {
-							fmt.Printf("Editor for parameter %s not found\n", paramInfo.Id)
-							return layout.Dimensions{}
-						}
-
-						editorStyle := material.Editor(&appState.Theme.GioTheme, currentEditor, "value")
-						editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-						return editorStyle.Layout(gtx)
-					}),
-				)
-			}),
-		)
+		}
 	}
 
 	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
