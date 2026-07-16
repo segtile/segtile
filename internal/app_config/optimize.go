@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
-	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
-	_ "github.com/struffel/annotation-tool/internal/superpixel_optimizer/coordinate_descent"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_optimizer/coordinate_descent"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 

@@ -7,9 +7,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
 )
 
 func init() {
