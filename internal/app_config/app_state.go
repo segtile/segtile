@@ -65,6 +65,7 @@ type AppState struct {
 	NewProjectButton           widget.Clickable
 	OptimizeButton             widget.Clickable
 	SaveButton                 widget.Clickable
+	ChangeSpAlgorithmButton    widget.Clickable
 
 	// Loading state
 	CurrentlyLoadingProject bool
