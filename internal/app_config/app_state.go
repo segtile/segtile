@@ -17,7 +17,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
-	"github.com/sqweek/dialog"
+	"github.com/ncruces/zenity"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
@@ -237,7 +237,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 // ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.CurrentlyLoadingProject = false
-	if r.Err == dialog.ErrCancelled || r.Settings == nil {
+	if r.Err == zenity.ErrCanceled || r.Settings == nil {
 		return
 	}
 	if r.Err != nil {
