@@ -33,7 +33,7 @@ func init() {
 	)
 }
 
-func runWithParams(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
+func runWithParams(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64, progress superpixel_optimizer.SpOptimizerProgressIndicator) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
 	return Run(imagePairs, metric, algorithms, int(optimizer_params["passes"]))
 }
 
