@@ -250,18 +250,19 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		// Second goroutine which runs the actual optimization and writes the result to the channel
 		go func() {
 			defer cancelFunction()
-			result := appState.OptimizeSpParameters(ctx, progress)
+			result, err := appState.OptimizeSpParameters(ctx, progress)
 			close(workDone)
-			if errors.Is(result.Err, zenity.ErrCanceled) {
-				result.Err = context.Canceled
+			if errors.Is(err, zenity.ErrCanceled) {
+				err = context.Canceled
 			}
-			if result.Err == nil {
-				if err := progress.Finish(); err != nil {
-					result.Err = err
+			if err == nil {
+				if finishErr := progress.Finish(); finishErr != nil {
+					err = finishErr
 				}
 			} else {
 				_ = progress.Close()
 			}
+			result.Err = err
 			appState.OptimizationResult <- result
 			appState.Window.Invalidate()
 		}()

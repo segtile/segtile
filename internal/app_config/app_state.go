@@ -22,6 +22,7 @@ import (
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -78,7 +79,7 @@ type AppState struct {
 	CurrentlyLoadingProject bool
 	ProjectLoadResult       chan ProjectLoadingResult
 	CurrentlyOptimizing     bool
-	OptimizationResult      chan OptimizationResult
+	OptimizationResult      chan superpixel_optimizer.SpOptimizerResult
 
 	// Hover state
 	IsPanning        bool
@@ -109,7 +110,7 @@ func NewAppState() *AppState {
 		RenderSelectionOutlines: true,
 		Theme:                   app_theme.Theme,
 		ProjectLoadResult:       make(chan ProjectLoadingResult, 1),
-		OptimizationResult:      make(chan OptimizationResult, 1),
+		OptimizationResult:      make(chan superpixel_optimizer.SpOptimizerResult, 1),
 	}
 
 	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.

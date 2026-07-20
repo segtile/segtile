@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/struffel/annotation-tool/pkg/progress"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
@@ -34,49 +35,69 @@ func init() {
 	)
 }
 
-func runWithParams(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64, progress superpixel_optimizer.SpOptimizerProgressIndicator) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
-	return Run(ctx, imagePairs, metric, algorithms, int(optimizer_params["passes"]), progress)
+func runWithParams(
+	ctx context.Context,
+	imagePairs []superpixel_optimizer.SpOptimizerInputPair,
+	metric string,
+	algorithms []string,
+	optimizer_params map[string]float64,
+	progress progress.ProgressIndicator) (superpixel_optimizer.SpOptimizerResult, error) {
+	result, err := Run(ctx, imagePairs, metric, algorithms, int(optimizer_params["passes"]), progress)
+	if err != nil {
+		return superpixel_optimizer.SpOptimizerResult{}, err
+	}
+	return superpixel_optimizer.SpOptimizerResult{
+		Score:      result.Score,
+		Algorithm:  result.Algorithm,
+		Parameters: result.Parameters,
+	}, nil
 }
 
-func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, passes int, progress superpixel_optimizer.SpOptimizerProgressIndicator) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
+func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, passes int, progressIndicator progress.ProgressIndicator) (result superpixel_optimizer.SpOptimizerResult, err error) {
 
 	if len(imagePairs) == 0 {
-		return 0, "", nil, fmt.Errorf("No image and ground truth paths provided for optimization.")
+		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("No image and ground truth paths provided for optimization.")
 	}
 
 	allAlgorithms := superpixel.ListAlgorithms()
 	for _, algorithm := range algorithms {
 		if !contains(allAlgorithms, algorithm) {
-			return 0, "", nil, fmt.Errorf("Unknown superpixel algorithm %s", algorithm)
+			return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("Unknown superpixel algorithm %s", algorithm)
 		}
 	}
 
 	allMetrics := superpixel_metrics.ListSpMetrics()
 	if !contains(allMetrics, metric) {
-		return 0, "", nil, fmt.Errorf("Unknown superpixel metric %s", metric)
+		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("Unknown superpixel metric %s", metric)
 	}
 
-	best_score = -math.MaxFloat64
+	bestScore := -math.MaxFloat64
+	var bestAlgorithm string
+	var bestScoreAlgorithmParams map[string]float64
 
 	for _, algorithm := range algorithms {
 		if err := ctx.Err(); err != nil {
-			return 0, "", nil, err
+			return superpixel_optimizer.SpOptimizerResult{}, err
 		}
-		if err := progress.Update(fmt.Sprintf("Optimizing %s", algorithm), 0); err != nil {
-			return 0, "", nil, err
+		if err := progressIndicator.Update(fmt.Sprintf("Optimizing %s", algorithm), 0); err != nil {
+			return superpixel_optimizer.SpOptimizerResult{}, err
 		}
-		score, params, err := optimizeAlgorithm(ctx, imagePairs, metric, algorithm, passes, progress)
+		score, params, err := optimizeAlgorithm(ctx, imagePairs, metric, algorithm, passes, progressIndicator)
 		if err != nil {
-			return 0, "", nil, err
+			return superpixel_optimizer.SpOptimizerResult{}, err
 		}
-		if score > best_score {
-			best_score = score
-			best_algorithm = algorithm
-			best_score_algorithm_params = params
+		if score > bestScore {
+			bestScore = score
+			bestAlgorithm = algorithm
+			bestScoreAlgorithmParams = params
 		}
 	}
 
-	return best_score, best_algorithm, best_score_algorithm_params, nil
+	return superpixel_optimizer.SpOptimizerResult{
+		Score:      bestScore,
+		Algorithm:  bestAlgorithm,
+		Parameters: bestScoreAlgorithmParams,
+	}, nil
 }
 
 func optimizeAlgorithm(
@@ -85,7 +106,7 @@ func optimizeAlgorithm(
 	metric string,
 	algorithm string,
 	passes int,
-	progress superpixel_optimizer.SpOptimizerProgressIndicator) (float64, map[string]float64, error) {
+	progressIndicator progress.ProgressIndicator) (float64, map[string]float64, error) {
 
 	// Get default parameters for the algorithm
 	defaultParams, err := superpixel.GetDefaultParameterValues(algorithm)
@@ -128,7 +149,7 @@ func optimizeAlgorithm(
 
 				completedTrials++
 				percentComplete := min(99, completedTrials*100/estimatedTrials)
-				if err := progress.Update(fmt.Sprintf("%s: pass %d, %s=%.4g", algorithm, pass+1, paramName, candidate), percentComplete); err != nil {
+				if err := progressIndicator.Update(fmt.Sprintf("%s: pass %d, %s=%.4g", algorithm, pass+1, paramName, candidate), percentComplete); err != nil {
 					return 0, nil, err
 				}
 				score, err := evaluate(ctx, algorithm, metric, imagePairs, trialParams)
