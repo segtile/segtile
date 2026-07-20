@@ -289,7 +289,7 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 
 	if showToast {
 		// Add a toast
-		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeNeutral, fmt.Sprintf("Rebuilt superpixels (%.1f ms)", float64(end-start)/1000), 1*time.Second)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Rebuilt superpixels (%.1f ms)", float64(end-start)/1000), 500*time.Millisecond)
 	}
 	return nil
 
@@ -298,12 +298,16 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 func (appState *AppState) LoadNextImage() {
 	if appState.CurrentIndex < len(appState.ImageFiles)-1 {
 		appState.loadImageAtIndex(appState.CurrentIndex + 1)
+	} else {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "This is the last image.", time.Second)
 	}
 }
 
 func (appState *AppState) LoadPreviousImage() {
 	if appState.CurrentIndex > 0 {
 		appState.loadImageAtIndex(appState.CurrentIndex - 1)
+	} else {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "This is the first image.", time.Second)
 	}
 }
 
@@ -401,7 +405,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 		if err != nil {
 			log.Printf("Failed to save mask to %s: %v", outPath, err)
-			appState.Toasts.EnqueueType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
 			return
 		} else {
 
@@ -411,7 +415,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			}
 
 			// Add toast
-			appState.Toasts.EnqueueType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 2*time.Second)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)
 		}
 	}
 
@@ -442,6 +446,6 @@ func (appState *AppState) ClearSelection(showToast bool) {
 	appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
 	appState.Window.Invalidate()
 	if showToast {
-		appState.Toasts.EnqueueType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
 	}
 }
