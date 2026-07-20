@@ -1,11 +1,11 @@
 package superpixel_optimizer
 
 type SpOptimizerProgressIndicator interface {
-	Update(message string, percentComplete int)
-	Done()
+	Update(message string, percentComplete int) error
 }
 
 type SpOptimizerSilentProgressIndicator struct{}
 
-func (p *SpOptimizerSilentProgressIndicator) Update(message string, percentComplete int) {}
-func (p *SpOptimizerSilentProgressIndicator) Done()                                      {}
+func (p *SpOptimizerSilentProgressIndicator) Update(message string, percentComplete int) error {
+	return nil
+}

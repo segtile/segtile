@@ -74,9 +74,11 @@ type AppState struct {
 	SpAlgoritmMenuTitles        []string
 	SpAlgorithmMenuOpen         bool
 
-	// Loading state
+	// State for loading operations
 	CurrentlyLoadingProject bool
 	ProjectLoadResult       chan ProjectLoadingResult
+	CurrentlyOptimizing     bool
+	OptimizationResult      chan OptimizationResult
 
 	// Hover state
 	IsPanning        bool
@@ -107,6 +109,7 @@ func NewAppState() *AppState {
 		RenderSelectionOutlines: true,
 		Theme:                   app_theme.Theme,
 		ProjectLoadResult:       make(chan ProjectLoadingResult, 1),
+		OptimizationResult:      make(chan OptimizationResult, 1),
 	}
 
 	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.

@@ -47,8 +47,8 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					if !projectLoaded {
 						return layout.Dimensions{}
 					}
-					// Disable while loading
-					if appState.CurrentlyLoadingProject {
+					// Disable while a background operation owns project state.
+					if appState.CurrentlyLoadingProject || appState.CurrentlyOptimizing {
 						gtx = gtx.Disabled()
 					}
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -81,6 +81,9 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							// Do not render sidebar if no project is loaded
 							if !projectLoaded {
 								return layout.Dimensions{}
+							}
+							if appState.CurrentlyOptimizing {
+								gtx = gtx.Disabled()
 							}
 
 							// Set fixed width for the sidebar

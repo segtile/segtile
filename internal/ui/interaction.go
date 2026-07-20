@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
 	"strconv"
-	"time"
 
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
@@ -17,6 +19,9 @@ import (
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
 func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
+	if appState.CurrentlyOptimizing {
+		return
+	}
 
 	recalculate := false
 
@@ -180,6 +185,9 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	if !button.Clicked(gtx) {
 		return
 	}
+	if appState.CurrentlyOptimizing {
+		return
+	}
 
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
@@ -217,20 +225,46 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	}
 
 	if button == &appState.OptimizeButton {
-		// Try out progress
-		progress, _ := zenity.Progress(zenity.AutoClose())
-		progress.Text("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.")
-		// Sleep 3 sec
-		time.Sleep(3 * time.Second)
-		progress.Text("test")
-		progress.Value(50)
-		time.Sleep(3 * time.Second)
-		// Close progress
-		progress.Value(100)
-		progress.Text("Done")
 
-		//appState.OptimizeSpParameters()
-		fmt.Println("Done. (For testing)")
+		// Create a progress indicator and start it
+		progress := &ZenityProgressIndicator{}
+		if err := progress.Start(); err != nil {
+			log.Printf("Failed to show optimization progress: %v", err)
+			return
+		}
+		appState.CurrentlyOptimizing = true
+
+		// Create the context for the optimization, which can be canceled if the user closes the progress dialog
+		ctx, cancelFunction := context.WithCancel(context.Background())
+		workDone := make(chan struct{})
+
+		// First goroutine which blocks until either the progress dialog is closed or the optimization is done, and cancels the context if the progress dialog is closed.
+		go func() {
+			select {
+			case <-progress.Done():
+				cancelFunction()
+			case <-workDone:
+			}
+		}()
+
+		// Second goroutine which runs the actual optimization and writes the result to the channel
+		go func() {
+			defer cancelFunction()
+			result := appState.OptimizeSpParameters(ctx, progress)
+			close(workDone)
+			if errors.Is(result.Err, zenity.ErrCanceled) {
+				result.Err = context.Canceled
+			}
+			if result.Err == nil {
+				if err := progress.Finish(); err != nil {
+					result.Err = err
+				}
+			} else {
+				_ = progress.Close()
+			}
+			appState.OptimizationResult <- result
+			appState.Window.Invalidate()
+		}()
 		return
 	}
 
@@ -274,6 +308,9 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
+	if appState.CurrentlyOptimizing {
+		return
+	}
 	for {
 		ev, ok := gtx.Event(
 			key.FocusFilter{Target: &appState.KeyboardTag},

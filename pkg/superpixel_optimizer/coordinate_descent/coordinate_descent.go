@@ -1,6 +1,7 @@
 package coordinate_descent
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
@@ -33,11 +34,11 @@ func init() {
 	)
 }
 
-func runWithParams(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64, progress superpixel_optimizer.SpOptimizerProgressIndicator) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
-	return Run(imagePairs, metric, algorithms, int(optimizer_params["passes"]))
+func runWithParams(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64, progress superpixel_optimizer.SpOptimizerProgressIndicator) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
+	return Run(ctx, imagePairs, metric, algorithms, int(optimizer_params["passes"]), progress)
 }
 
-func Run(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, passes int) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
+func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithms []string, passes int, progress superpixel_optimizer.SpOptimizerProgressIndicator) (best_score float64, best_algorithm string, best_score_algorithm_params map[string]float64, err error) {
 
 	if len(imagePairs) == 0 {
 		return 0, "", nil, fmt.Errorf("No image and ground truth paths provided for optimization.")
@@ -58,7 +59,13 @@ func Run(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, 
 	best_score = -math.MaxFloat64
 
 	for _, algorithm := range algorithms {
-		score, params, err := optimizeAlgorithm(imagePairs, metric, algorithm, passes)
+		if err := ctx.Err(); err != nil {
+			return 0, "", nil, err
+		}
+		if err := progress.Update(fmt.Sprintf("Optimizing %s", algorithm), 0); err != nil {
+			return 0, "", nil, err
+		}
+		score, params, err := optimizeAlgorithm(ctx, imagePairs, metric, algorithm, passes, progress)
 		if err != nil {
 			return 0, "", nil, err
 		}
@@ -73,10 +80,12 @@ func Run(imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, 
 }
 
 func optimizeAlgorithm(
+	ctx context.Context,
 	imagePairs []superpixel_optimizer.SpOptimizerInputPair,
 	metric string,
 	algorithm string,
-	passes int) (float64, map[string]float64, error) {
+	passes int,
+	progress superpixel_optimizer.SpOptimizerProgressIndicator) (float64, map[string]float64, error) {
 
 	// Get default parameters for the algorithm
 	defaultParams, err := superpixel.GetDefaultParameterValues(algorithm)
@@ -92,21 +101,41 @@ func optimizeAlgorithm(
 	sort.Strings(paramNames)
 
 	bestParams := copyParams(defaultParams)
-	bestScore := evaluate(algorithm, metric, imagePairs, bestParams)
+	bestScore, err := evaluate(ctx, algorithm, metric, imagePairs, bestParams)
+	if err != nil {
+		return 0, nil, err
+	}
 	log.Printf("Initial score: %.4f, params: %v", bestScore, bestParams)
+	completedTrials := 1
+	estimatedTrials := 1 + passes*len(paramNames)*17
 
 	for pass := 0; pass < passes; pass++ {
+		if err := ctx.Err(); err != nil {
+			return 0, nil, err
+		}
 		improved := false
 
 		for _, paramName := range paramNames {
 			for _, candidate := range probeValues(bestParams[paramName], defaultParams[paramName]) {
+				if err := ctx.Err(); err != nil {
+					return 0, nil, err
+				}
 				if candidate == bestParams[paramName] {
 					continue
 				}
 				trialParams := copyParams(bestParams)
 				trialParams[paramName] = candidate
 
-				if score := evaluate(algorithm, metric, imagePairs, trialParams); score > bestScore {
+				completedTrials++
+				percentComplete := min(99, completedTrials*100/estimatedTrials)
+				if err := progress.Update(fmt.Sprintf("%s: pass %d, %s=%.4g", algorithm, pass+1, paramName, candidate), percentComplete); err != nil {
+					return 0, nil, err
+				}
+				score, err := evaluate(ctx, algorithm, metric, imagePairs, trialParams)
+				if err != nil {
+					return 0, nil, err
+				}
+				if score > bestScore {
 					bestScore = score
 					bestParams[paramName] = candidate
 					improved = true
@@ -127,11 +156,14 @@ func optimizeAlgorithm(
 	return bestScore, bestParams, nil
 }
 
-func evaluate(algorithm string, metric string, imagePairs []superpixel_optimizer.SpOptimizerInputPair, params map[string]float64) float64 {
+func evaluate(ctx context.Context, algorithm string, metric string, imagePairs []superpixel_optimizer.SpOptimizerInputPair, params map[string]float64) (float64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 
 	metricParams, err := superpixel_metrics.GetDefaultSpMetricParameters(metric)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
 	scores := make(chan float64, len(imagePairs))
@@ -141,20 +173,32 @@ func evaluate(algorithm string, metric string, imagePairs []superpixel_optimizer
 		wg.Add(1)
 		go func(pair superpixel_optimizer.SpOptimizerInputPair) {
 			defer wg.Done()
+			if ctx.Err() != nil {
+				return
+			}
 			result, err := superpixel.Run(algorithm, pair.Image, params)
 			if err != nil {
+				return
+			}
+			if ctx.Err() != nil {
 				return
 			}
 			score, err := superpixel_metrics.Run(metric, result, pair.Image, pair.GroundTruth, metricParams)
 			if err != nil {
 				return
 			}
-			scores <- score
+			select {
+			case scores <- score:
+			case <-ctx.Done():
+			}
 		}(pair)
 	}
 
 	wg.Wait()
 	close(scores)
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 
 	total := 0.0
 	count := 0
@@ -163,9 +207,9 @@ func evaluate(algorithm string, metric string, imagePairs []superpixel_optimizer
 		count++
 	}
 	if count == 0 {
-		return 0
+		return 0, nil
 	}
-	return total / float64(count)
+	return total / float64(count), nil
 }
 
 // probeValues generates candidate values for a single parameter.
