@@ -74,7 +74,8 @@ func (appState *AppState) OptimizeSpParameters(ctx context.Context, progressIndi
 		optimizerName,
 		samples,
 		"labeling_calibration_score",
-		[]string{appState.Settings.Superpixel.SpAlgorithmId},
+		appState.Settings.Superpixel.SpAlgorithmId,
+		appState.Settings.Superpixel.SpAlgorithmParameters,
 		optimizerParams,
 		progressIndicator,
 	)

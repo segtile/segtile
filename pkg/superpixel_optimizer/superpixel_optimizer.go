@@ -37,8 +37,9 @@ type spOptimizerRegistryEntry struct {
 	Run         func(ctx context.Context,
 		imagePairs []SpOptimizerInputPair,
 		metric string,
-		algorithms []string,
-		optimizer_params map[string]float64,
+		algorithm string,
+		algorithmBaseParams map[string]float64,
+		optimizerParams map[string]float64,
 		progress progress.ProgressIndicator) (SpOptimizerResult, error)
 	Parameters     []SpOptimizerParameterInfo
 	ParameterIndex map[string]int // Maps parameter id to its index in the Parameters slice
@@ -46,7 +47,7 @@ type spOptimizerRegistryEntry struct {
 
 var spOptimizerRegistry = make(map[string]spOptimizerRegistryEntry)
 
-func RegisterSpOptimizer(id string, title string, description string, run func(ctx context.Context, imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64, progress progress.ProgressIndicator) (SpOptimizerResult, error), parameters []SpOptimizerParameterInfo) {
+func RegisterSpOptimizer(id string, title string, description string, run func(ctx context.Context, imagePairs []SpOptimizerInputPair, metric string, algorithm string, algorithmBaseParams map[string]float64, optimizerParams map[string]float64, progress progress.ProgressIndicator) (SpOptimizerResult, error), parameters []SpOptimizerParameterInfo) {
 	if _, exists := spOptimizerRegistry[id]; exists {
 		panic("Superpixel optimizer with id " + id + " is already registered")
 	}
@@ -101,7 +102,7 @@ func GetOptimizerInfo(id string) (title string, description string, parameters [
 	return entry.Title, entry.Description, entry.Parameters, nil
 }
 
-func Run(ctx context.Context, id string, imagePairs []SpOptimizerInputPair, metric string, algorithms []string, optimizer_params map[string]float64, progressIndicator progress.ProgressIndicator) (result SpOptimizerResult, err error) {
+func Run(ctx context.Context, id string, imagePairs []SpOptimizerInputPair, metric string, algorithm string, algorithmBaseParams map[string]float64, optimizerParams map[string]float64, progressIndicator progress.ProgressIndicator) (result SpOptimizerResult, err error) {
 	entry, exists := spOptimizerRegistry[id]
 	if !exists {
 		return SpOptimizerResult{}, fmt.Errorf("Superpixel optimizer with id %s is not registered", id)
@@ -112,5 +113,5 @@ func Run(ctx context.Context, id string, imagePairs []SpOptimizerInputPair, metr
 	if progressIndicator == nil {
 		progressIndicator = &progress.NullProgressIndicator{}
 	}
-	return entry.Run(ctx, imagePairs, metric, algorithms, optimizer_params, progressIndicator)
+	return entry.Run(ctx, imagePairs, metric, algorithm, algorithmBaseParams, optimizerParams, progressIndicator)
 }
