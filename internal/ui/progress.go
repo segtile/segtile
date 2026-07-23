@@ -13,7 +13,7 @@ func (p *ZenityProgressIndicator) Start() error {
 		return err
 	}
 	p.zenityDialog = zenityDialog
-	return p.Update("Preparing...", 0)
+	return p.Update("Starting...", 0)
 }
 func (p *ZenityProgressIndicator) Update(msg string, percentComplete int) error {
 	err := p.zenityDialog.Value(percentComplete)
