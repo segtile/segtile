@@ -72,7 +72,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					)
 				}),
 
-				// Main content window
+				// Main content window (sidebar + canvas)
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 
