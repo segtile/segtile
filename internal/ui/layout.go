@@ -19,6 +19,11 @@ import (
 
 func Layout(appState *app_config.AppState, gtx layout.Context) {
 
+	// Disable the entire UI if a background operation owns project state.
+	if appState.CurrentlyLoadingProject || appState.CurrentlyOptimizing {
+		gtx = gtx.Disabled()
+	}
+
 	// Determine if a project is loaded
 	projectLoaded := appState.Settings != nil
 
@@ -46,10 +51,6 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 					// Do not render menu bar if no project is loaded
 					if !projectLoaded {
 						return layout.Dimensions{}
-					}
-					// Disable while a background operation owns project state.
-					if appState.CurrentlyLoadingProject || appState.CurrentlyOptimizing {
-						gtx = gtx.Disabled()
 					}
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -81,9 +82,6 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							// Do not render sidebar if no project is loaded
 							if !projectLoaded {
 								return layout.Dimensions{}
-							}
-							if appState.CurrentlyOptimizing {
-								gtx = gtx.Disabled()
 							}
 
 							// Set fixed width for the sidebar
@@ -172,9 +170,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 											if appState.NewProjectButton.Clicked(gtx) {
 												triggerNewProject(appState)
 											}
-											if appState.CurrentlyLoadingProject {
-												gtx = gtx.Disabled()
-											}
+
 											gtx.Constraints.Min.X = gtx.Dp(220)
 											return drawBigButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
 										}),
@@ -183,9 +179,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 											if appState.OpenProjectButton.Clicked(gtx) {
 												triggerOpenProject(appState)
 											}
-											if appState.CurrentlyLoadingProject {
-												gtx = gtx.Disabled()
-											}
+
 											gtx.Constraints.Min.X = gtx.Dp(220)
 											return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
 										}),

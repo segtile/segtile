@@ -181,6 +181,10 @@ func (appState *AppState) SyncEditors() error {
 	return nil
 }
 
+func (appState *AppState) UiLocked() bool {
+	return appState.CurrentlyLoadingProject || appState.CurrentlyOptimizing
+}
+
 func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Set the new algorithm id

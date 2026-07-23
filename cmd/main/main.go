@@ -71,9 +71,8 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 			// Apply optimizer results
 			select {
 			case result := <-appState.OptimizationResult:
-				appState.CurrentlyOptimizing = false
 				appState.ApplyOptimizationResult(result)
-
+				appState.CurrentlyOptimizing = false
 			default:
 			}
 

@@ -19,7 +19,7 @@ import (
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
 func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
-	if appState.CurrentlyOptimizing {
+	if appState.UiLocked() {
 		return
 	}
 
@@ -62,6 +62,10 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 }
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
+
+	if appState.UiLocked() {
+		return
+	}
 
 	// Iterate over all pointer events that occurred since the last frame
 	for {
@@ -232,36 +236,38 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 			log.Printf("Failed to show optimization progress: %v", err)
 			return
 		}
+
+		// Indicate that the optimization is running. This will be reset when the result is processed in the main loop.
 		appState.CurrentlyOptimizing = true
 
 		// Create the context for the optimization, which can be canceled if the user closes the progress dialog
 		ctx, cancelFunction := context.WithCancel(context.Background())
-		workDone := make(chan struct{})
 
 		// First goroutine which blocks until either the progress dialog is closed or the optimization is done, and cancels the context if the progress dialog is closed.
 		go func() {
 			select {
 			case <-progress.Done():
 				cancelFunction()
-			case <-workDone:
+			case <-ctx.Done():
 			}
 		}()
 
 		// Second goroutine which runs the actual optimization and writes the result to the channel
 		go func() {
+
 			defer cancelFunction()
+
 			result, err := appState.OptimizeSpParameters(ctx, progress)
-			close(workDone)
 			if errors.Is(err, zenity.ErrCanceled) {
 				err = context.Canceled
 			}
+
 			if err == nil {
-				if finishErr := progress.Finish(); finishErr != nil {
-					err = finishErr
-				}
+				err = progress.Finish()
 			} else {
 				_ = progress.Close()
 			}
+
 			result.Err = err
 			appState.OptimizationResult <- result
 			appState.Window.Invalidate()
