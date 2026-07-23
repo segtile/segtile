@@ -64,6 +64,11 @@ func (appState *AppState) OptimizeSpParameters(ctx context.Context, progressIndi
 	}
 	log.Printf("Optimizing using %d GT sample(s)", len(samples))
 
+	parametersToOptimize := appState.SelectedOptimizeParameters()
+	if len(parametersToOptimize) == 0 {
+		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("No parameters selected for optimization. Please check at least one parameter.")
+	}
+
 	optimizerParams, err := superpixel_optimizer.GetDefaultSpOptimizerParameters(optimizerName)
 	if err != nil {
 		return superpixel_optimizer.SpOptimizerResult{}, err
@@ -75,6 +80,7 @@ func (appState *AppState) OptimizeSpParameters(ctx context.Context, progressIndi
 		samples,
 		"labeling_calibration_score",
 		appState.Settings.Superpixel.SpAlgorithmId,
+		parametersToOptimize,
 		appState.Settings.Superpixel.SpAlgorithmParameters,
 		optimizerParams,
 		progressIndicator,
