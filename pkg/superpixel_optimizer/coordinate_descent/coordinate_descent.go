@@ -40,10 +40,11 @@ func runWithParams(
 	imagePairs []superpixel_optimizer.SpOptimizerInputPair,
 	metric string,
 	algorithm string,
-	algorithmBaseParams map[string]float64,
-	optimizer_params map[string]float64,
+	algorithmParameterOptimizationTargets []string,
+	algorithmParameterBaseValues map[string]float64,
+	optimizerParams map[string]float64,
 	progress progress.ProgressIndicator) (superpixel_optimizer.SpOptimizerResult, error) {
-	result, err := Run(ctx, imagePairs, metric, algorithm, algorithmBaseParams, int(optimizer_params["passes"]), progress)
+	result, err := Run(ctx, imagePairs, metric, algorithm, algorithmParameterOptimizationTargets, algorithmParameterBaseValues, int(optimizerParams["passes"]), progress)
 	if err != nil {
 		return superpixel_optimizer.SpOptimizerResult{}, err
 	}
@@ -54,7 +55,7 @@ func runWithParams(
 	}, nil
 }
 
-func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithm string, algorithmBaseParams map[string]float64, passes int, progressIndicator progress.ProgressIndicator) (result superpixel_optimizer.SpOptimizerResult, err error) {
+func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInputPair, metric string, algorithm string, algorithmParameterOptimizationTargets []string, algorithmParameterBaseValues map[string]float64, passes int, progressIndicator progress.ProgressIndicator) (result superpixel_optimizer.SpOptimizerResult, err error) {
 
 	if len(imagePairs) == 0 {
 		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("No image and ground truth paths provided for optimization.")
@@ -63,6 +64,17 @@ func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInput
 	allAlgorithms := superpixel.ListAlgorithms()
 	if !contains(allAlgorithms, algorithm) {
 		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("Unknown superpixel algorithm %s", algorithm)
+	}
+
+	// Ensure that all target parameters are valid for the algorithm
+	defaultParams, err := superpixel.GetDefaultParameterValues(algorithm)
+	if err != nil {
+		return superpixel_optimizer.SpOptimizerResult{}, err
+	}
+	for _, target := range algorithmParameterOptimizationTargets {
+		if _, exists := defaultParams[target]; !exists {
+			return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("Unknown parameter %s for algorithm %s", target, algorithm)
+		}
 	}
 
 	allMetrics := superpixel_metrics.ListSpMetrics()
@@ -80,7 +92,7 @@ func Run(ctx context.Context, imagePairs []superpixel_optimizer.SpOptimizerInput
 	if err := progressIndicator.Update(fmt.Sprintf("Optimizing %s", algorithm), 0); err != nil {
 		return superpixel_optimizer.SpOptimizerResult{}, err
 	}
-	score, params, err := optimizeAlgorithm(ctx, imagePairs, metric, algorithm, algorithmBaseParams, passes, progressIndicator)
+	score, params, err := optimizeAlgorithm(ctx, imagePairs, metric, algorithm, algorithmParameterOptimizationTargets, algorithmParameterBaseValues, passes, progressIndicator)
 	if err != nil {
 		return superpixel_optimizer.SpOptimizerResult{}, err
 	}
@@ -102,6 +114,7 @@ func optimizeAlgorithm(
 	imagePairs []superpixel_optimizer.SpOptimizerInputPair,
 	metric string,
 	algorithm string,
+	targetParams []string,
 	fixedParams map[string]float64,
 	passes int,
 	progressIndicator progress.ProgressIndicator) (float64, map[string]float64, error) {
@@ -116,8 +129,8 @@ func optimizeAlgorithm(
 	}
 
 	// Sort param names for deterministic iteration order.
-	paramNames := make([]string, 0, len(baseParams))
-	for k := range baseParams {
+	paramNames := make([]string, 0, len(targetParams))
+	for _, k := range targetParams {
 		paramNames = append(paramNames, k)
 	}
 	sort.Strings(paramNames)
