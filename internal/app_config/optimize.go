@@ -1,14 +1,19 @@
 package app_config
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"log"
 	"math/rand/v2"
 	"os"
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
-	"github.com/struffel/annotation-tool/internal/superpixel_optimizer"
-	_ "github.com/struffel/annotation-tool/internal/superpixel_optimizer/coordinate_descent"
+	"github.com/struffel/annotation-tool/pkg/progress"
+	"github.com/struffel/annotation-tool/pkg/superpixel"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_optimizer/coordinate_descent"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -47,46 +52,89 @@ func collectGTSamples(appState *AppState, maxImageCount int) []superpixel_optimi
 	return samples
 }
 
-func (appState *AppState) OptimizeSpParameters() {
+func (appState *AppState) OptimizeSpParameters(ctx context.Context, progressIndicator progress.ProgressIndicator) (result superpixel_optimizer.SpOptimizerResult, err error) {
+
+	// TODO: Configured here for now, but could be made user-configurable in the future.
+	optimizerName := "coordinate_descent"
 
 	// Collect GT samples once; all optimizer rounds will use the same set.
 	samples := collectGTSamples(appState, optimizeSampleCount)
 	if len(samples) == 0 {
-		log.Println("Optimization aborted: no GT samples available (make a selection first).")
-		return
+		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("No ground truth samples available for optimization. Please save at least one mask before optimizing.")
 	}
 	log.Printf("Optimizing using %d GT sample(s)", len(samples))
 
-	optimizerParams, err := superpixel_optimizer.GetDefaultSpOptimizerParameters("coordinate_descent")
-	if err != nil {
-		log.Printf("Optimization failed: %v", err)
-		return
+	parametersToOptimize := appState.SelectedOptimizeParameters()
+	if len(parametersToOptimize) == 0 {
+		return superpixel_optimizer.SpOptimizerResult{}, fmt.Errorf("No parameters selected for optimization. Please check at least one parameter.")
 	}
 
-	score, bestAlgorithm, bestParams, err := superpixel_optimizer.Run(
-		"coordinate_descent",
+	optimizerParams, err := superpixel_optimizer.GetDefaultSpOptimizerParameters(optimizerName)
+	if err != nil {
+		return superpixel_optimizer.SpOptimizerResult{}, err
+	}
+
+	optResult, err := superpixel_optimizer.Run(
+		ctx,
+		optimizerName,
 		samples,
 		"labeling_calibration_score",
-		[]string{appState.Settings.Superpixel.SpAlgorithmId},
+		appState.Settings.Superpixel.SpAlgorithmId,
+		parametersToOptimize,
+		appState.Settings.Superpixel.SpAlgorithmParameters,
 		optimizerParams,
+		progressIndicator,
 	)
 	if err != nil {
-		log.Printf("Optimization failed: %v", err)
-		return
+		return superpixel_optimizer.SpOptimizerResult{}, err
 	}
-	log.Printf("Optimization completed: score=%.4f, algorithm=%s, params=%v", score, bestAlgorithm, bestParams)
+	return optResult, nil
+}
 
-	appState.Settings.Superpixel.SpAlgorithmId = bestAlgorithm
+// ApplyOptimizationResult applies a completed optimization on the Gio event loop.
+func (appState *AppState) ApplyOptimizationResult(result superpixel_optimizer.SpOptimizerResult) {
 
-	// TODO: Actually rebuild properly
-	for paramName, newValue := range bestParams {
-		if _, ok := appState.Settings.Superpixel.SpAlgorithmParameters[paramName]; ok {
-			appState.Settings.Superpixel.SpAlgorithmParameters[paramName] = newValue
+	// Check for errors
+	if errors.Is(result.Err, context.Canceled) {
+		log.Println("Optimization canceled.")
+	} else if result.Err != nil {
+		log.Printf("Optimization failed: %v", result.Err)
+	} else {
+
+		// Validate that the chosen SP algorithm exists and the parameters are valid.
+		_, _, paramInfos, err := superpixel.GetAlgorithmInfo(result.Algorithm)
+		if err != nil {
+			log.Printf("Optimizer returned an invalid superpixel algorithm")
+			return
+		}
+		for paramName := range result.Parameters {
+			found := false
+			for _, paramInfo := range paramInfos {
+				if paramInfo.Id == paramName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Printf("Optimizer returned an invalid parameter %s for algorithm %s", paramName, result.Algorithm)
+				return
+			}
+		}
+
+		// Apply the algorithm and parameters to the app state, rebuild editors, and recalculate superpixels.
+		log.Printf("Optimization completed: score=%.4f, algorithm=%s, params=%v", result.Score, result.Algorithm, result.Parameters)
+
+		appState.Settings.Superpixel.SpAlgorithmId = result.Algorithm
+		appState.Settings.Superpixel.SpAlgorithmParameters = result.Parameters
+		appState.RebuildEditors()
+
+		for paramName, newValue := range result.Parameters {
 			log.Printf("Set parameter %s to %v", paramName, newValue)
+		}
+		if err := appState.RecalculateSuperpixels(true, true); err != nil {
+			log.Printf("Failed to recalculate superpixels: %v", err)
 		}
 	}
 
-	appState.SyncEditors()
-	appState.RecalculateSuperpixels(true, true)
 	appState.Window.Invalidate()
 }

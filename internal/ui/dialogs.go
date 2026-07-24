@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"github.com/sqweek/dialog"
+	"github.com/ncruces/zenity"
 	"github.com/struffel/annotation-tool/internal/app_config"
 )
 
@@ -38,12 +38,15 @@ func triggerNewProject(appState *app_config.AppState) {
 // Prompts the user to pick an existing config file.
 // Must be called from a background goroutine.
 func showOpenProjectDialogs() (*app_config.ProjectSettings, error) {
-	path, err := dialog.File().
-		Title("Open Configuration File").
-		Filter("YAML config", "yaml", "yml").
-		Load()
+	path, err := zenity.SelectFile(
+		zenity.Title("Open Configuration File"),
+		zenity.FileFilter{
+			Name:     "YAML config",
+			Patterns: []string{"*.yaml", "*.yml"},
+		},
+	)
 	if err != nil {
-		return nil, err // includes dialog.ErrCancelled
+		return nil, err // includes zenity.ErrCanceled
 	}
 	cfg, err := app_config.Load(path)
 	if err != nil {
@@ -58,15 +61,19 @@ func showOpenProjectDialogs() (*app_config.ProjectSettings, error) {
 func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
 
 	// Prompt for the input directory
-	inputDir, err := dialog.Directory().
-		Title("Select Input Directory (raw images)").Browse()
+	inputDir, err := zenity.SelectFile(
+		zenity.Title("Select Input Directory (raw images)"),
+		zenity.Directory(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	// Prompt for the output directory
-	outputDir, err := dialog.Directory().
-		Title("Select Output Directory (stores masks and config)").Browse()
+	outputDir, err := zenity.SelectFile(
+		zenity.Title("Select Output Directory (stores masks and config)"),
+		zenity.Directory(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -79,5 +86,8 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
 }
 
 func showSaveEmptyMaskWarning() (ok bool) {
-	return dialog.Message("%s", "No annotation has been made. Save empty annotation?").Title("Save empty annotation?").YesNo()
+	return zenity.Question(
+		"No annotation has been made. Save empty annotation?",
+		zenity.Title("Save empty annotation?"),
+	) == nil
 }

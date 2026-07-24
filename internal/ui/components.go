@@ -145,9 +145,16 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 		for i := range appState.SuperpixelParameterEditors {
 			title := appState.SuperpixelParameterEditorTitles[i]
 			editor := &appState.SuperpixelParameterEditors[i]
+			checkbox := &appState.OptimizeParameterCheckboxes[i]
 			children = append(children,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							checkboxStyle := material.CheckBox(&appState.Theme.GioTheme, checkbox, "")
+							checkboxStyle.IconColor = appState.Theme.GioTheme.Palette.Fg
+							checkboxStyle.Size = unit.Dp(16)
+							return checkboxStyle.Layout(gtx)
+						}),
 						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
 							label := material.Body1(&appState.Theme.GioTheme, title)
 							label.Color = appState.Theme.GioTheme.Palette.Fg
