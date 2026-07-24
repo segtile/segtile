@@ -36,10 +36,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Retina\\IMAGES\\0.png",
-				"slic",
-				"count=9600",
-				"compactness=0"
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\Retina\\settings.yaml"
 			]
 		},
 		{
@@ -60,7 +57,7 @@
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-006.png",
-				"slic",
+				"slic_custom",
 				"count=350",
 				"compactness=200"
 			]
@@ -73,7 +70,7 @@
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\SpermHeads\\IMAGES\\test_1.png",
-				"slic",
+				"slic_custom",
 				"count=160",
 				"compactness=15"
 			]
@@ -96,7 +93,7 @@
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
 				"S:\\MasterThesisData\\Datasets\\PulmonaryVascular\\IMAGES\\JK_02_0205AA4_4.png",
-				"slic",
+				"slic_custom",
 				"count=900",
 				"compactness=15"
 			]
@@ -109,7 +106,7 @@
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Synthetic\\IMAGES_NOISE_A\\0001.png",
-				"slic",
+				"slic_custom",
 				"count=800",
 				"compactness=40"
 			]
@@ -132,7 +129,7 @@
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
 				"\\\\lennart\\sync\\MasterThesisData\\Projects\\LungSegmentation\\settings.yaml",
-				"slic",
+				"slic_custom",
 				"count=600",
 				"compactness=15"
 			]
