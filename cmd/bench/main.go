@@ -18,7 +18,7 @@ import (
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic_custom"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/actual_superpixel_count"

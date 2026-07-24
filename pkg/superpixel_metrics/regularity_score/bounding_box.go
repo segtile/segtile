@@ -38,7 +38,14 @@ func (bb boundingBox) area() int {
 	return (bb.maxX - bb.minX + 1) * (bb.maxY - bb.minY + 1)
 }
 
-func fillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
+func (bb boundingBox) aspect() float64 {
+	if !bb.initialized {
+		return 0
+	}
+	return float64(bb.maxX-bb.minX+1) / float64(bb.maxY-bb.minY+1)
+}
+
+func bboxFromMask(mask *image.Gray16) boundingBox {
 	var bb boundingBox
 	bounds := mask.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
@@ -48,6 +55,16 @@ func fillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
 			}
 		}
 	}
+	return bb
+}
+
+func aspectRatioOfBoundingBox(mask *image.Gray16) float64 {
+	bb := bboxFromMask(mask)
+	return bb.aspect()
+}
+
+func fillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
+	bb := bboxFromMask(mask)
 	if !bb.initialized {
 		return 0
 	}
@@ -73,4 +90,23 @@ func fillRatioOfOwnBoundingBoxPerSuperpixel(labelMap *image.Gray16, spCount int)
 		}
 	}
 	return totalFillRatio / float64(spCount)
+}
+
+func aspectRatioOfBoundingBoxPerSuperpixel(labelMap *image.Gray16, spCount int) float64 {
+	spBoundingBox := make([]boundingBox, spCount)
+	bounds := labelMap.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			spLabel := labelMap.Gray16At(x, y).Y
+			spBoundingBox[spLabel].addPoint(x, y)
+		}
+	}
+
+	var totalAspectRatio float64
+	for i := 0; i < spCount; i++ {
+		if spBoundingBox[i].initialized {
+			totalAspectRatio += spBoundingBox[i].aspect()
+		}
+	}
+	return totalAspectRatio / float64(spCount)
 }

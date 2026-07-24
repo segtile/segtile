@@ -237,7 +237,7 @@ func (state *snicState) gradient(pixelX int, pixelY int) float64 {
 func (state *snicState) initializeClusters() {
 
 	// Initialize clusters on a regular grid.
-	points, gridInterval := superpixel_utils.RegularGridPoints(state.imgWidth, state.imgHeight, state.count)
+	points, gridInterval := superpixel_utils.SquareGridPointsByCount(state.imgWidth, state.imgHeight, state.count)
 	state.gridInterval = gridInterval
 	state.clusters = make([]snicSpCluster, len(points))
 	for index, point := range points {

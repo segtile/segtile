@@ -5,8 +5,29 @@ import (
 	"math"
 )
 
+// RectangularGridPoints generates a rectangular grid of points within the specified width and height, with the given number of columns and rows.
+// It returns the generated points along with the grid intervals in the X and Y directions.
+func RectangularGridPoints(width int, height int, columns int, rows int) (points []image.Point, gridIntervalX int, gridIntervalY int) {
+
+	// Build a rectangular grid, trying to hit the target number of points
+	gridIntervalX = int(float64(width) / float64(columns))
+	gridIntervalY = int(float64(height) / float64(rows))
+
+	points = make([]image.Point, columns*rows)
+	for iX := 0; iX < columns; iX++ {
+		for iY := 0; iY < rows; iY++ {
+			points[iX*rows+iY] = image.Point{
+				X: iX*gridIntervalX + gridIntervalX/2,
+				Y: iY*gridIntervalY + gridIntervalY/2,
+			}
+		}
+	}
+
+	return points, gridIntervalX, gridIntervalY
+}
+
 // This function tries to fill the given area with a regular grid of points.
-func RegularGridPoints(width int, height int, targetNumPoints int) (points []image.Point, gridInterval int) {
+func SquareGridPointsByCount(width int, height int, targetNumPoints int) (points []image.Point, gridInterval int) {
 
 	// Build a square grid, trying to hit the target number of points
 	numPixels := width * height

@@ -69,8 +69,13 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 		// Regularity Calibration Score
 		groundTruthFillRatio := fillRatioOfOwnBoundingBox(currentGroundTruthIsland)
 		superpixelFillRatio := fillRatioOfOwnBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
+		groundTruthAspectRatio := aspectRatioOfBoundingBox(currentGroundTruthIsland)
+		superpixelAspectRatio := aspectRatioOfBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
+
 		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
-			cumulativeRegularityCalibrationScore += math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+			currentScore := math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+			currentScore *= math.Min(groundTruthAspectRatio, superpixelAspectRatio) / math.Max(groundTruthAspectRatio, superpixelAspectRatio)
+			cumulativeRegularityCalibrationScore += currentScore
 		}
 	}
 
@@ -80,49 +85,3 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 	return regularityCalibrationScore, nil
 
 }
-
-/*
-func (e *SpMetricRegularityScore) GetScoreWithCachedIslands(islandMap *image.Gray16, islandCount uint16) (regularityCalibrationScore float64, err error) {
-
-	// Prepare metrics
-	regularityCalibrationScore = 0.0
-
-	// Build a list of all island labels
-	islandLabels := make([]uint16, islandCount)
-	for i := uint16(0); i < islandCount; i++ {
-		islandLabels[i] = i + 1
-	}
-
-	// Shuffle the island labels and pick up to e.maxIslands for evaluation
-	rand.Shuffle(len(islandLabels), func(i, j int) {
-		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
-	})
-	maxIslands := e.maxIslands
-	if maxIslands <= 0 {
-		maxIslands = 5
-	}
-	if len(islandLabels) > maxIslands {
-		islandLabels = islandLabels[:maxIslands]
-	}
-
-	for _, islandLabel := range islandLabels {
-
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(islandMap, islandLabel)
-
-		// Regularity Calibration Score
-		groundTruthFillRatio := FillRatioOfOwnBoundingBox(currentGroundTruthIsland)
-		superpixelFillRatio := FillRatioOfOwnBoundingBoxPerSuperpixel(e.GetSpResult().LabelMap, e.GetSpResult().SpCount)
-		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
-			regularityCalibrationScore += math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
-		}
-
-	}
-
-	if len(islandLabels) == 0 {
-		return 0.0, nil
-	}
-	regularityCalibrationScore /= float64(len(islandLabels))
-
-	return regularityCalibrationScore, nil
-}
-*/

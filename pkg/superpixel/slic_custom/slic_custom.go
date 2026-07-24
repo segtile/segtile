@@ -1,8 +1,8 @@
-package slic
+package slic_custom
 
 /*
 
-This is an implementation of SLIC superpixels, based on the original paper.
+This is an implementation of SLIC superpixels, based on the original paper with additional parameters for more fine grained control.
 
 @techreport{achanta2010slic,
   title={Slic superpixels},
@@ -30,11 +30,20 @@ import (
 func init() {
 	parameterInfo := []superpixel.SpParameterInfo{
 		{
-			Id:          "count",
-			Title:       "Superpixel Count",
-			Description: "The number of superpixels to generate.",
+			Id:          "columns",
+			Title:       "Columns",
+			Description: "The number of columns for the superpixel base grid.",
 			Kind:        superpixel.SpParameterKindInt,
-			Default:     500,
+			Default:     25,
+			Min:         2,
+			Max:         32768,
+		},
+		{
+			Id:          "rows",
+			Title:       "Rows",
+			Description: "The number of rows for the superpixel base grid.",
+			Kind:        superpixel.SpParameterKindInt,
+			Default:     25,
 			Min:         2,
 			Max:         32768,
 		},
@@ -67,19 +76,22 @@ func init() {
 		},
 	}
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
-		return Run(img, int(params["count"]), params["compactness"], int(params["initial_perturbation_neighborhood_radius"]), int(params["iterations"]))
+		return Run(img, int(params["columns"]), int(params["rows"]), params["compactness"], int(params["initial_perturbation_neighborhood_radius"]), int(params["iterations"]))
 	}
-	superpixel.RegisterSpAlgorithm("slic", "SLIC", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
+	superpixel.RegisterSpAlgorithm("slic_custom", "SLIC (Custom)", "This is an implementation of SLIC superpixels with additional parameterization, going beyond the original paper.", runFromMap, parameterInfo)
 }
 
 // This is the new run function.
 // It works like the old one, but no longer uses a stateful struct, instead it is completely functional.
-func Run(img image.Image, count int, compactness float64, initialPerturbationNeighborhoodRadius int, iterations int) (superpixel.SpResult, error) {
+func Run(img image.Image, initialColumns int, initialRows int, compactness float64, initialPerturbationNeighborhoodRadius int, iterations int) (superpixel.SpResult, error) {
 
 	// Validate Parameters
 
-	if count < 2 {
-		return superpixel.SpResult{}, errors.New("Superpixel count must be at least 2.")
+	if initialColumns < 2 {
+		return superpixel.SpResult{}, errors.New("Initial columns must be at least 2.")
+	}
+	if initialRows < 2 {
+		return superpixel.SpResult{}, errors.New("Initial rows must be at least 2.")
 	}
 
 	if compactness < 0 {
@@ -109,7 +121,8 @@ func Run(img image.Image, count int, compactness float64, initialPerturbationNei
 		imgHeight:                             height,
 		imgWidth:                              width,
 		imgPixelCount:                         pixelCount,
-		count:                                 count,
+		rows:                                  initialRows,
+		columns:                               initialColumns,
 		compactness:                           compactness,
 		initialPerturbationNeighborhoodRadius: initialPerturbationNeighborhoodRadius,
 		iterations:                            iterations,
@@ -159,14 +172,16 @@ type slicState struct {
 	imgPixelCount int
 
 	// Specific parameters (no longer needed, we use them directly from the Run method)
-	count                                 int
+	rows                                  int
+	columns                               int
 	compactness                           float64
 	initialPerturbationNeighborhoodRadius int
 	iterations                            int
 
 	// State
-	gridInterval int             // Interval in which the initial cluster centers are placed.
-	clusters     []slicSpCluster // The current cluster centers, indexed by cluster label.
+	gridIntervalX int             // Interval in which the initial cluster centers are placed in the X direction.
+	gridIntervalY int             // Interval in which the initial cluster centers are placed in the Y direction.
+	clusters      []slicSpCluster // The current cluster centers, indexed by cluster label.
 
 	// State maps, all indexed by y*width+x
 	labelMap         []int        // For each pixel, the index of the assigned cluster.
@@ -192,7 +207,7 @@ func (state *slicState) distance(cluster slicSpCluster, pixelX int, pixelY int) 
 	// Calculate the distance in LAB and XY and combine it.
 	distanceLab := math.Sqrt((cluster.l-pixelL)*(cluster.l-pixelL) + (cluster.a-pixelA)*(cluster.a-pixelA) + (cluster.b-pixelB)*(cluster.b-pixelB))
 	distanceXY := math.Sqrt(float64((cluster.x-pixelX)*(cluster.x-pixelX) + (cluster.y-pixelY)*(cluster.y-pixelY)))
-	distance := distanceLab + (state.compactness/float64(state.gridInterval))*distanceXY
+	distance := distanceLab + (state.compactness/float64((state.gridIntervalX+state.gridIntervalY)/2))*distanceXY
 	return distance, nil
 
 }
@@ -228,7 +243,7 @@ func (state *slicState) gradient(pixelX int, pixelY int) float64 {
 func (state *slicState) enforceConnectivity() {
 
 	// Minimum component size: components smaller than minimumSpPixelCount pixels are merged into a neighbor.
-	minimumSpPixelCount := (state.gridInterval * state.gridInterval) / 4
+	minimumSpPixelCount := (state.gridIntervalX * state.gridIntervalY) / 4
 
 	// Read current labels into a flat int slice for efficient access during flood fill.
 	labels := make([]int, state.imgPixelCount)
@@ -251,8 +266,8 @@ func (state *slicState) enforceConnectivity() {
 		newLabelMap[i] = -1
 	}
 
-	for indexHeight := range state.imgHeight {
-		for indexWidth := range state.imgWidth {
+	for indexHeight := 0; indexHeight < state.imgHeight; indexHeight++ {
+		for indexWidth := 0; indexWidth < state.imgWidth; indexWidth++ {
 			if newLabelMap[originIndex] < 0 {
 				newLabelMap[originIndex] = label
 
@@ -317,7 +332,7 @@ func (state *slicState) labelPixels() {
 	wg.Add(workers)
 
 	// Process the image in bands
-	for w := range workers {
+	for w := 0; w < workers; w++ {
 		bandStart := w * state.imgHeight / workers
 		bandEnd := (w + 1) * state.imgHeight / workers
 
@@ -327,11 +342,11 @@ func (state *slicState) labelPixels() {
 			// For every cluster, test the distance metric of pixels in a 2*gridInterval x 2*gridInterval neighborhood around the cluster center.
 			// Assign them to the cluster if they are closer than their previous best cluster.
 			for clusterIndex, cluster := range state.clusters {
-				for iX := -state.gridInterval; iX <= state.gridInterval; iX++ {
+				for iX := -state.gridIntervalX; iX <= state.gridIntervalX; iX++ {
 					pixelX := cluster.x + iX
 					// Clamp the iY range so this goroutine only touches rows in its band.
-					iYMin := max(-state.gridInterval, rowStart-cluster.y)
-					iYMax := min(state.gridInterval, rowEnd-1-cluster.y)
+					iYMin := max(-state.gridIntervalY, rowStart-cluster.y)
+					iYMax := min(state.gridIntervalY, rowEnd-1-cluster.y)
 					for iY := iYMin; iY <= iYMax; iY++ {
 						pixelY := cluster.y + iY
 						distance, err := state.distance(cluster, pixelX, pixelY)
@@ -404,7 +419,7 @@ func (state *slicState) initializeClusters() {
 
 	// Initialize clusters
 	var points []image.Point
-	points, state.gridInterval = superpixel_utils.RegularGridPoints(state.imgWidth, state.imgHeight, state.count)
+	points, state.gridIntervalX, state.gridIntervalY = superpixel_utils.RectangularGridPoints(state.imgWidth, state.imgHeight, state.columns, state.rows)
 	state.clusters = make([]slicSpCluster, len(points))
 	for index, point := range points {
 		state.clusters[index].x = point.X
