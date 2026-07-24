@@ -139,14 +139,6 @@ func NewAppState() *AppState {
 // Set up the editors for the current superpixel parameters.
 func (appState *AppState) RebuildEditors() {
 
-	// Overwrite existing editor data.
-	// Preserve previous checkbox states by parameter id so that switching algorithms
-	// does not lose the user's selection for parameters shared between algorithms.
-	previousChecked := make(map[string]bool, len(appState.SuperpixelParameterEditorIds))
-	for i, id := range appState.SuperpixelParameterEditorIds {
-		previousChecked[id] = appState.OptimizeParameterCheckboxes[i].Value
-	}
-
 	appState.SuperpixelParameterEditors = nil
 	appState.SuperpixelParameterEditorIds = nil
 	appState.SuperpixelParameterEditorTitles = nil
@@ -177,12 +169,7 @@ func (appState *AppState) RebuildEditors() {
 		appState.SuperpixelParameterEditorIds = append(appState.SuperpixelParameterEditorIds, paramInfo.Id)
 		appState.SuperpixelParameterEditorTitles = append(appState.SuperpixelParameterEditorTitles, paramInfo.Title)
 
-		// Default to selected for optimization unless the user has previously unchecked it.
-		checked, wasSet := previousChecked[paramInfo.Id]
-		if !wasSet {
-			checked = true
-		}
-		appState.OptimizeParameterCheckboxes = append(appState.OptimizeParameterCheckboxes, widget.Bool{Value: checked})
+		appState.OptimizeParameterCheckboxes = append(appState.OptimizeParameterCheckboxes, widget.Bool{Value: false})
 	}
 }
 
