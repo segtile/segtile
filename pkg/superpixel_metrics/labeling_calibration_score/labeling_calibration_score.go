@@ -6,7 +6,7 @@ import (
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score_2"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
 )
@@ -36,7 +36,7 @@ func init() {
 func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
 	maxIslands := uint16(params["max_islands"])
 
-	densityScore, _ := density_score.Run(result, groundTruth, maxIslands)
+	densityScore, _ := density_score_2.Run(result, groundTruth, maxIslands)
 	weightedF1Score, _ := weighted_f1_score.Run(result, groundTruth)
 	regularityScore, _ := regularity_score.Run(result, groundTruth, maxIslands)
 

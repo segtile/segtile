@@ -51,10 +51,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 	pixelCount := groundTruth.Bounds().Dx() * groundTruth.Bounds().Dy()
 
 	// Choose the number of islands to evaluate
-	if maxIslands <= 0 {
-		maxIslands = groundTruthIslandCount
-	}
-	if maxIslands > groundTruthIslandCount {
+	if maxIslands <= 0 || maxIslands > groundTruthIslandCount {
 		maxIslands = groundTruthIslandCount
 	}
 
@@ -71,7 +68,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 		currentGroundTruthIslandArea := superpixel_utils.Area(currentGroundTruthIsland)
 
 		// Get the desired ratio for the current island
-		desiredOutsideRatio := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(pixelCount)), 2)
+		desiredOutsideRatio := 1 - math.Pow(float64(currentGroundTruthIslandArea)/float64(pixelCount), 0.25)
 
 		// Count inside and outside boundaries for the current island approximation
 		labelMapBoundaries := superpixel_utils.BoundaryPoints(result.LabelMap, false)
@@ -83,6 +80,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 		for _, boundaryPoint := range labelMapBoundaries {
 
 			// Is the boundary in the approximated selection?
+			// (Skip if not)
 			if currentApproximatedMask.Gray16At(boundaryPoint.X, boundaryPoint.Y).Y == 0 {
 				continue
 			}
@@ -97,7 +95,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 			}
 
 			if hasNeighborOutsideSelection {
-				boundariesOutside++
+				boundariesOutside += 2
 			} else {
 				boundariesInside++
 			}
