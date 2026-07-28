@@ -9,16 +9,20 @@ import (
 	"slices"
 	"time"
 
+	"github.com/reiver/go-giotoast"
+
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/widget"
-	"github.com/sqweek/dialog"
+	"github.com/ncruces/zenity"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/internal/theme"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -46,24 +50,40 @@ type AppState struct {
 	ExistingMaskPathSpec clip.PathSpec
 
 	// UI state
-	Window                     *app.Window
-	CanvasTag                  bool
-	Theme                      *theme.AppTheme
-	SuperpixelParameterEditors map[string]*widget.Editor
-	RenderSelectionOutlines    bool
-	FirstButton                widget.Clickable
-	LastButton                 widget.Clickable
-	PrevUnlabeledButton        widget.Clickable
-	PrevButton                 widget.Clickable
-	NextUnlabeledButton        widget.Clickable
-	NextButton                 widget.Clickable
-	OpenProjectButton          widget.Clickable
-	NewProjectButton           widget.Clickable
-	OptimizeButton             widget.Clickable
+	Window                          *app.Window
+	Toasts                          giotoast.Queue
+	CanvasTag                       bool
+	Theme                           *app_theme.AppTheme
+	SuperpixelParameterEditors      []widget.Editor
+	SuperpixelParameterEditorIds    []string
+	SuperpixelParameterEditorTitles []string
+	RenderSelectionOutlines         bool
 
-	// Loading state
+	// Selection of which superpixel parameters should be optimized. Aligned with
+	// SuperpixelParameterEditors/Ids/Titles by index.
+	OptimizeParameterCheckboxes []widget.Bool
+	FirstButton                 widget.Clickable
+	LastButton                  widget.Clickable
+	PrevUnlabeledButton         widget.Clickable
+	PrevButton                  widget.Clickable
+	NextUnlabeledButton         widget.Clickable
+	NextButton                  widget.Clickable
+	OpenProjectButton           widget.Clickable
+	NewProjectButton            widget.Clickable
+	OptimizeButton              widget.Clickable
+	SaveButton                  widget.Clickable
+
+	ChangeSpAlgorithmButton     widget.Clickable
+	SpAlgorithmMenuButtons      []widget.Clickable
+	SpAlgorithmMenuAlgorithmIds []string
+	SpAlgoritmMenuTitles        []string
+	SpAlgorithmMenuOpen         bool
+
+	// State for loading operations
 	CurrentlyLoadingProject bool
 	ProjectLoadResult       chan ProjectLoadingResult
+	CurrentlyOptimizing     bool
+	OptimizationResult      chan superpixel_optimizer.SpOptimizerResult
 
 	// Hover state
 	IsPanning        bool
@@ -89,24 +109,40 @@ func NewSuperpixelSettings() SuperpixelSettings {
 
 func NewAppState() *AppState {
 
-	appState := AppState{
-		FitToWindow:                true,
-		RenderSelectionOutlines:    true,
-		Theme:                      theme.Theme,
-		SuperpixelParameterEditors: make(map[string]*widget.Editor),
-		ProjectLoadResult:          make(chan ProjectLoadingResult, 1),
+	appState := &AppState{
+		FitToWindow:             true,
+		RenderSelectionOutlines: true,
+		Theme:                   app_theme.Theme,
+		ProjectLoadResult:       make(chan ProjectLoadingResult, 1),
+		OptimizationResult:      make(chan superpixel_optimizer.SpOptimizerResult, 1),
+	}
+
+	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.
+	for _, id := range superpixel.ListAlgorithms() {
+
+		button := new(widget.Clickable)
+		appState.SpAlgorithmMenuButtons = append(appState.SpAlgorithmMenuButtons, *button)
+		appState.SpAlgorithmMenuAlgorithmIds = append(appState.SpAlgorithmMenuAlgorithmIds, id)
+
+		title, _, _, err := superpixel.GetAlgorithmInfo(id)
+		if err != nil {
+			title = fmt.Sprintf("Untitled (%s)", id)
+		}
+		appState.SpAlgoritmMenuTitles = append(appState.SpAlgoritmMenuTitles, title)
 	}
 
 	appState.RebuildEditors()
 
-	return &appState
+	return appState
 }
 
 // Set up the editors for the current superpixel parameters.
 func (appState *AppState) RebuildEditors() {
 
-	// Overwrite existing editors
-	appState.SuperpixelParameterEditors = make(map[string]*widget.Editor)
+	appState.SuperpixelParameterEditors = nil
+	appState.SuperpixelParameterEditorIds = nil
+	appState.SuperpixelParameterEditorTitles = nil
+	appState.OptimizeParameterCheckboxes = nil
 
 	// No editors if there are no settings
 	if appState.Settings == nil {
@@ -118,34 +154,60 @@ func (appState *AppState) RebuildEditors() {
 		return
 	}
 
-	// Turn list of parameters into editors for the UI
-	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
-		ed := &widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789"}
-		ed.SetText(fmt.Sprintf("%g", paramValue))
-		appState.SuperpixelParameterEditors[paramName] = ed
+	parameterInfo, err := superpixel.ListParameterInfo(appState.Settings.Superpixel.SpAlgorithmId)
+	if err != nil {
+		log.Printf("Failed to list superpixel parameter info: %v", err)
+		return
 	}
+
+	// Turn the parameter list into aligned editor data for the UI.
+	for _, paramInfo := range parameterInfo {
+		paramValue := appState.Settings.Superpixel.SpAlgorithmParameters[paramInfo.Id]
+		editor := widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
+		editor.SetText(fmt.Sprintf("%g", paramValue))
+		appState.SuperpixelParameterEditors = append(appState.SuperpixelParameterEditors, editor)
+		appState.SuperpixelParameterEditorIds = append(appState.SuperpixelParameterEditorIds, paramInfo.Id)
+		appState.SuperpixelParameterEditorTitles = append(appState.SuperpixelParameterEditorTitles, paramInfo.Title)
+
+		appState.OptimizeParameterCheckboxes = append(appState.OptimizeParameterCheckboxes, widget.Bool{Value: false})
+	}
+}
+
+// SelectedOptimizeParameters returns the ids of the superpixel parameters currently
+// checked for optimization.
+func (appState *AppState) SelectedOptimizeParameters() []string {
+	var selected []string
+	for i, checkbox := range appState.OptimizeParameterCheckboxes {
+		if checkbox.Value {
+			selected = append(selected, appState.SuperpixelParameterEditorIds[i])
+		}
+	}
+	return selected
 }
 
 // SyncEditors updates each superpixel parameter editor's text to reflect
 // the current values in the superpixel implementation.
 func (appState *AppState) SyncEditors() error {
-
-	for paramName, paramValue := range appState.Settings.Superpixel.SpAlgorithmParameters {
-		if ed, ok := appState.SuperpixelParameterEditors[paramName]; ok {
-			ed.SetText(fmt.Sprintf("%g", paramValue))
-		} else {
-			return fmt.Errorf("Editor for parameter %s not found", paramName)
+	for i, paramId := range appState.SuperpixelParameterEditorIds {
+		paramValue, ok := appState.Settings.Superpixel.SpAlgorithmParameters[paramId]
+		if !ok {
+			return fmt.Errorf("Value for parameter %s not found", paramId)
 		}
+		appState.SuperpixelParameterEditors[i].SetText(fmt.Sprintf("%g", paramValue))
 	}
 
 	return nil
+}
+
+func (appState *AppState) UiLocked() bool {
+	return appState.CurrentlyLoadingProject || appState.CurrentlyOptimizing
 }
 
 func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Set the new algorithm id
 	if !slices.Contains(superpixel.ListAlgorithms(), id) {
-		return fmt.Errorf("unknown superpixel algorithm %s", id)
+		return fmt.Errorf("Unknown superpixel algorithm: %s", id)
 	}
 	appState.Settings.Superpixel.SpAlgorithmId = id
 
@@ -159,6 +221,11 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 	// Rebuild the editors for the new params
 	appState.RebuildEditors()
 
+	// Recalculate the superpixels for the current image
+	if appState.CurrentImage != nil {
+		appState.RecalculateSuperpixels(true, true)
+	}
+
 	return nil
 }
 
@@ -168,7 +235,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
 	if appState.CurrentImage != nil {
-		appState.saveCurrentMask()
+		appState.SaveCurrentMask(false, true)
 		appState.CurrentImage = nil
 	}
 
@@ -196,7 +263,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 // ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.CurrentlyLoadingProject = false
-	if r.Err == dialog.ErrCancelled || r.Settings == nil {
+	if r.Err == zenity.ErrCanceled || r.Settings == nil {
 		return
 	}
 	if r.Err != nil {
@@ -206,7 +273,7 @@ func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.ApplyProject(r.Settings)
 }
 
-func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
+func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
 	fmt.Println("Calculating superpixels...")
 	start := time.Now().UnixMicro()
@@ -242,23 +309,28 @@ func (appState *AppState) recalculateSuperpixels(preserveSelection bool) error {
 	// Log
 	end := time.Now().UnixMicro()
 	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+
+	if showToast {
+		// Add a toast
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Rebuilt superpixels (%.1f ms)", float64(end-start)/1000), 500*time.Millisecond)
+	}
 	return nil
 
-}
-
-func (appState *AppState) RecalculateSuperpixels() error {
-	return appState.recalculateSuperpixels(true)
 }
 
 func (appState *AppState) LoadNextImage() {
 	if appState.CurrentIndex < len(appState.ImageFiles)-1 {
 		appState.loadImageAtIndex(appState.CurrentIndex + 1)
+	} else {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "This is the last image.", time.Second)
 	}
 }
 
 func (appState *AppState) LoadPreviousImage() {
 	if appState.CurrentIndex > 0 {
 		appState.loadImageAtIndex(appState.CurrentIndex - 1)
+	} else {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "This is the first image.", time.Second)
 	}
 }
 
@@ -301,13 +373,13 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
-	if appState.CurrentImage != nil && appState.selectionMade() {
-		appState.saveCurrentMask()
+	if appState.CurrentImage != nil && appState.SelectionMade() {
+		appState.SaveCurrentMask(false, false)
 	}
 
 	// Update the current image and run the superpixel algorithm
 	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	err := appState.recalculateSuperpixels(false)
+	err := appState.RecalculateSuperpixels(false, false)
 	if err != nil {
 		return err
 	}
@@ -321,7 +393,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ExistingMask = loadedMask
-			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(*loadedMask)
+			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
 		}
 	}
 
@@ -342,15 +414,34 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 }
 
-// saveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
-func (appState *AppState) saveCurrentMask() {
+// SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
+func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
-	/*if appState.ActiveResult.SpCount == 0 {
-		return
-	}*/
-	mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
-	outPath := appState.maskPathForIndex(appState.CurrentIndex)
-	io_utils.SaveImage(outPath, mask)
+	if appState.ActiveResult.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
+
+		// Rasterize the current selection
+		mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
+
+		// Save as image
+		outPath := appState.maskPathForIndex(appState.CurrentIndex)
+		err := io_utils.SaveImage(outPath, mask)
+
+		if err != nil {
+			log.Printf("Failed to save mask to %s: %v", outPath, err)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
+			return
+		} else {
+
+			if recalculateOutline {
+				// Recalculate the ExistingMaskPathSpec
+				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
+			}
+
+			// Add toast
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)
+		}
+	}
+
 }
 
 // maskPathForIndex returns the output PNG path for image at index i.
@@ -362,11 +453,22 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	return filepath.Join(appState.Settings.OutputDirectory, name)
 }
 
-func (appState *AppState) selectionMade() bool {
+func (appState *AppState) SelectionMade() bool {
 	for _, selected := range appState.SelectionIndex {
 		if selected {
 			return true
 		}
 	}
 	return false
+}
+
+func (appState *AppState) ClearSelection(showToast bool) {
+	for i := range appState.SelectionIndex {
+		appState.SelectionIndex[i] = false
+	}
+	appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
+	appState.Window.Invalidate()
+	if showToast {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
+	}
 }

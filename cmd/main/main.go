@@ -11,6 +11,7 @@ import (
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 )
 
 func main() {
@@ -54,18 +55,25 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 	for {
 		switch e := appWindow.Event().(type) {
 		case app.DestroyEvent:
+
+			// Save the current mask before exiting.
+			appState.SaveCurrentMask(false, false)
+
 			return e.Err
 		case app.FrameEvent:
-			// The list of draw operations
-			//ops.Reset()
-
-			// Apply any pending project result delivered by a background dialog goroutine.
+			// Apply loaded projects
 			select {
 			case result := <-appState.ProjectLoadResult:
-				// We have a project, apply it.
 				appState.ApplyProjectLoadingResult(result)
 			default:
-				// The channel is empty, continue.
+			}
+
+			// Apply optimizer results
+			select {
+			case result := <-appState.OptimizationResult:
+				appState.ApplyOptimizationResult(result)
+				appState.CurrentlyOptimizing = false
+			default:
 			}
 
 			// New context for this frame

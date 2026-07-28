@@ -1,13 +1,17 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/widget"
+	"github.com/ncruces/zenity"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
@@ -15,11 +19,16 @@ import (
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
 func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
+	if appState.UiLocked() {
+		return
+	}
 
 	recalculate := false
 
-	// Handle settings changes
-	for param, editor := range appState.SuperpixelParameterEditors {
+	// Handle settings changes.
+	for i := range appState.SuperpixelParameterEditors {
+		param := appState.SuperpixelParameterEditorIds[i]
+		editor := &appState.SuperpixelParameterEditors[i]
 		// Drain events and apply the value on Submit
 		for {
 			ev, ok := editor.Update(gtx)
@@ -41,7 +50,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		appState.SyncEditors()
 
 		if appState.CurrentImage != nil {
-			appState.RecalculateSuperpixels()
+			appState.RecalculateSuperpixels(true, true)
 		}
 
 		// Persist updated parameters to config.
@@ -53,6 +62,10 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 }
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
+
+	if appState.UiLocked() {
+		return
+	}
 
 	// Iterate over all pointer events that occurred since the last frame
 	for {
@@ -164,11 +177,6 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if selectionChanged {
 				labelMap := appState.ActiveResult.LabelMap
 				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
-				// Clear the existing mask orange outline once the user starts painting.
-				if appState.ExistingMask != nil {
-					appState.ExistingMask = nil
-					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
-				}
 				appState.Window.Invalidate()
 			}
 		}
@@ -176,10 +184,17 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 }
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
-
 func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
 
 	if !button.Clicked(gtx) {
+		return
+	}
+	if appState.CurrentlyOptimizing {
+		return
+	}
+
+	if button == &appState.ChangeSpAlgorithmButton {
+		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 		return
 	}
 
@@ -214,7 +229,49 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	}
 
 	if button == &appState.OptimizeButton {
-		appState.OptimizeSpParameters()
+
+		// Create a progress indicator and start it
+		progress := &ZenityProgressIndicator{}
+		if err := progress.Start(); err != nil {
+			log.Printf("Failed to show optimization progress: %v", err)
+			return
+		}
+
+		// Indicate that the optimization is running. This will be reset when the result is processed in the main loop.
+		appState.CurrentlyOptimizing = true
+
+		// Create the context for the optimization, which can be canceled if the user closes the progress dialog
+		ctx, cancelFunction := context.WithCancel(context.Background())
+
+		// First goroutine which blocks until either the progress dialog is closed or the optimization is done, and cancels the context if the progress dialog is closed.
+		go func() {
+			select {
+			case <-progress.Done():
+				cancelFunction()
+			case <-ctx.Done():
+			}
+		}()
+
+		// Second goroutine which runs the actual optimization and writes the result to the channel
+		go func() {
+
+			defer cancelFunction()
+
+			result, err := appState.OptimizeSpParameters(ctx, progress)
+			if errors.Is(err, zenity.ErrCanceled) {
+				err = context.Canceled
+			}
+
+			if err == nil {
+				err = progress.Finish()
+			} else {
+				_ = progress.Close()
+			}
+
+			result.Err = err
+			appState.OptimizationResult <- result
+			appState.Window.Invalidate()
+		}()
 		return
 	}
 
@@ -228,16 +285,49 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.SaveButton {
+		if appState.SelectionMade() || showSaveEmptyMaskWarning() {
+			appState.SaveCurrentMask(true, true)
+		}
+
+		return
+	}
+
+	for i := range appState.SpAlgorithmMenuButtons {
+
+		if button != &appState.SpAlgorithmMenuButtons[i] {
+			continue
+		}
+
+		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuAlgorithmIds[i])
+		if err != nil {
+			fmt.Printf("Failed to change superpixel algorithm: %v\n", err)
+			return
+		}
+		appState.SpAlgorithmMenuOpen = false
+
+		if appState.Window != nil {
+			appState.Window.Invalidate()
+		}
+		return
+	}
+
 }
 
 func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
+	if appState.CurrentlyOptimizing {
+		return
+	}
 	for {
 		ev, ok := gtx.Event(
 			key.FocusFilter{Target: &appState.KeyboardTag},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "F"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "S"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
 		)
 		if !ok {
 			break
@@ -256,11 +346,15 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 
 		// [C]lear selection
 		if ke.State == key.Press && ke.Name == "C" {
-			for i := range appState.SelectionIndex {
-				appState.SelectionIndex[i] = false
+			appState.ClearSelection(true)
+			continue
+		}
+
+		// [S]ave mask
+		if ke.State == key.Press && ke.Name == "S" {
+			if appState.SelectionMade() || showSaveEmptyMaskWarning() {
+				appState.SaveCurrentMask(true, true)
 			}
-			appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
-			appState.Window.Invalidate()
 			continue
 		}
 
@@ -276,13 +370,22 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// Tab: next image, Shift+Tab: previous image
+		// Space: next image, Shift+Space: previous image
+		// Alternatively: Left/Right arrow keys
 		if ke.State == key.Press && ke.Name == key.NameSpace {
 			if ke.Modifiers.Contain(key.ModShift) {
 				appState.LoadPreviousImage()
 			} else {
 				appState.LoadNextImage()
 			}
+			continue
+		}
+		if ke.State == key.Press && ke.Name == key.NameLeftArrow {
+			appState.LoadPreviousImage()
+			continue
+		}
+		if ke.State == key.Press && ke.Name == key.NameRightArrow {
+			appState.LoadNextImage()
 			continue
 		}
 	}

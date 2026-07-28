@@ -3,6 +3,7 @@ package superpixel
 import (
 	"fmt"
 	"image"
+	"sort"
 )
 
 type SpParameterKind int
@@ -106,6 +107,7 @@ func ListAlgorithms() []string {
 	for id := range spRegistry {
 		algorithms = append(algorithms, id)
 	}
+	sort.Strings(algorithms)
 	return algorithms
 }
 
