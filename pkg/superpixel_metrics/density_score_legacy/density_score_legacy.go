@@ -1,4 +1,4 @@
-package density_score_2
+package density_score_legacy
 
 import (
 	"fmt"
@@ -23,9 +23,9 @@ func init() {
 		},
 	}
 	superpixel_metrics.RegisterSpMetric(
-		"density_score_2",
-		"Density Score",
-		"Computes the density score of the superpixel segmentation.",
+		"density_score_legacy",
+		"Density Score (Legacy)",
+		"Computes the density score of the superpixel segmentation using the legacy boundary SP counting method.",
 		1.0,
 		runWithParams,
 		parameterInfo,
@@ -47,11 +47,14 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
 
 	// Prepare metrics
-	cumulativeDensityScore := 0.0
+	cumulativeDensityCalibrationScore := 0.0
 	pixelCount := groundTruth.Bounds().Dx() * groundTruth.Bounds().Dy()
 
 	// Choose the number of islands to evaluate
-	if maxIslands <= 0 || maxIslands > groundTruthIslandCount {
+	if maxIslands <= 0 {
+		maxIslands = groundTruthIslandCount
+	}
+	if maxIslands > groundTruthIslandCount {
 		maxIslands = groundTruthIslandCount
 	}
 
@@ -67,49 +70,35 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, i)
 		currentGroundTruthIslandArea := superpixel_utils.Area(currentGroundTruthIsland)
 
-		// Get the desired ratio for the current island
-		desiredOutsideRatio := 1 - math.Pow(float64(currentGroundTruthIslandArea)/float64(pixelCount), 0.25)
-
-		// Count inside and outside boundaries for the current island approximation
-		labelMapBoundaries := superpixel_utils.BoundaryPoints(result.LabelMap, false)
+		// Make a selection of the superpixels that overlap with the current island and get its area
 		selectionFromCurrentIsland := result.SelectFromMask(currentGroundTruthIsland, 0.5)
 		currentApproximatedMask := result.SelectionToMask(selectionFromCurrentIsland)
-		boundariesInside := 0
-		boundariesOutside := 0
+		currentApproximatedMaskArea := superpixel_utils.Area(currentApproximatedMask)
 
-		for _, boundaryPoint := range labelMapBoundaries {
+		// Count the number of superpixels that are bordering superpixels in the current selection
+		_, currentSelectedBorderingSpCount := superpixel_utils.CountBorderingSuperpixels(result.LabelMap, selectionFromCurrentIsland)
 
-			// Is the boundary in the approximated selection?
-			// (Skip if not)
-			if currentApproximatedMask.Gray16At(boundaryPoint.X, boundaryPoint.Y).Y == 0 {
-				continue
-			}
+		// Get the mask of the bordering superpixels and its area
+		currentBorderingSpSelection := superpixel_utils.SelectBorderingSuperpixels(result.LabelMap, selectionFromCurrentIsland)
+		currentBorderingSpMask := result.SelectionToMask(currentBorderingSpSelection)
+		currentBorderingSpMaskArea := superpixel_utils.Area(currentBorderingSpMask)
 
-			// Does it have a neighbor pixel not in the selection?
-			hasNeighborOutsideSelection := false
-			for _, neighbor := range superpixel_utils.Neighbors(boundaryPoint, result.LabelMap.Bounds(), true) {
-				if currentApproximatedMask.Gray16At(neighbor.X, neighbor.Y).Y == 0 {
-					hasNeighborOutsideSelection = true
-					break
-				}
-			}
+		// Density Calibration Score
+		if currentSelectedBorderingSpCount > 0 {
+			// Get the area portion of the selection that is a bordering superpixel
+			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
 
-			if hasNeighborOutsideSelection {
-				boundariesOutside += 2
-			} else {
-				boundariesInside++
-			}
+			// Get the desired area portion of the selection that is a bordering superpixel based on the area of the current island and the total pixel count
+			desiredBorderPortionOfSelection := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(pixelCount)), 2)
+
+			// Add the ratio of the actual border portion to the desired border portion to the density calibration score
+			cumulativeDensityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
 		}
 
-		if boundariesInside+boundariesOutside == 0 {
-			continue
-		}
-
-		outsideRatio := float64(boundariesOutside) / float64(boundariesInside+boundariesOutside)
-		cumulativeDensityScore += math.Min(outsideRatio, desiredOutsideRatio) / math.Max(outsideRatio, desiredOutsideRatio)
 	}
 
-	densityCalibrationScore = cumulativeDensityScore / float64(maxIslands)
+	// Calculate the final metric
+	densityCalibrationScore = cumulativeDensityCalibrationScore / float64(maxIslands)
 
 	return densityCalibrationScore, nil
 }

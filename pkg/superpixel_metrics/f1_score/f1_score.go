@@ -15,12 +15,16 @@ func init() {
 		"F1 Score",
 		"Computes the F1 score of the superpixel segmentation against the ground truth mask.",
 		1.0,
-		Run,
+		runWithParams,
 		parameterInfo,
 	)
 }
 
-func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+	return Run(result, groundTruth)
+}
+
+func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
 
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
