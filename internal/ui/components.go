@@ -142,6 +142,7 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		)
 
+		// Individual parameter editors
 		for i := range appState.SuperpixelParameterEditors {
 			title := appState.SuperpixelParameterEditorTitles[i]
 			editor := &appState.SuperpixelParameterEditors[i]
@@ -170,6 +171,17 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 				}),
 			)
 		}
+
+		// Optimize button
+		children = append(children,
+			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		)
+		children = append(children,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
+				return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Suggest Parameters")
+			}),
+		)
 	}
 
 	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)

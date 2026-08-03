@@ -33,131 +33,104 @@ func init() {
 }
 
 func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
-	return Run(result, groundTruth, uint16(params["max_islands"]))
+	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint16) (densityCalibrationScore float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrationScore float64, err error) {
 
-	// Check that images are valid
+	// Check that input images match
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
+	bounds := groundTruth.Bounds()
+	pixelCount := bounds.Dx() * bounds.Dy()
+
 	// Find islands in GT
 	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
 
-	// Prepare metrics
-	cumulativeDensityCalibrationScore := 0.0
-	pixelCount := groundTruth.Bounds().Dx() * groundTruth.Bounds().Dy()
+	// Count the number of pixels in each island
+	pixelCountPerIsland := make([]int, groundTruthIslandCount+1)
 
-	// Choose the number of islands to evaluate
-	if maxIslands <= 0 {
-		maxIslands = groundTruthIslandCount
+	// Count the number of pixels per superpixel
+	pixelCountPerSuperpixel := make([]int, result.SpCount)
+
+	// For each superpixel, keep track of how many pixels overlap with each island
+	spIslandOverlap := make([]map[uint16]int, result.SpCount)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			islandIndex := groundTruthIslands.Gray16At(x, y).Y
+			spLabel := result.LabelMap.Gray16At(x, y).Y
+
+			pixelCountPerSuperpixel[spLabel]++
+			pixelCountPerIsland[islandIndex]++
+
+			if islandIndex > 0 {
+				if spIslandOverlap[spLabel] == nil {
+					spIslandOverlap[spLabel] = make(map[uint16]int)
+				}
+				spIslandOverlap[spLabel][islandIndex]++
+			}
+		}
 	}
-	if maxIslands > groundTruthIslandCount {
-		maxIslands = groundTruthIslandCount
+
+	// Determine which island (if any) "owns" each superpixel. Because islands are disjoint, a superpixel's overlap fractions across islands sum to
+	// at most 1, so at most one island can reach the 50% threshold.
+	const selectionThreshold = 0.5
+	owningIsland := make([]uint16, result.SpCount)
+	for spLabel, overlaps := range spIslandOverlap {
+		for islandLabel, overlapCount := range overlaps {
+			if float64(overlapCount)/float64(pixelCountPerSuperpixel[spLabel]) >= selectionThreshold {
+				owningIsland[spLabel] = islandLabel
+				break
+			}
+		}
 	}
 
-	// Return early
-	if maxIslands == 0 {
-		return 0.0, nil
-	}
+	// Classify every boundary pixel of the label map exactly once, attributing it to whichever
+	// island owns its superpixel (if any), and tally inside/outside boundary counts per island.
+	boundariesInside := make([]int, groundTruthIslandCount+1)
+	boundariesOutside := make([]int, groundTruthIslandCount+1)
 
-	// Evaluate islands
-	for i := uint16(1); i <= maxIslands; i++ {
-
-		// Make a selection of the current island and get its area
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, i)
-		currentGroundTruthIslandArea := superpixel_utils.Area(currentGroundTruthIsland)
-
-		// Make a selection of the superpixels that overlap with the current island and get its area
-		selectionFromCurrentIsland := result.SelectFromMask(currentGroundTruthIsland, 0.5)
-		currentApproximatedMask := result.SelectionToMask(selectionFromCurrentIsland)
-		currentApproximatedMaskArea := superpixel_utils.Area(currentApproximatedMask)
-
-		// Count the number of superpixels that are bordering superpixels in the current selection
-		_, currentSelectedBorderingSpCount := superpixel_utils.CountBorderingSuperpixels(result.LabelMap, selectionFromCurrentIsland)
-
-		// Get the mask of the bordering superpixels and its area
-		currentBorderingSpSelection := superpixel_utils.SelectBorderingSuperpixels(result.LabelMap, selectionFromCurrentIsland)
-		currentBorderingSpMask := result.SelectionToMask(currentBorderingSpSelection)
-		currentBorderingSpMaskArea := superpixel_utils.Area(currentBorderingSpMask)
-
-		// Density Calibration Score
-		if currentSelectedBorderingSpCount > 0 {
-			// Get the area portion of the selection that is a bordering superpixel
-			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
-
-			// Get the desired area portion of the selection that is a bordering superpixel based on the area of the current island and the total pixel count
-			desiredBorderPortionOfSelection := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(pixelCount)), 2)
-
-			// Add the ratio of the actual border portion to the desired border portion to the density calibration score
-			cumulativeDensityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
+	for _, boundaryPoint := range superpixel_utils.BoundaryPoints(result.LabelMap, false) {
+		owner := owningIsland[result.LabelMap.Gray16At(boundaryPoint.X, boundaryPoint.Y).Y]
+		if owner == 0 {
+			continue
 		}
 
+		// Does it have a neighbor pixel not in the same island's selection?
+		hasNeighborOutsideSelection := false
+		for _, neighbor := range superpixel_utils.Neighbors(boundaryPoint, result.LabelMap.Bounds(), true) {
+			neighborSpLabel := result.LabelMap.Gray16At(neighbor.X, neighbor.Y).Y
+			if owningIsland[neighborSpLabel] != owner {
+				hasNeighborOutsideSelection = true
+				break
+			}
+		}
+
+		if hasNeighborOutsideSelection {
+			boundariesOutside[owner] += 2
+		} else {
+			boundariesInside[owner]++
+		}
 	}
 
-	// Calculate the final metric
-	densityCalibrationScore = cumulativeDensityCalibrationScore / float64(maxIslands)
+	// Aggregate the per-island scores
+	cumulativeDensityScore := 0.0
+	for i := uint16(1); i <= groundTruthIslandCount; i++ {
+		inside := boundariesInside[i]
+		outside := boundariesOutside[i]
+		if inside+outside == 0 {
+			continue
+		}
+
+		desiredOutsideRatio := 1 - math.Pow(float64(pixelCountPerIsland[i])/float64(pixelCount), 0.25)
+		outsideRatio := float64(outside) / float64(inside+outside)
+		cumulativeDensityScore += math.Min(outsideRatio, desiredOutsideRatio) / math.Max(outsideRatio, desiredOutsideRatio)
+	}
+
+	densityCalibrationScore = cumulativeDensityScore / float64(groundTruthIslandCount)
 
 	return densityCalibrationScore, nil
 }
-
-/*
-func (e *SpMetricDensityScore) GetScoreWithCachedIslands(islandMap *image.Gray16, islandCount uint16) (densityCalibrationScore float64, err error) {
-
-	// Prepare metrics
-	densityCalibrationScore = 0.0
-
-	// Build a list of all island labels
-	islandLabels := make([]uint16, islandCount)
-	for i := uint16(0); i < islandCount; i++ {
-		islandLabels[i] = i + 1
-	}
-
-	// Shuffle the island labels and pick up to N for evaluation
-	rand.Shuffle(len(islandLabels), func(i, j int) {
-		islandLabels[i], islandLabels[j] = islandLabels[j], islandLabels[i]
-	})
-	maxIslands := e.maxIslands
-	if maxIslands <= 0 {
-		maxIslands = 5
-	}
-	if len(islandLabels) > maxIslands {
-		islandLabels = islandLabels[:maxIslands]
-	}
-
-	groundTruthMaskArea := e.GetGroundTruthSegmentation().Bounds().Dx() * e.GetGroundTruthSegmentation().Bounds().Dy()
-
-	for _, islandLabel := range islandLabels {
-
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(islandMap, islandLabel)
-		currentGroundTruthIslandArea := superpixel_metrics.Area(currentGroundTruthIsland)
-
-		selectionFromCurrentIsland := e.GetSpResult().SelectFromMask(currentGroundTruthIsland, 0.5)
-		currentApproximatedMask := e.GetSpResult().SelectionToMask(selectionFromCurrentIsland)
-		currentApproximatedMaskArea := superpixel_metrics.Area(currentApproximatedMask)
-
-		_, currentSelectedBorderingSpCount := superpixel_utils.CountBorderingSuperpixels(e.GetSpResult().LabelMap, selectionFromCurrentIsland)
-
-		currentBorderingSpSelection := superpixel_utils.SelectBorderingSuperpixels(e.GetSpResult().LabelMap, selectionFromCurrentIsland)
-		currentBorderingSpMask := e.GetSpResult().SelectionToMask(currentBorderingSpSelection)
-		currentBorderingSpMaskArea := superpixel_metrics.Area(currentBorderingSpMask)
-
-		// Density Calibration Score
-		if currentSelectedBorderingSpCount > 0 {
-			borderPortionOfSelection := float64(currentBorderingSpMaskArea) / float64(currentApproximatedMaskArea)
-			desiredBorderPortionOfSelection := math.Pow(1-(float64(currentGroundTruthIslandArea)/float64(groundTruthMaskArea)), 2)
-			densityCalibrationScore += math.Min(borderPortionOfSelection, desiredBorderPortionOfSelection) / math.Max(borderPortionOfSelection, desiredBorderPortionOfSelection)
-		}
-
-	}
-
-	if len(islandLabels) == 0 {
-		return 0.0, nil
-	}
-	densityCalibrationScore /= float64(len(islandLabels))
-
-	return densityCalibrationScore, nil
-}
-*/

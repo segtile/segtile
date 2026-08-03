@@ -5,22 +5,6 @@ import (
 	"image/color"
 )
 
-// Counts the length of all edges in the image without counting the same edge twice
-// by only accounting for the brighter value
-func BoundaryLength(image *image.Gray16) int {
-	bounds := image.Bounds()
-	count := 0
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			value := image.Gray16At(x, y).Y
-			if image.Gray16At(x-1, y).Y < value || image.Gray16At(x+1, y).Y < value || image.Gray16At(x, y-1).Y < value || image.Gray16At(x, y+1).Y < value {
-				count++
-			}
-		}
-	}
-	return count
-}
-
 // Finds all pixels in the image that have a neighbor with a different value and returns them as a slice of image.Points
 // If singleSided is true, only the brighter pixel of each edge is returned, otherwise both pixels are returned.
 func BoundaryPoints(img *image.Gray16, singleSided bool) []image.Point {
