@@ -2,8 +2,6 @@ package regularity_score
 
 import (
 	"image"
-
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type boundingBox struct {
@@ -45,30 +43,54 @@ func (bb boundingBox) aspect() float64 {
 	return float64(bb.maxX-bb.minX+1) / float64(bb.maxY-bb.minY+1)
 }
 
-func bboxFromMask(mask *image.Gray16) boundingBox {
-	var bb boundingBox
-	bounds := mask.Bounds()
+// fillRatioOfOwnBoundingBoxPerIsland computes, in a single pass over islandMap, the fill ratio of
+// every ground truth island (label 0 is background and is ignored). The returned slice is indexed
+// by island label, so index 0 is always 0.
+func fillRatioOfOwnBoundingBoxPerIsland(islandMap *image.Gray16, islandCount uint16) []float64 {
+	islandPixelCount := make([]int, islandCount+1)
+	islandBoundingBox := make([]boundingBox, islandCount+1)
+	bounds := islandMap.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			if mask.Gray16At(x, y).Y > 0 {
-				bb.addPoint(x, y)
+			islandLabel := islandMap.Gray16At(x, y).Y
+			if islandLabel == 0 {
+				continue
 			}
+			islandPixelCount[islandLabel]++
+			islandBoundingBox[islandLabel].addPoint(x, y)
 		}
 	}
-	return bb
-}
 
-func aspectRatioOfBoundingBox(mask *image.Gray16) float64 {
-	bb := bboxFromMask(mask)
-	return bb.aspect()
-}
-
-func fillRatioOfOwnBoundingBox(mask *image.Gray16) float64 {
-	bb := bboxFromMask(mask)
-	if !bb.initialized {
-		return 0
+	fillRatios := make([]float64, islandCount+1)
+	for i := uint16(1); i <= islandCount; i++ {
+		if islandPixelCount[i] > 0 {
+			fillRatios[i] = float64(islandPixelCount[i]) / float64(islandBoundingBox[i].area())
+		}
 	}
-	return float64(superpixel_utils.Area(mask)) / float64(bb.area())
+	return fillRatios
+}
+
+// aspectRatioOfBoundingBoxPerIsland computes, in a single pass over islandMap, the bounding box
+// aspect ratio of every ground truth island (label 0 is background and is ignored). The returned
+// slice is indexed by island label, so index 0 is always 0.
+func aspectRatioOfBoundingBoxPerIsland(islandMap *image.Gray16, islandCount uint16) []float64 {
+	islandBoundingBox := make([]boundingBox, islandCount+1)
+	bounds := islandMap.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			islandLabel := islandMap.Gray16At(x, y).Y
+			if islandLabel == 0 {
+				continue
+			}
+			islandBoundingBox[islandLabel].addPoint(x, y)
+		}
+	}
+
+	aspectRatios := make([]float64, islandCount+1)
+	for i := uint16(1); i <= islandCount; i++ {
+		aspectRatios[i] = islandBoundingBox[i].aspect()
+	}
+	return aspectRatios
 }
 
 func fillRatioOfOwnBoundingBoxPerSuperpixel(labelMap *image.Gray16, spCount int) float64 {

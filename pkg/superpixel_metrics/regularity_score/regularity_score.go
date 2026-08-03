@@ -11,32 +11,21 @@ import (
 )
 
 func init() {
-	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{
-		{
-			Id:          "max_islands",
-			Kind:        superpixel_metrics.SpMetricParameterKindInt,
-			Title:       "Max Islands",
-			Description: "Maximum number of islands to consider for the regularity score calculation. If set to 0, all islands will be considered.",
-			Default:     5,
-			Min:         0,
-			Max:         math.MaxInt,
-		},
-	}
 	superpixel_metrics.RegisterSpMetric(
 		"regularity_score",
 		"Regularity Score",
 		"Computes the regularity score of the superpixel segmentation.",
 		1.0,
 		runWithParams,
-		parameterInfo,
+		nil,
 	)
 }
 
 func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
-	return Run(result, groundTruth, uint16(params["max_islands"]))
+	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint16) (regularityCalibrationScore float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityCalibrationScore float64, err error) {
 
 	// Check that images are valid
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
@@ -49,29 +38,27 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 	// Prepare metrics
 	cumulativeRegularityCalibrationScore := 0.0
 
-	// Choose the number of islands to evaluate
-	if maxIslands <= 0 {
-		maxIslands = groundTruthIslandCount
-	}
-	if maxIslands > groundTruthIslandCount {
-		maxIslands = groundTruthIslandCount
-	}
-
 	// Return early
-	if maxIslands == 0 {
+	if groundTruthIslandCount == 0 {
 		return 0.0, nil
 	}
 
+	// The superpixel fill ratio and aspect ratio do not depend on any particular island, so compute
+	// them once instead of redundantly recomputing them on every loop iteration.
+	superpixelFillRatio := fillRatioOfOwnBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
+	superpixelAspectRatio := aspectRatioOfBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
+
+	// Compute the fill ratio and aspect ratio of every ground truth island in a single pass over
+	// the image, instead of re-scanning the whole image (via SelectIsland + fillRatioOfOwnBoundingBox)
+	// once per island.
+	islandFillRatios := fillRatioOfOwnBoundingBoxPerIsland(groundTruthIslands, groundTruthIslandCount)
+	islandAspectRatios := aspectRatioOfBoundingBoxPerIsland(groundTruthIslands, groundTruthIslandCount)
+
 	// Evaluate islands
-	for i := uint16(1); i <= maxIslands; i++ {
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, i)
-
+	for i := uint16(1); i <= groundTruthIslandCount; i++ {
 		// Regularity Calibration Score
-		groundTruthFillRatio := fillRatioOfOwnBoundingBox(currentGroundTruthIsland)
-		superpixelFillRatio := fillRatioOfOwnBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
-		groundTruthAspectRatio := aspectRatioOfBoundingBox(currentGroundTruthIsland)
-		superpixelAspectRatio := aspectRatioOfBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
-
+		groundTruthFillRatio := islandFillRatios[i]
+		groundTruthAspectRatio := islandAspectRatios[i]
 		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
 			currentScore := math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
 			currentScore *= math.Min(groundTruthAspectRatio, superpixelAspectRatio) / math.Max(groundTruthAspectRatio, superpixelAspectRatio)
@@ -80,7 +67,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16, maxIslands uint1
 	}
 
 	// Calculate the final metric
-	regularityCalibrationScore = cumulativeRegularityCalibrationScore / float64(maxIslands)
+	regularityCalibrationScore = cumulativeRegularityCalibrationScore / float64(groundTruthIslandCount)
 
 	return regularityCalibrationScore, nil
 
