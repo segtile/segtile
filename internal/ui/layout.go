@@ -63,7 +63,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
-							return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Optimize")
+							return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Suggest Parameters")
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							HandleUiButtonClick(appState, gtx, &appState.SaveButton)
