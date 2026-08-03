@@ -21,7 +21,7 @@ func init() {
 			Kind:        superpixel_optimizer.SpOptimizerParameterKindInt,
 			Title:       "Passes",
 			Description: "Number of passes to perform over the parameters. Each pass will attempt to optimize each parameter in turn.",
-			Default:     3,
+			Default:     8,
 			Min:         1,
 			Max:         math.MaxInt,
 		},
@@ -163,7 +163,7 @@ func optimizeAlgorithm(
 
 				completedTrials++
 				percentComplete := min(99, completedTrials*100/estimatedTrials)
-				if err := progressIndicator.Update(fmt.Sprintf("%s: pass %d, %s=%.4g", algorithm, pass+1, paramName, candidate), percentComplete); err != nil {
+				if err := progressIndicator.Update(fmt.Sprintf("Pass %d, %s=%.2f", pass+1, paramName, bestParams[paramName]), percentComplete); err != nil {
 					return 0, nil, err
 				}
 				score, err := evaluate(ctx, algorithm, metric, imagePairs, trialParams)
@@ -272,7 +272,7 @@ func probeValues(currentValue, initialValue float64) []float64 {
 
 	// Finer probing around the current best value
 	if currentValue > 0 {
-		for _, factor := range []float64{0.5, 0.75, 0.875, 1.0, 1.125, 1.25, 1.5, 2.0} {
+		for _, factor := range []float64{0.5, 0.75, 0.875, 0.95, 0.99, 1.0, 1.01, 1.05, 1.125, 1.25, 1.5, 2.0} {
 			add(currentValue * factor)
 		}
 	}
