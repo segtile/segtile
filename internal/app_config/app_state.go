@@ -258,8 +258,6 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 	return nil
 }
 
-// TODO: Do we need this custom struct? Perhaps it is possible to just pass in the pointer and error as two parameters.
-
 // ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectLoadingResult(r ProjectLoadingResult) {
 	appState.CurrentlyLoadingProject = false
