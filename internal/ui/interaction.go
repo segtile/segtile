@@ -175,8 +175,10 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if selectionChanged {
-				labelMap := appState.ActiveResult.LabelMap
-				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
+				// For testing: Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
+				appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(labelMap, appState.SelectionIndex)
+
+				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveResult.LabelMap, appState.SelectionIndex)
 				appState.Window.Invalidate()
 			}
 		}
