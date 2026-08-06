@@ -119,10 +119,11 @@ func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool)
 		p.MoveTo(seg[0])
 		p.LineTo(seg[1])
 	}
-	return p.End()
 
 	//end := time.Now().UnixMicro()
 	//fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
+	return p.End()
+
 }
 
 // CalculateOutlineFromMask computes a clip.PathSpec that traces the border between

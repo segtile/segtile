@@ -163,7 +163,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
 				if pe.Modifiers&key.ModShift != 0 {
 					// If shift is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillSelection(labelMap, int(imageX), int(imageY), appState.SelectionIndex)
+					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(labelMap, int(imageX), int(imageY), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
@@ -175,8 +175,10 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if selectionChanged {
-				labelMap := appState.ActiveResult.LabelMap
-				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*labelMap, appState.SelectionIndex)
+				// For testing: Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
+				appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(labelMap, appState.SelectionIndex)
+
+				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveResult.LabelMap, appState.SelectionIndex)
 				appState.Window.Invalidate()
 			}
 		}
