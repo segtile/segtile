@@ -240,7 +240,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 		}
 	}
 
-	// Build result ---------------------------------------------------------
+	// Build result
 	resultLabelMap := image.NewGray16(img.Bounds())
 	for y := range height {
 		for x := range width {
