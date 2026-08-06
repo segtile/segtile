@@ -152,7 +152,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 
 	label := 0
 
-	// Main loop: grow one superpixel per iteration --------------------------
+	// Main loop: grow one superpixel per iteration
 	for len(seeds) > 0 {
 		// Dequeue seed
 		seedIdx := seeds[0]
