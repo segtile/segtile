@@ -118,7 +118,7 @@ func Run(img image.Image, count int, compactness float64, initialPerturbationNei
 	}
 
 	// Perform algorithm steps
-	superpixel_utils.BuildLab(img, &state.labCache)
+	superpixel_utils.BuildLabCache(img, &state.labCache)
 	state.initializeClusters()
 
 	for i := 0; i < state.iterations; i++ {

@@ -15,12 +15,12 @@ This is an implementation of SNIC superpixels, based on the original paper.
 */
 
 import (
-	"container/heap"
 	"errors"
 	"image"
 	"image/color"
 	"math"
 
+	"github.com/emirpasic/gods/v2/queues/priorityqueue"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -104,8 +104,8 @@ func Run(img image.Image, count int, compactness float64, initialPerturbationNei
 		state.labelMap[i] = -1
 	}
 
-	// Perform algorithm steps
-	superpixel_utils.BuildLab(img, &state.labCache)
+	// Main steps
+	superpixel_utils.BuildLabCache(img, &state.labCache)
 	state.initializeClusters()
 	state.growSuperpixels()
 
@@ -158,36 +158,17 @@ type snicQueueItem struct {
 	x, y         int
 	clusterIndex int
 	distance     float64
-	index        int // Index of the item in the heap, required by container/heap.
 }
 
-// snicPriorityQueue implements heap.Interface for a min-heap ordered by distance.
-type snicPriorityQueue []*snicQueueItem
-
-func (pq snicPriorityQueue) Len() int { return len(pq) }
-
-func (pq snicPriorityQueue) Less(i, j int) bool { return pq[i].distance < pq[j].distance }
-
-func (pq snicPriorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
-	pq[i].index = i
-	pq[j].index = j
-}
-
-func (pq *snicPriorityQueue) Push(x interface{}) {
-	item := x.(*snicQueueItem)
-	item.index = len(*pq)
-	*pq = append(*pq, item)
-}
-
-func (pq *snicPriorityQueue) Pop() interface{} {
-	old := *pq
-	n := len(old)
-	item := old[n-1]
-	old[n-1] = nil
-	item.index = -1
-	*pq = old[:n-1]
-	return item
+func snicQueueItemComparator(a, b snicQueueItem) int {
+	switch {
+	case a.distance < b.distance:
+		return -1
+	case a.distance > b.distance:
+		return 1
+	default:
+		return 0
+	}
 }
 
 // The distance measure used to assign pixels to clusters, matching the SLIC formulation.
@@ -273,17 +254,13 @@ func (state *snicState) initializeClusters() {
 	}
 }
 
-// growSuperpixels expands each cluster from its center using a priority queue.
-// Pixels are assigned to the first cluster that reaches them with the smallest distance,
-// and cluster centroids are updated incrementally as pixels are assigned.
 func (state *snicState) growSuperpixels() {
 
-	pq := make(snicPriorityQueue, 0, state.imgPixelCount)
-	heap.Init(&pq)
+	pq := priorityqueue.NewWith(snicQueueItemComparator)
 
 	// Seed the priority queue with the initial cluster centers.
 	for i, cluster := range state.clusters {
-		heap.Push(&pq, &snicQueueItem{
+		pq.Enqueue(snicQueueItem{
 			x:            cluster.x,
 			y:            cluster.y,
 			clusterIndex: i,
@@ -295,8 +272,8 @@ func (state *snicState) growSuperpixels() {
 	dx4 := [4]int{-1, 0, 1, 0}
 	dy4 := [4]int{0, -1, 0, 1}
 
-	for pq.Len() > 0 {
-		item := heap.Pop(&pq).(*snicQueueItem)
+	for !pq.Empty() {
+		item, _ := pq.Dequeue()
 		index := item.y*state.imgWidth + item.x
 
 		// Skip pixels that have already been assigned to another cluster.
@@ -335,7 +312,7 @@ func (state *snicState) growSuperpixels() {
 				continue
 			}
 			distance := state.distance(*cluster, nx, ny)
-			heap.Push(&pq, &snicQueueItem{
+			pq.Enqueue(snicQueueItem{
 				x:            nx,
 				y:            ny,
 				clusterIndex: item.clusterIndex,
