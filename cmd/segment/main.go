@@ -15,8 +15,10 @@ import (
 	"github.com/struffel/annotation-tool/internal/cli"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/wasserstein"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 

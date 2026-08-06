@@ -5,6 +5,7 @@ go 1.26.1
 require (
 	gioui.org v0.10.0
 	gioui.org/x v0.10.0
+	github.com/emirpasic/gods/v2 v2.0.0-alpha
 	github.com/goccy/go-yaml v1.19.2
 	github.com/lucasb-eyer/go-colorful v1.4.0
 	github.com/ncruces/zenity v0.10.14
