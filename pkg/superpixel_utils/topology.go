@@ -72,7 +72,7 @@ func CountBorderingSuperpixels(labelMap *image.Gray16, selection []bool) (select
 }
 
 // When clicking on an unselected superpixel, add all connected and still unselected superpixels to the selection
-func SuperpixelFloodFillSelection(labelMap *image.Gray16, x, y int, selection []bool) (newSelection []bool) {
+func SuperpixelFloodFillFromPoint(labelMap *image.Gray16, x, y int, selection []bool) (newSelection []bool) {
 	targetLabel := labelMap.Gray16At(x, y).Y
 	if targetLabel == 0 || selection[targetLabel] {
 		return selection
