@@ -26,63 +26,42 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-type AppState struct {
-
-	// Project
-	Settings   *ProjectSettings
-	ImageFiles []string
-
-	// ActiveResult
-	ActiveResult superpixel.SpResult
-
-	// Images
-	CurrentImage *image.NRGBA
-	ExistingMask *image.Gray16
-	CurrentIndex int
-
-	// Selected superpixels
-	SelectionIndex []bool
-
-	// Render cache (rebuilt only when data changes, not every frame)
-	ImgBaseOp            paint.ImageOp
-	SelectionPathSpec    clip.PathSpec
-	HoverPathSpec        clip.PathSpec
-	ExistingMaskPathSpec clip.PathSpec
+// UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
+type UiState struct {
 
 	// UI state
-	Window                          *app.Window
-	Toasts                          giotoast.Queue
-	CanvasTag                       bool
-	Theme                           *app_theme.AppTheme
+	Window    *app.Window
+	Toasts    giotoast.Queue
+	CanvasTag bool
+
+	// Theme
+	Theme *app_theme.AppTheme
+
+	// Superpixel Editors
 	SuperpixelParameterEditors      []widget.Editor
 	SuperpixelParameterEditorIds    []string
 	SuperpixelParameterEditorTitles []string
-	RenderSelectionOutlines         bool
+	OptimizeParameterCheckboxes     []widget.Bool
 
-	EnableAutoFloodFill         widget.Bool
-	OptimizeParameterCheckboxes []widget.Bool
-	FirstButton                 widget.Clickable
-	LastButton                  widget.Clickable
-	PrevUnlabeledButton         widget.Clickable
-	PrevButton                  widget.Clickable
-	NextUnlabeledButton         widget.Clickable
-	NextButton                  widget.Clickable
-	OpenProjectButton           widget.Clickable
-	NewProjectButton            widget.Clickable
-	OptimizeButton              widget.Clickable
-	SaveButton                  widget.Clickable
+	// Image navigation buttons
+	FirstButton         widget.Clickable
+	LastButton          widget.Clickable
+	PrevUnlabeledButton widget.Clickable
+	PrevButton          widget.Clickable
+	NextUnlabeledButton widget.Clickable
+	NextButton          widget.Clickable
 
+	// Project buttons
+	OpenProjectButton widget.Clickable
+	NewProjectButton  widget.Clickable
+	OptimizeButton    widget.Clickable
+	SaveButton        widget.Clickable
+
+	// Superpixel algorithm controls
 	ChangeSpAlgorithmButton     widget.Clickable
 	SpAlgorithmMenuButtons      []widget.Clickable
 	SpAlgorithmMenuAlgorithmIds []string
 	SpAlgoritmMenuTitles        []string
-	SpAlgorithmMenuOpen         bool
-
-	// State for loading operations
-	CurrentlyLoadingProject bool
-	ProjectLoadResult       chan ProjectLoadingResult
-	CurrentlyOptimizing     bool
-	OptimizationResult      chan superpixel_optimizer.SpOptimizerResult
 
 	// Hover state
 	IsPanning        bool
@@ -90,30 +69,65 @@ type AppState struct {
 	KeyboardTag      bool
 	InitialFocusDone bool
 
+	// Other UI state
+	EnableAutoFloodFill     widget.Bool
+	SpAlgorithmMenuOpen     bool
+	RenderSelectionOutlines bool
+
 	// View transform
 	ViewScale, ViewOffsetX, ViewOffsetY float32
 	FitToWindow                         bool
-
-	// Display settings
-
 }
 
-func NewSuperpixelSettings() SuperpixelSettings {
-	defaultParameters, _ := superpixel.GetDefaultParameterValues(defaultSpAlgorithmId)
-	return SuperpixelSettings{
-		SpAlgorithmId:         defaultSpAlgorithmId,
-		SpAlgorithmParameters: defaultParameters,
-	}
+// CacheState holds cached rendering data (rebuilt when selection or image transform changes, not every frame)
+type CacheState struct {
+	ImgBaseOp            paint.ImageOp
+	SelectionPathSpec    clip.PathSpec
+	HoverPathSpec        clip.PathSpec
+	ExistingMaskPathSpec clip.PathSpec
+}
+
+// LoadingState holds the state of background loading and optimization operations.
+type LoadingState struct {
+	// State for loading operations
+	CurrentlyLoadingProject bool
+	ProjectLoadResult       chan ProjectLoadingResult
+	CurrentlyOptimizing     bool
+	OptimizationResult      chan superpixel_optimizer.SpOptimizerResult
+}
+
+// AppState holds the entire state of the application.
+type AppState struct {
+	UiState
+	CacheState
+	LoadingState
+
+	// Project
+	Settings        *ProjectSettings
+	ImageFiles      []string
+	ImageFilesIndex int
+
+	// Bitmaps and Superpixel
+	ActiveImage             *image.NRGBA
+	ActiveImageExistingMask *image.Gray16
+	ActiveSp                superpixel.SpResult
+
+	// Selection
+	SelectionIndex []bool
 }
 
 func NewAppState() *AppState {
 
 	appState := &AppState{
-		FitToWindow:             true,
-		RenderSelectionOutlines: true,
-		Theme:                   app_theme.Theme,
-		ProjectLoadResult:       make(chan ProjectLoadingResult, 1),
-		OptimizationResult:      make(chan superpixel_optimizer.SpOptimizerResult, 1),
+		UiState: UiState{
+			RenderSelectionOutlines: true,
+			Theme:                   app_theme.Theme,
+			FitToWindow:             true,
+		},
+		LoadingState: LoadingState{
+			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),
+			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),
+		},
 	}
 
 	// Initialize the superpixel algorithm menu. The possible values do not change after compilation.
@@ -221,7 +235,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 	appState.RebuildEditors()
 
 	// Recalculate the superpixels for the current image
-	if appState.CurrentImage != nil {
+	if appState.ActiveImage != nil {
 		appState.RecalculateSuperpixels(true, true)
 	}
 
@@ -233,9 +247,9 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Save the old image before loading the new project
-	if appState.CurrentImage != nil {
+	if appState.ActiveImage != nil {
 		appState.SaveCurrentMask(false, true)
-		appState.CurrentImage = nil
+		appState.ActiveImage = nil
 	}
 
 	// Apply the new settings
@@ -252,7 +266,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 	}
 
 	appState.ImageFiles = imageFiles
-	appState.CurrentIndex = 0
+	appState.ImageFilesIndex = 0
 	appState.loadImageAtIndex(0)
 
 	return nil
@@ -278,31 +292,31 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 
 	// Snapshot the current selection as a mask before the labels change
 	var oldSelectionMask *image.Gray16
-	if preserveSelection && appState.ActiveResult.SpCount > 0 && len(appState.SelectionIndex) > 0 {
-		oldSelectionMask = appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
+	if preserveSelection && appState.ActiveSp.SpCount > 0 && len(appState.SelectionIndex) > 0 {
+		oldSelectionMask = appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
 	}
 
 	// Re-run the superpixel algorithm
 	newResult, err := superpixel.Run(
 		appState.Settings.Superpixel.SpAlgorithmId,
-		appState.CurrentImage,
+		appState.ActiveImage,
 		appState.Settings.Superpixel.SpAlgorithmParameters)
 	if err != nil {
 		return err
 	}
 
-	appState.ActiveResult = newResult
+	appState.ActiveSp = newResult
 
 	// Restore the selection by matching old mask pixels to new superpixels,
 	// or reset to an empty selection when there was no previous result.
 	if oldSelectionMask != nil {
-		appState.SelectionIndex = appState.ActiveResult.SelectFromMask(oldSelectionMask, 0.5)
+		appState.SelectionIndex = appState.ActiveSp.SelectFromMask(oldSelectionMask, 0.5)
 	} else {
-		appState.SelectionIndex = make([]bool, appState.ActiveResult.SpCount)
+		appState.SelectionIndex = make([]bool, appState.ActiveSp.SpCount)
 	}
 
 	// Rebuild the selection outline path spec for rendering
-	appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveResult.LabelMap, appState.SelectionIndex)
+	appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)
 
 	// Log
 	end := time.Now().UnixMicro()
@@ -317,16 +331,16 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 }
 
 func (appState *AppState) LoadNextImage() {
-	if appState.CurrentIndex < len(appState.ImageFiles)-1 {
-		appState.loadImageAtIndex(appState.CurrentIndex + 1)
+	if appState.ImageFilesIndex < len(appState.ImageFiles)-1 {
+		appState.loadImageAtIndex(appState.ImageFilesIndex + 1)
 	} else {
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "This is the last image.", time.Second)
 	}
 }
 
 func (appState *AppState) LoadPreviousImage() {
-	if appState.CurrentIndex > 0 {
-		appState.loadImageAtIndex(appState.CurrentIndex - 1)
+	if appState.ImageFilesIndex > 0 {
+		appState.loadImageAtIndex(appState.ImageFilesIndex - 1)
 	} else {
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "This is the first image.", time.Second)
 	}
@@ -346,7 +360,7 @@ func (appState *AppState) LoadLastImage() {
 
 // LoadNextUnlabeledImage finds the next image without an existing mask file and loads it.
 func (appState *AppState) LoadNextUnlabeledImage() {
-	for i := appState.CurrentIndex + 1; i < len(appState.ImageFiles); i++ {
+	for i := appState.ImageFilesIndex + 1; i < len(appState.ImageFiles); i++ {
 		maskPath := appState.maskPathForIndex(i)
 		if _, err := os.Stat(maskPath); os.IsNotExist(err) {
 			appState.loadImageAtIndex(i)
@@ -357,7 +371,7 @@ func (appState *AppState) LoadNextUnlabeledImage() {
 
 // LoadPreviousUnlabeledImage finds the previous image without an existing mask file and loads it.
 func (appState *AppState) LoadPreviousUnlabeledImage() {
-	for i := appState.CurrentIndex - 1; i >= 0; i-- {
+	for i := appState.ImageFilesIndex - 1; i >= 0; i-- {
 		maskPath := appState.maskPathForIndex(i)
 		if _, err := os.Stat(maskPath); os.IsNotExist(err) {
 			appState.loadImageAtIndex(i)
@@ -371,32 +385,32 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
-	if appState.CurrentImage != nil && appState.SelectionMade() {
+	if appState.ActiveImage != nil && appState.SelectionMade() {
 		appState.SaveCurrentMask(false, false)
 	}
 
 	// Update the current image and run the superpixel algorithm
-	appState.CurrentImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
+	appState.ActiveImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
 	err := appState.RecalculateSuperpixels(false, false)
 	if err != nil {
 		return err
 	}
 
 	// Reset the outline for showing the existing mask
-	appState.ExistingMask = nil
+	appState.ActiveImageExistingMask = nil
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
 		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
-			appState.ExistingMask = loadedMask
+			appState.ActiveImageExistingMask = loadedMask
 			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
 		}
 	}
 
 	// Rebuild image paint op.
-	appState.ImgBaseOp = paint.NewImageOp(appState.CurrentImage)
+	appState.ImgBaseOp = paint.NewImageOp(appState.ActiveImage)
 	appState.ImgBaseOp.Filter = paint.FilterNearest
 
 	// Reset view and hover.
@@ -405,7 +419,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	appState.SyncEditors()
 
-	appState.CurrentIndex = i
+	appState.ImageFilesIndex = i
 	appState.Window.Invalidate()
 
 	return nil
@@ -415,13 +429,13 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 // SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
 func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
-	if appState.ActiveResult.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
+	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
 
 		// Rasterize the current selection
-		mask := appState.ActiveResult.SelectionToMask(appState.SelectionIndex)
+		mask := appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
 
 		// Save as image
-		outPath := appState.maskPathForIndex(appState.CurrentIndex)
+		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
 		err := io_utils.SaveImage(outPath, mask)
 
 		if err != nil {

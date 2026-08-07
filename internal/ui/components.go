@@ -189,8 +189,8 @@ func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) la
 }
 
 func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
-	atFirstImage := appState.CurrentIndex == 0
-	atLastImage := appState.CurrentIndex == len(appState.ImageFiles)-1
+	atFirstImage := appState.ImageFilesIndex == 0
+	atLastImage := appState.ImageFilesIndex == len(appState.ImageFiles)-1
 
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

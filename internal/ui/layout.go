@@ -99,9 +99,9 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								// Image counter label.
 								if len(appState.ImageFiles) > 0 {
 									counter := fmt.Sprintf("%d / %d  —  %s",
-										appState.CurrentIndex+1,
+										appState.ImageFilesIndex+1,
 										len(appState.ImageFiles),
-										filepath.Base(appState.ImageFiles[appState.CurrentIndex]),
+										filepath.Base(appState.ImageFiles[appState.ImageFilesIndex]),
 									)
 									children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										lbl := material.Body2(&appState.Theme.GioTheme, counter)
@@ -191,9 +191,9 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								})
 							} else {
 								// Project loaded: draw the image.
-								if appState.CurrentImage != nil {
-									imageWidth := float32(appState.CurrentImage.Bounds().Dx())
-									imageHeight := float32(appState.CurrentImage.Bounds().Dy())
+								if appState.ActiveImage != nil {
+									imageWidth := float32(appState.ActiveImage.Bounds().Dx())
+									imageHeight := float32(appState.ActiveImage.Bounds().Dy())
 									canvasWidth := float32(canvasSize.X)
 									canvasHeight := float32(canvasSize.Y)
 

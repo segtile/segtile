@@ -24,6 +24,14 @@ type SuperpixelSettings struct {
 	SpAlgorithmParameters map[string]float64 `yaml:"parameters"`
 }
 
+func NewSuperpixelSettings() SuperpixelSettings {
+	defaultParameters, _ := superpixel.GetDefaultParameterValues(defaultSpAlgorithmId)
+	return SuperpixelSettings{
+		SpAlgorithmId:         defaultSpAlgorithmId,
+		SpAlgorithmParameters: defaultParameters,
+	}
+}
+
 // normalizeSuperpixelSettings ensures that the SuperpixelSettings are consistent and complete.
 // It fills in default values for missing parameters and removes any unknown parameters.
 func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
