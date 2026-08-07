@@ -59,8 +59,7 @@ type AppState struct {
 	SuperpixelParameterEditorTitles []string
 	RenderSelectionOutlines         bool
 
-	// Selection of which superpixel parameters should be optimized. Aligned with
-	// SuperpixelParameterEditors/Ids/Titles by index.
+	EnableAutoFloodFill         widget.Bool
 	OptimizeParameterCheckboxes []widget.Bool
 	FirstButton                 widget.Clickable
 	LastButton                  widget.Clickable

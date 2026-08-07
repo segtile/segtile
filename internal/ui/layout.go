@@ -91,7 +91,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							paint.PaintOp{}.Add(gtx.Ops)
 							sidebarClip.Pop()
 
-							// Layout sliders inside the sidebar
+							// Layout buttons and editors
 							inset := layout.UniformInset(unit.Dp(8))
 							return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								var children []layout.FlexChild
@@ -124,6 +124,14 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								// Draw the superpixel parameter editors
 								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return drawSpSettingsEditors(gtx, appState)
+								}))
+
+								// Spacer between param editors and navigation controls.
+								children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
+
+								// Auto flood fill checkbox
+								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
 								}))
 
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
