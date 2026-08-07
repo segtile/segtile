@@ -47,34 +47,19 @@ func init() {
 			Min:         0,
 			Max:         250,
 		},
-		{
-			Id:          "initial_perturbation_neighborhood_radius",
-			Title:       "Initial Perturbation Neighborhood Radius",
-			Description: "The radius of the neighborhood in which the initial cluster centers are perturbed to avoid placing them on edges.",
-			Kind:        superpixel.SpParameterKindInt,
-			Default:     1,
-			Min:         0,
-			Max:         16,
-		},
-		{
-			Id:          "iterations",
-			Title:       "Iterations",
-			Description: "The number of iterations to run the SLIC algorithm.",
-			Kind:        superpixel.SpParameterKindInt,
-			Default:     8,
-			Min:         1,
-			Max:         100,
-		},
 	}
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
-		return Run(img, int(params["count"]), params["compactness"], int(params["initial_perturbation_neighborhood_radius"]), int(params["iterations"]))
+		return Run(img, int(params["count"]), params["compactness"])
 	}
 	superpixel.RegisterSpAlgorithm("slic", "SLIC", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
 }
 
 // This is the new run function.
 // It works like the old one, but no longer uses a stateful struct, instead it is completely functional.
-func Run(img image.Image, count int, compactness float64, initialPerturbationNeighborhoodRadius int, iterations int) (superpixel.SpResult, error) {
+func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, error) {
+
+	const initialPerturbationNeighborhoodRadius = 1
+	const iterations = 8
 
 	// Validate Parameters
 
