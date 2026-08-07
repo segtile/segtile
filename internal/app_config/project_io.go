@@ -1,10 +1,13 @@
 package app_config
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/goccy/go-yaml"
+	"github.com/ncruces/zenity"
+	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
@@ -65,13 +68,12 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 	return nil
 }
 
-// ProjectSettings stores all settings of a project,
-// it is used for yaml persistence.
+// ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml file, it is derived from the location of the settings file.
+	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
 	InputDirectory      string             `yaml:"input_directory"`
 	Superpixel          SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill bool               `yaml:"enable_auto_flood_fill"`
+	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
 }
 
 // Load reads and unmarshals a config file from the given path.
@@ -127,4 +129,40 @@ func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSetting
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
+func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoadingResult) {
+	appState.CurrentlyLoadingProject = false
+	if loadingResult.Err == zenity.ErrCanceled || loadingResult.Settings == nil {
+		return
+	}
+	if loadingResult.Err != nil {
+		log.Printf("Failed to open project: %v", loadingResult.Err)
+		return
+	}
+
+	// Save the old image before loading the new project
+	if appState.ActiveImage != nil {
+		appState.SaveCurrentMask(false, true)
+		appState.ActiveImage = nil
+	}
+
+	// Apply the new settings
+	appState.Settings = loadingResult.Settings
+	appState.EnableAutoFloodFill.Value = loadingResult.Settings.EnableAutoFloodFill
+
+	// Rebuild editors
+	appState.RebuildEditors()
+
+	// List all image files in the input directory
+	imageFiles, err := io_utils.ListFiles(loadingResult.Settings.InputDirectory)
+	if err != nil || len(imageFiles) == 0 {
+		log.Printf("Could not list input directory %q: %v", loadingResult.Settings.InputDirectory, err)
+		return
+	}
+
+	appState.ImageFiles = imageFiles
+	appState.ImageFilesIndex = 0
+	appState.loadImageAtIndex(0)
 }
