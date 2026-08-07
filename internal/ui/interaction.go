@@ -59,6 +59,14 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 
 	}
+
+	// Persist the auto flood fill setting whenever it is toggled.
+	if appState.EnableAutoFloodFill.Update(gtx) {
+		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
+		if err := app_config.Save(appState.Settings); err != nil {
+			fmt.Println("Warning: could not save config:", err)
+		}
+	}
 }
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {

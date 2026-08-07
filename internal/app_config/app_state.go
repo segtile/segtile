@@ -240,6 +240,7 @@ func (appState *AppState) ApplyProject(projectSettings *ProjectSettings) error {
 
 	// Apply the new settings
 	appState.Settings = projectSettings
+	appState.EnableAutoFloodFill.Value = projectSettings.EnableAutoFloodFill
 
 	// Rebuild editors
 	appState.RebuildEditors()

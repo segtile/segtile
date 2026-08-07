@@ -60,9 +60,10 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 // ProjectSettings stores all settings of a project,
 // it is used for yaml persistence.
 type ProjectSettings struct {
-	OutputDirectory string             `yaml:"-"` // The output directory is not persisted in the yaml file, it is derived from the location of the settings file.
-	InputDirectory  string             `yaml:"input_directory"`
-	Superpixel      SuperpixelSettings `yaml:"superpixel"`
+	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml file, it is derived from the location of the settings file.
+	InputDirectory      string             `yaml:"input_directory"`
+	Superpixel          SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill bool               `yaml:"enable_auto_flood_fill"`
 }
 
 // Load reads and unmarshals a config file from the given path.
