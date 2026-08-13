@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"path/filepath"
 
@@ -105,9 +106,14 @@ func drawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *
 				return iconLabel.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return label.Layout(gtx)
 			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return drawDivider(gtx, theme, unit.Dp(2))
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		)
 	})
 }
@@ -125,10 +131,7 @@ func drawSidebarSection(gtx layout.Context, appState *app_config.AppState, title
 				return layout.Dimensions{}
 			}
 			return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-					layout.Rigid(body),
-				)
+				return body(gtx)
 			})
 		}),
 	)
@@ -137,6 +140,8 @@ func drawSidebarSection(gtx layout.Context, appState *app_config.AppState, title
 func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Images", appState.ImagesSectionOpen, &appState.ImagesSectionButton, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+
+			// Image name and counter
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if len(appState.ImageFiles) == 0 {
 					return layout.Dimensions{}
@@ -370,4 +375,13 @@ func drawStroke(
 			}.Op())
 		stack.Pop()
 	}
+}
+
+func drawDivider(gtx layout.Context, theme *app_theme.AppTheme, thickness unit.Dp) layout.Dimensions {
+	w := gtx.Dp(thickness)
+	size := image.Pt(gtx.Constraints.Max.X, w)
+
+	// Alpha = 128 -> 50 % opacity
+	paint.FillShape(gtx.Ops, color.NRGBA{R: theme.GioTheme.Fg.R, G: theme.GioTheme.Fg.G, B: theme.GioTheme.Fg.B, A: 128}, clip.Rect{Max: size}.Op())
+	return layout.Dimensions{Size: size}
 }
