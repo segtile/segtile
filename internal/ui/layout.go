@@ -84,21 +84,18 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							paint.PaintOp{}.Add(gtx.Ops)
 							sidebarClip.Pop()
 
-							// Draw sidebar sections
-							inset := layout.UniformInset(unit.Dp(8))
-							return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return drawImagesSection(gtx, appState)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return drawSuperpixelSection(gtx, appState)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return drawMiscSection(gtx, appState)
-									}),
-								)
-							})
+							// Draw sidebar sections.
+							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return drawImagesSection(gtx, appState)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return drawSuperpixelSection(gtx, appState)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return drawMiscSection(gtx, appState)
+								}),
+							)
 						}),
 
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
