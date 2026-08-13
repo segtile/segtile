@@ -1,9 +1,6 @@
 package ui
 
 import (
-	"fmt"
-	"path/filepath"
-
 	"gioui.org/f32"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -20,19 +17,16 @@ import (
 func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 	// Disable the entire UI if a background operation owns project state.
-	if appState.CurrentlyLoadingProject || appState.CurrentlyOptimizing {
+	if appState.UiLocked() {
 		gtx = gtx.Disabled()
 	}
 
 	// Determine if a project is loaded
 	projectLoaded := appState.Settings != nil
 
-	// This is the size of the window
-	size := gtx.Constraints.Max
-
 	// We set up a clipping area that covers the entire window.
 	// This ensures that all drawing operations are confined to the window bounds, preventing any rendering outside the visible area.
-	bgClip := clip.Rect{Max: size}.Push(gtx.Ops)
+	bgClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 
 	// Fill the background with a solid color (dark gray)
 	paint.ColorOp{Color: appState.Theme.GioTheme.Palette.Bg}.Add(gtx.Ops)
@@ -87,76 +81,38 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							// Draw sidebar background
 							sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 							paint.ColorOp{Color: appState.Theme.GioTheme.Palette.Bg}.Add(gtx.Ops)
-							//paint.ColorOp{Color: color.NRGBA{R: 25, G: 25, B: 25, A: 255}}.Add(gtx.Ops)
 							paint.PaintOp{}.Add(gtx.Ops)
 							sidebarClip.Pop()
 
-							// Layout buttons and editors
+							// Draw sidebar sections
 							inset := layout.UniformInset(unit.Dp(8))
 							return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								var children []layout.FlexChild
-
-								// Image counter label.
-								if len(appState.ImageFiles) > 0 {
-									counter := fmt.Sprintf("%d / %d  —  %s",
-										appState.ImageFilesIndex+1,
-										len(appState.ImageFiles),
-										filepath.Base(appState.ImageFiles[appState.ImageFilesIndex]),
-									)
-									children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										lbl := material.Body2(&appState.Theme.GioTheme, counter)
-										lbl.Color = appState.Theme.GioTheme.ContrastFg
-										return lbl.Layout(gtx)
-									}))
-								}
-
-								// Spacer
-								children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout))
-
-								// Image navigation buttons.
-								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return drawImageNavigationButtons(appState, gtx)
-								}))
-
-								// Spacer between param editors and navigation controls.
-								children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
-
-								// Draw the superpixel parameter editors
-								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return drawSpSettingsEditors(gtx, appState)
-								}))
-
-								// Spacer between param editors and navigation controls.
-								children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
-
-								// Auto flood fill checkbox
-								children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
-								}))
-
-								return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return drawImagesSection(gtx, appState)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return drawSuperpixelSection(gtx, appState)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return drawMiscSection(gtx, appState)
+									}),
+								)
 							})
-
 						}),
-						// Main canvas
+
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-
-							// Set clipping area to the canvas size and register it for events
 							canvasClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-
-							// Register the canvas area to receive pointer and keyboard events
 							event.Op(gtx.Ops, &appState.CanvasTag)
 							event.Op(gtx.Ops, &appState.KeyboardTag)
 							key.InputHintOp{Tag: &appState.KeyboardTag}.Add(gtx.Ops)
 
-							// Set initial keyboard focus so the F key works without requiring a click first
 							if !appState.InitialFocusDone {
 								gtx.Execute(key.FocusCmd{Tag: &appState.KeyboardTag})
 								appState.InitialFocusDone = true
 							}
 
 							if !projectLoaded {
-								// No project loaded: show centered New Project / Open Project buttons.
 								promptText := "Create a new project or open an existing one."
 								if appState.CurrentlyLoadingProject {
 									promptText = "Loading project…"
@@ -173,7 +129,6 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 											if appState.NewProjectButton.Clicked(gtx) {
 												triggerNewProject(appState)
 											}
-
 											gtx.Constraints.Min.X = gtx.Dp(220)
 											return drawBigButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
 										}),
@@ -182,46 +137,32 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 											if appState.OpenProjectButton.Clicked(gtx) {
 												triggerOpenProject(appState)
 											}
-
 											gtx.Constraints.Min.X = gtx.Dp(220)
 											return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
 										}),
 									)
 								})
-							} else {
-								// Project loaded: draw the image.
-								if appState.ActiveImage != nil {
-
-									// Fit the image to the window if requested
-									if appState.FitToWindow {
-										appState.FitImageToWindow(gtx.Constraints.Max)
-										appState.FitToWindow = false
-									}
-
-									// Build the image-to-canvas affine transform
-									transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.ViewScale, appState.ViewScale)).Offset(f32.Pt(appState.ViewOffsetX, appState.ViewOffsetY))
-
-									// Draw the base image using the cached ImageOp
-									stack := op.Affine(transformation).Push(gtx.Ops)
-									appState.ImgBaseOp.Add(gtx.Ops)
-									paint.PaintOp{}.Add(gtx.Ops)
-									stack.Pop()
-
-									// Draw hover outline using cached path spec
-									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
-
-									if appState.RenderSelectionOutlines {
-										// Draw selection outline for the current selection
-										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
-
-										if !appState.SelectionMade() {
-
-											// Draw existing mask outline for any mask loaded from disk
-											drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
-										}
-									}
+							} else if appState.ActiveImage != nil {
+								if appState.FitToWindow {
+									appState.FitImageToWindow(gtx.Constraints.Max)
+									appState.FitToWindow = false
 								}
 
+								transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.ViewScale, appState.ViewScale)).Offset(f32.Pt(appState.ViewOffsetX, appState.ViewOffsetY))
+
+								stack := op.Affine(transformation).Push(gtx.Ops)
+								appState.ImgBaseOp.Add(gtx.Ops)
+								paint.PaintOp{}.Add(gtx.Ops)
+								stack.Pop()
+
+								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
+
+								if appState.RenderSelectionOutlines {
+									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
+									if !appState.SelectionMade() {
+										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
+									}
+								}
 							}
 
 							canvasClip.Pop()
@@ -231,8 +172,6 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				}),
 			)
 		}),
-
-		// Toasts
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return appState.Toasts.Layout(gtx, &appState.Theme.GioTheme)
 		}),

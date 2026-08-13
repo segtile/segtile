@@ -205,6 +205,21 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.ImagesSectionButton {
+		appState.ImagesSectionOpen = !appState.ImagesSectionOpen
+		return
+	}
+
+	if button == &appState.SuperpixelSectionButton {
+		appState.SuperpixelSectionOpen = !appState.SuperpixelSectionOpen
+		return
+	}
+
+	if button == &appState.MiscSectionButton {
+		appState.MiscSectionOpen = !appState.MiscSectionOpen
+		return
+	}
+
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 		return

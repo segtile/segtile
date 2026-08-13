@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"path/filepath"
 
 	"gioui.org/f32"
 	"gioui.org/layout"
@@ -78,117 +79,186 @@ func drawMenuBarButton(gtx layout.Context, btn *widget.Clickable, theme *app_the
 	})
 }
 
-func drawSpSettingsEditors(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, title string, open bool) layout.Dimensions {
+	buttonStyle := material.ButtonLayout(&theme.GioTheme, btn)
+	buttonStyle.CornerRadius = 0
+	buttonStyle.Background = color.NRGBA{R: 0, G: 0, B: 0, A: 0}
 
-	if appState.Settings == nil {
-		return layout.Dimensions{}
+	displayTitle := title
+	if open {
+		displayTitle += " ▾"
+	} else {
+		displayTitle += " ▸"
 	}
-	HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
-	if appState.SpAlgorithmMenuOpen {
-		for i := range appState.SpAlgorithmMenuButtons {
-			HandleUiButtonClick(appState, gtx, &appState.SpAlgorithmMenuButtons[i])
-		}
-	}
 
-	var children []layout.FlexChild
+	return buttonStyle.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		label := material.Body2(&theme.GioTheme, displayTitle)
+		label.Color = theme.GioTheme.Palette.ContrastFg
+		return label.Layout(gtx)
+	})
+}
 
-	// Algorithm Name and change button
-	children = append(children,
+// drawSidebarSection draws a collapsible sidebar section header followed by its body when open.
+func drawSidebarSection(gtx layout.Context, appState *app_config.AppState, title string, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
+	HandleUiButtonClick(appState, gtx, button)
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return drawSidebarSectionHeader(gtx, button, appState.Theme, title, open)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !open {
+				return layout.Dimensions{}
+			}
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-
-							superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.Settings.Superpixel.SpAlgorithmId)
-							if err != nil {
-								superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.Settings.Superpixel.SpAlgorithmId)
-							}
-
-							label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
-							label.Color = appState.Theme.GioTheme.Palette.Fg
-							return label.Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconChangeAlgorithm, "Change Superpixel Algorithm", false)
-						}),
-					)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !appState.SpAlgorithmMenuOpen {
-						return layout.Dimensions{}
-					}
-
-					children := make([]layout.FlexChild, 0, len(appState.SpAlgorithmMenuAlgorithmIds))
-					for i := range appState.SpAlgorithmMenuAlgorithmIds {
-
-						button := &appState.SpAlgorithmMenuButtons[i]
-
-						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							HandleUiButtonClick(appState, gtx, button)
-							return component.MenuItem(&appState.Theme.GioTheme, button, appState.SpAlgoritmMenuTitles[i]).Layout(gtx)
-						}))
-					}
-					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-				}),
+				layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
+				layout.Rigid(body),
 			)
 		}),
 	)
+}
 
-	if !appState.SpAlgorithmMenuOpen {
+func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Images", appState.ImagesSectionOpen, &appState.ImagesSectionButton, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if len(appState.ImageFiles) == 0 {
+					return layout.Dimensions{}
+				}
+				counter := fmt.Sprintf("%d / %d  —  %s",
+					appState.ImageFilesIndex+1,
+					len(appState.ImageFiles),
+					filepath.Base(appState.ImageFiles[appState.ImageFilesIndex]),
+				)
+				lbl := material.Body2(&appState.Theme.GioTheme, counter)
+				lbl.Color = appState.Theme.GioTheme.ContrastFg
+				return lbl.Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return drawImageNavigationButtons(gtx, appState)
+			}),
+		)
+	})
+}
 
-		// Spacer
+func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Superpixel", appState.SuperpixelSectionOpen, &appState.SuperpixelSectionButton, func(gtx layout.Context) layout.Dimensions {
+		if appState.Settings == nil {
+			return layout.Dimensions{}
+		}
+		HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
+		if appState.SpAlgorithmMenuOpen {
+			for i := range appState.SpAlgorithmMenuButtons {
+				HandleUiButtonClick(appState, gtx, &appState.SpAlgorithmMenuButtons[i])
+			}
+		}
+
+		var children []layout.FlexChild
+
+		// Algorithm Name and change button
 		children = append(children,
-			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+							layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+
+								superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.Settings.Superpixel.SpAlgorithmId)
+								if err != nil {
+									superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.Settings.Superpixel.SpAlgorithmId)
+								}
+
+								label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
+								label.Color = appState.Theme.GioTheme.Palette.Fg
+								return label.Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconChangeAlgorithm, "Change Superpixel Algorithm", false)
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if !appState.SpAlgorithmMenuOpen {
+							return layout.Dimensions{}
+						}
+
+						children := make([]layout.FlexChild, 0, len(appState.SpAlgorithmMenuAlgorithmIds))
+						for i := range appState.SpAlgorithmMenuAlgorithmIds {
+
+							button := &appState.SpAlgorithmMenuButtons[i]
+
+							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								HandleUiButtonClick(appState, gtx, button)
+								return component.MenuItem(&appState.Theme.GioTheme, button, appState.SpAlgoritmMenuTitles[i]).Layout(gtx)
+							}))
+						}
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+					}),
+				)
+			}),
 		)
 
-		// Individual parameter editors
-		for i := range appState.SuperpixelParameterEditors {
-			title := appState.SuperpixelParameterEditorTitles[i]
-			editor := &appState.SuperpixelParameterEditors[i]
-			checkbox := &appState.OptimizeParameterCheckboxes[i]
+		if !appState.SpAlgorithmMenuOpen {
+
+			// Spacer
+			children = append(children,
+				layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			)
+
+			// Individual parameter editors
+			for i := range appState.SuperpixelParameterEditors {
+				title := appState.SuperpixelParameterEditorTitles[i]
+				editor := &appState.SuperpixelParameterEditors[i]
+				checkbox := &appState.OptimizeParameterCheckboxes[i]
+				children = append(children,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								checkboxStyle := material.CheckBox(&appState.Theme.GioTheme, checkbox, "")
+								checkboxStyle.IconColor = appState.Theme.GioTheme.Palette.Fg
+								checkboxStyle.Size = unit.Dp(16)
+								return checkboxStyle.Layout(gtx)
+							}),
+							layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+								label := material.Body1(&appState.Theme.GioTheme, title)
+								label.Color = appState.Theme.GioTheme.Palette.Fg
+								return label.Layout(gtx)
+							}),
+
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
+								editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
+								return editorStyle.Layout(gtx)
+							}),
+						)
+					}),
+				)
+			}
+
+			// Optimize button
+			children = append(children,
+				layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			)
 			children = append(children,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							checkboxStyle := material.CheckBox(&appState.Theme.GioTheme, checkbox, "")
-							checkboxStyle.IconColor = appState.Theme.GioTheme.Palette.Fg
-							checkboxStyle.Size = unit.Dp(16)
-							return checkboxStyle.Layout(gtx)
-						}),
-						layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-							label := material.Body1(&appState.Theme.GioTheme, title)
-							label.Color = appState.Theme.GioTheme.Palette.Fg
-							return label.Layout(gtx)
-						}),
-
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
-							editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-							return editorStyle.Layout(gtx)
-						}),
-					)
+					HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
+					return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Suggest Parameters")
 				}),
 			)
 		}
 
-		// Optimize button
-		children = append(children,
-			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		)
-		children = append(children,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
-				return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Suggest Parameters")
-			}),
-		)
-	}
-
-	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
-
+		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
+	})
 }
 
-func drawImageNavigationButtons(appState *app_config.AppState, gtx layout.Context) layout.Dimensions {
+func drawMiscSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Misc", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
+		return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+	})
+}
+
+func drawImageNavigationButtons(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
 	atFirstImage := appState.ImageFilesIndex == 0
 	atLastImage := appState.ImageFilesIndex == len(appState.ImageFiles)-1
 

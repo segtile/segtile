@@ -49,6 +49,14 @@ type UiState struct {
 	// Theme
 	Theme *app_theme.AppTheme
 
+	// Sidebar sections
+	ImagesSectionButton     widget.Clickable
+	ImagesSectionOpen       bool
+	SuperpixelSectionButton widget.Clickable
+	SuperpixelSectionOpen   bool
+	MiscSectionButton       widget.Clickable
+	MiscSectionOpen         bool
+
 	// Superpixel Editors
 	SuperpixelParameterEditors      []widget.Editor
 	SuperpixelParameterEditorIds    []string
@@ -115,6 +123,9 @@ func NewAppState() *AppState {
 			RenderSelectionOutlines: true,
 			Theme:                   app_theme.Theme,
 			FitToWindow:             true,
+			ImagesSectionOpen:       true,
+			SuperpixelSectionOpen:   true,
+			MiscSectionOpen:         false,
 		},
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),
