@@ -2,6 +2,7 @@ package app_config
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"os"
 	"path/filepath"
@@ -147,4 +148,24 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	ext := filepath.Ext(base)
 	name := base[:len(base)-len(ext)] + ".png"
 	return filepath.Join(appState.Settings.OutputDirectory, name)
+}
+
+// FitImageToWindow updates the scale and offset to fit the active image within the given canvas size.
+func (appState *AppState) FitImageToWindow(canvasSize image.Point) {
+
+	imageWidth := float32(appState.ActiveImage.Bounds().Dx())
+	imageHeight := float32(appState.ActiveImage.Bounds().Dy())
+	canvasWidth := float32(canvasSize.X)
+	canvasHeight := float32(canvasSize.Y)
+
+	// Fit image to window on first render or when requested
+	scaleX := canvasWidth / imageWidth
+	scaleY := canvasHeight / imageHeight
+	appState.ViewScale = scaleX
+	if scaleY < appState.ViewScale {
+		appState.ViewScale = scaleY
+	}
+	appState.ViewOffsetX = (canvasWidth - imageWidth*appState.ViewScale) / 2
+	appState.ViewOffsetY = (canvasHeight - imageHeight*appState.ViewScale) / 2
+
 }

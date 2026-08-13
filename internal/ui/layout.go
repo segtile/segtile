@@ -192,21 +192,10 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							} else {
 								// Project loaded: draw the image.
 								if appState.ActiveImage != nil {
-									imageWidth := float32(appState.ActiveImage.Bounds().Dx())
-									imageHeight := float32(appState.ActiveImage.Bounds().Dy())
-									canvasWidth := float32(canvasSize.X)
-									canvasHeight := float32(canvasSize.Y)
 
-									// Fit image to window on first render or when requested
+									// Fit the image to the window if requested
 									if appState.FitToWindow {
-										scaleX := canvasWidth / imageWidth
-										scaleY := canvasHeight / imageHeight
-										appState.ViewScale = scaleX
-										if scaleY < appState.ViewScale {
-											appState.ViewScale = scaleY
-										}
-										appState.ViewOffsetX = (canvasWidth - imageWidth*appState.ViewScale) / 2
-										appState.ViewOffsetY = (canvasHeight - imageHeight*appState.ViewScale) / 2
+										appState.FitImageToWindow(canvasSize)
 										appState.FitToWindow = false
 									}
 
