@@ -45,7 +45,7 @@ func drawBigButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.A
 func drawMenuBarButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, txt string) layout.Dimensions {
 
 	buttonStyle := material.ButtonLayout(&theme.GioTheme, btn)
-	buttonStyle.CornerRadius = 0
+	buttonStyle.CornerRadius = 2
 	buttonStyle.Background = color.NRGBA{R: 0, G: 0, B: 0, A: 0}
 
 	menuButtonInset := layout.Inset{
@@ -83,7 +83,7 @@ func drawMenuBarButton(gtx layout.Context, btn *widget.Clickable, theme *app_the
 
 func drawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, title string, open bool) layout.Dimensions {
 	buttonStyle := material.ButtonLayout(&theme.GioTheme, btn)
-	buttonStyle.CornerRadius = 0
+	buttonStyle.CornerRadius = 2
 	buttonStyle.Background = color.NRGBA{R: 0, G: 0, B: 0, A: 0}
 
 	return buttonStyle.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
