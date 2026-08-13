@@ -140,10 +140,9 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						}),
 						// Main canvas
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							canvasSize := gtx.Constraints.Max
 
 							// Set clipping area to the canvas size and register it for events
-							canvasClip := clip.Rect{Max: canvasSize}.Push(gtx.Ops)
+							canvasClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 
 							// Register the canvas area to receive pointer and keyboard events
 							event.Op(gtx.Ops, &appState.CanvasTag)
@@ -195,7 +194,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 									// Fit the image to the window if requested
 									if appState.FitToWindow {
-										appState.FitImageToWindow(canvasSize)
+										appState.FitImageToWindow(gtx.Constraints.Max)
 										appState.FitToWindow = false
 									}
 
@@ -226,7 +225,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							}
 
 							canvasClip.Pop()
-							return layout.Dimensions{Size: canvasSize}
+							return layout.Dimensions{Size: gtx.Constraints.Max}
 						}),
 					)
 				}),
