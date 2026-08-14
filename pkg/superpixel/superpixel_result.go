@@ -66,8 +66,8 @@ func (this *SpResult) analyzeLabelMap() (lowestLabel uint16, highestLabel uint16
 	highestLabel = uint16(0)
 
 	bounds := this.LabelMap.Bounds()
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+	for x := 0; x < bounds.Max.X; x++ {
+		for y := 0; y < bounds.Max.Y; y++ {
 			label := this.LabelMap.Gray16At(x, y).Y
 
 			labelUsed[label] = true
@@ -117,8 +117,8 @@ func (this *SpResult) EnforceContiguousIndexing() (changed bool) {
 		}
 		newLabel := len(sortedLabels)
 		// Remap the labels in the label map
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := 0; x < bounds.Max.X; x++ {
+			for y := 0; y < bounds.Max.Y; y++ {
 				oldLabel := this.LabelMap.Gray16At(x, y).Y
 				this.LabelMap.SetGray16(x, y, color.Gray16{Y: labelRemap[oldLabel]})
 			}
@@ -149,42 +149,40 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 
 	// Step 1: find every connected component in the label map.
 
-	// ComponentId maps each pixel to its component id. -1 means unvisited.
-	componentId := make([]int, width*height)
-	for i := range componentId {
-		componentId[i] = -1
+	// componentId maps each pixel (indexed [y][x]) to its
+	// component id. -1 means unvisited.
+	componentId := make([][]int, height)
+	visited := make([][]bool, height)
+	for y := range componentId {
+		componentId[y] = make([]int, width)
+		visited[y] = make([]bool, width)
+		for x := range componentId[y] {
+			componentId[y][x] = -1
+		}
 	}
 
-	// Each component has a label, size, and list of pixel indices.
+	// Each component has a label, size, and list of pixel coordinates, indexed by component id.
 	var componentLabel []uint16
 	var componentSize []int
-	var componentPixels [][]int
+	var componentPixels [][]image.Point
 
+	// Loop over every pixel in the label map, and for each unvisited pixel, flood fill to find all pixels of the new component it starts.
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			startIdx := y*width + x
-			if componentId[startIdx] != -1 {
+			if visited[y][x] {
 				continue
 			}
-			label := this.LabelMap.Gray16At(bounds.Min.X+x, bounds.Min.Y+y).Y
-			id := len(componentLabel)
-			componentId[startIdx] = id
-			pixels := []int{startIdx}
-			queue := []int{startIdx}
-			for len(queue) > 0 {
-				cur := queue[0]
-				queue = queue[1:]
-				cx, cy := cur%width, cur/width
-				for _, nb := range superpixel_utils.Neighbors(image.Point{X: bounds.Min.X + cx, Y: bounds.Min.Y + cy}, bounds, false) {
-					nIdx := (nb.Y-bounds.Min.Y)*width + (nb.X - bounds.Min.X)
-					if this.LabelMap.Gray16At(nb.X, nb.Y).Y != label || componentId[nIdx] != -1 {
-						continue
-					}
-					componentId[nIdx] = id
-					pixels = append(pixels, nIdx)
-					queue = append(queue, nIdx)
-				}
+
+			start := image.Point{X: x, Y: y}
+			label := this.LabelMap.Gray16At(start.X, start.Y).Y
+			currentComponentId := len(componentLabel)
+			visited[y][x] = true
+
+			pixels := superpixel_utils.MaskedFloodFill(start, this.LabelMap, &visited)
+			for _, p := range pixels {
+				componentId[p.Y][p.X] = currentComponentId
 			}
+
 			componentLabel = append(componentLabel, label)
 			componentSize = append(componentSize, len(pixels))
 			componentPixels = append(componentPixels, pixels)
@@ -192,17 +190,16 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	}
 	numComponents := len(componentLabel)
 
-	// Step 2: build a component-level adjacency graph, weighted by shared border length.
+	// Step 2: build a component-level relationship graph, weighted by shared border length.
 	neighborBorder := make([]map[int]int, numComponents)
 	for i := range neighborBorder {
 		neighborBorder[i] = make(map[int]int)
 	}
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			id := componentId[y*width+x]
-			for _, nb := range superpixel_utils.Neighbors(image.Point{X: bounds.Min.X + x, Y: bounds.Min.Y + y}, bounds, false) {
-				nIdx := (nb.Y-bounds.Min.Y)*width + (nb.X - bounds.Min.X)
-				if nid := componentId[nIdx]; nid != id {
+			id := componentId[y][x]
+			for _, nb := range superpixel_utils.Neighbors(image.Point{X: x, Y: y}, bounds, false) {
+				if nid := componentId[nb.Y][nb.X]; nid != id {
 					neighborBorder[id][nid]++
 				}
 			}
@@ -257,9 +254,8 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 			progressed = true
 		}
 
-		// A group of minority components that only border each other has no finalized
-		// neighbor to attach to. Break the deadlock deterministically by letting the
-		// largest of them survive with its own label, then keep resolving the rest.
+		// A group of minority components that only border each other has no finalized neighbor to attach to.
+		// Break the deadlock deterministically by letting the largest of them survive with its own label, then keep resolving the rest.
 		if !progressed {
 			largest := stillPending[0]
 			for _, id := range stillPending[1:] {
@@ -281,16 +277,15 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 		pending = stillPending
 	}
 
-	// Step 5: write the resolved labels back to the label map.
+	// Step 5: put  the resolved labels back to the label map.
 	changed = false
 	for id := 0; id < numComponents; id++ {
 		if finalLabel[id] == componentLabel[id] {
 			continue
 		}
 		changed = true
-		for _, idx := range componentPixels[id] {
-			px, py := idx%width, idx/width
-			this.LabelMap.SetGray16(bounds.Min.X+px, bounds.Min.Y+py, color.Gray16{Y: finalLabel[id]})
+		for _, p := range componentPixels[id] {
+			this.LabelMap.SetGray16(p.X, p.Y, color.Gray16{Y: finalLabel[id]})
 		}
 	}
 
