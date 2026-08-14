@@ -49,7 +49,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 		appState.SyncEditors()
 
-		if appState.CurrentImage != nil {
+		if appState.ActiveImage != nil {
 			appState.RecalculateSuperpixels(true, true)
 		}
 
@@ -97,7 +97,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		}
 
 		// No image loaded — skip all image-space pointer logic.
-		if appState.CurrentImage == nil {
+		if appState.ActiveImage == nil {
 			continue
 		}
 
@@ -109,7 +109,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		imageY := (pe.Position.Y - appState.ViewOffsetY) / appState.ViewScale
 
 		// Check if the position is within the bounds of the image
-		inImageBounds := appState.ActiveResult.LabelMap != nil && imageX >= 0 && imageY >= 0 && int(imageX) < appState.CurrentImage.Bounds().Dx() && int(imageY) < appState.CurrentImage.Bounds().Dy()
+		inImageBounds := appState.ActiveSp.LabelMap != nil && imageX >= 0 && imageY >= 0 && int(imageX) < appState.ActiveImage.Bounds().Dx() && int(imageY) < appState.ActiveImage.Bounds().Dy()
 
 		// We start with actions that always fire, even if the cursor is outside the image bounds
 
@@ -152,7 +152,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		// Handle simple move and update the hover preview
 		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
 			if inImageBounds {
-				labelMap := appState.ActiveResult.LabelMap
+				labelMap := appState.ActiveSp.LabelMap
 				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(int(imageX), int(imageY)).Y)
 			} else {
 				appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
@@ -163,7 +163,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		if inImageBounds {
 			// Sample the current superpixel label at the pointer position
-			labelMap := appState.ActiveResult.LabelMap
+			labelMap := appState.ActiveSp.LabelMap
 			label := labelMap.Gray16At(int(imageX), int(imageY)).Y
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
@@ -188,7 +188,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(labelMap, appState.SelectionIndex)
 				}
 
-				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveResult.LabelMap, appState.SelectionIndex)
+				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)
 				appState.Window.Invalidate()
 			}
 		}
@@ -202,6 +202,21 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 	if appState.CurrentlyOptimizing {
+		return
+	}
+
+	if button == &appState.ImagesSectionButton {
+		appState.ImagesSectionOpen = !appState.ImagesSectionOpen
+		return
+	}
+
+	if button == &appState.SuperpixelSectionButton {
+		appState.SuperpixelSectionOpen = !appState.SuperpixelSectionOpen
+		return
+	}
+
+	if button == &appState.MiscSectionButton {
+		appState.MiscSectionOpen = !appState.MiscSectionOpen
 		return
 	}
 

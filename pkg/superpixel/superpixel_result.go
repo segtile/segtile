@@ -3,6 +3,7 @@ package superpixel
 import (
 	"image"
 	"image/color"
+	"sort"
 )
 
 // SpResult encapsulates the result of a superpixel segmentation, including the label map and the count of superpixels.
@@ -13,20 +14,24 @@ type SpResult struct {
 	SpCount  int // Number of superpixels. This should be the actual number of SP in the final map.
 }
 
-// Constructs a SpResult from a given label map.
-// Note that the label map will get updated if it is not consistent with the expected format (contiguousness).
 func MakeSpResult(labelMap *image.Gray16) SpResult {
+	result := SpResult{
+		LabelMap: labelMap,
+		SpCount:  0, // Will be updated in Cleanup
+	}
+	result.Cleanup()
+	return result
+}
 
-	labelPix := labelMap.Pix
-
+func (this *SpResult) Cleanup() {
 	// Determine which label indices are actually used in the map
 	labelUsed := make(map[uint16]bool)
 	highestLabel := uint16(0)
 
-	bounds := labelMap.Bounds()
-	for x := 0; x < bounds.Dx(); x++ {
-		for y := 0; y < bounds.Dy(); y++ {
-			label := uint16(labelPix[y*labelMap.Stride+x*2]) | uint16(labelPix[y*labelMap.Stride+x*2+1])<<8
+	bounds := this.LabelMap.Bounds()
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			label := this.LabelMap.Gray16At(x, y).Y
 
 			labelUsed[label] = true
 			if label > highestLabel {
@@ -40,29 +45,27 @@ func MakeSpResult(labelMap *image.Gray16) SpResult {
 
 	// If the labels are not contiguous, we need to remap them to ensure they are.
 	if spCount != int(highestLabel)+1 {
-		labelRemap := make(map[uint16]uint16)
-		newLabel := uint16(0)
-		for label := uint16(0); label <= highestLabel; label++ {
-			if labelUsed[label] {
-				labelRemap[label] = newLabel
-				newLabel++
-			}
+		sortedLabels := make([]uint16, 0, len(labelUsed))
+		for label := range labelUsed {
+			sortedLabels = append(sortedLabels, label)
 		}
-		// Remap the labels in the label map
-		for x := 0; x < bounds.Dx(); x++ {
-			for y := 0; y < bounds.Dy(); y++ {
-				oldLabel := uint16(labelPix[y*labelMap.Stride+x*2]) | uint16(labelPix[y*labelMap.Stride+x*2+1])<<8
-				//oldLabel := labelMap.Gray16At(x, y).Y
-				labelMap.SetGray16(x, y, color.Gray16{Y: labelRemap[oldLabel]})
-			}
-		}
-		spCount = int(newLabel)
-	}
+		sort.Slice(sortedLabels, func(i, j int) bool { return sortedLabels[i] < sortedLabels[j] })
 
-	return SpResult{
-		LabelMap: labelMap,
-		SpCount:  spCount,
+		labelRemap := make(map[uint16]uint16, len(sortedLabels))
+		for newLabel, oldLabel := range sortedLabels {
+			labelRemap[oldLabel] = uint16(newLabel)
+		}
+		newLabel := len(sortedLabels)
+		// Remap the labels in the label map
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+				oldLabel := this.LabelMap.Gray16At(x, y).Y
+				this.LabelMap.SetGray16(x, y, color.Gray16{Y: labelRemap[oldLabel]})
+			}
+		}
+		spCount = newLabel
 	}
+	this.SpCount = spCount
 }
 
 // computeOverlapCounts counts, for each superpixel, the total number of pixels it contains
