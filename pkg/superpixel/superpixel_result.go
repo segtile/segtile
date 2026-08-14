@@ -1,6 +1,7 @@
 package superpixel
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"sort"
@@ -293,6 +294,44 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	this.contiguousIndexingEnforced = false
 
 	return changed
+}
+
+func (this *SpResult) MedianSmoothLabelMap(kernelRadius int) (err error) {
+	if kernelRadius < 1 {
+		err = fmt.Errorf("kernelRadius must be a positive integer")
+		return
+	}
+
+	for y := 0; y < this.LabelMap.Bounds().Dy(); y++ {
+		for x := 0; x < this.LabelMap.Bounds().Dx(); x++ {
+			labelCounts := make(map[uint16]int)
+			for ky := -kernelRadius; ky <= kernelRadius; ky++ {
+				for kx := -kernelRadius; kx <= kernelRadius; kx++ {
+					nx := x + kx
+					ny := y + ky
+					if nx >= 0 && nx < this.LabelMap.Bounds().Dx() && ny >= 0 && ny < this.LabelMap.Bounds().Dy() {
+						label := this.LabelMap.Gray16At(nx, ny).Y
+						labelCounts[label]++
+					}
+				}
+			}
+			// Find the median label
+			var sortedLabels []int
+			for label, count := range labelCounts {
+				for i := 0; i < count; i++ {
+					sortedLabels = append(sortedLabels, int(label))
+				}
+			}
+			sort.Ints(sortedLabels)
+			medianLabel := uint16(sortedLabels[len(sortedLabels)/2])
+			this.LabelMap.SetGray16(x, y, color.Gray16{Y: medianLabel})
+		}
+	}
+
+	this.connectivityEnforced = false
+	this.contiguousIndexingEnforced = false
+
+	return nil
 }
 
 // computeOverlapCounts counts, for each superpixel, the total number of pixels it contains

@@ -30,6 +30,13 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		return err
 	}
 
+	// TMP
+	for i := 0; i < int(appState.LabelMapSmoothingStrength.Value*150.0); i++ {
+		newResult.MedianSmoothLabelMap(1)
+	}
+	newResult.EnforceConnectivity()
+	newResult.EnforceContiguousIndexing()
+
 	appState.ActiveSp = newResult
 
 	// Restore the selection by matching old mask pixels to new superpixels,
