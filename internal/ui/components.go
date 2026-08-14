@@ -146,12 +146,19 @@ func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout
 				if len(appState.ImageFiles) == 0 {
 					return layout.Dimensions{}
 				}
-				counter := fmt.Sprintf("%d / %d  —  %s",
+				counter := fmt.Sprintf("%d / %d",
 					appState.ImageFilesIndex+1,
 					len(appState.ImageFiles),
-					filepath.Base(appState.ImageFiles[appState.ImageFilesIndex]),
 				)
-				lbl := material.Body2(&appState.Theme.GioTheme, counter)
+				lbl := material.Caption(&appState.Theme.GioTheme, counter)
+				lbl.Color = appState.Theme.GioTheme.ContrastFg
+				return lbl.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if len(appState.ImageFiles) == 0 {
+					return layout.Dimensions{}
+				}
+				lbl := material.Body2(&appState.Theme.GioTheme, filepath.Base(appState.ImageFiles[appState.ImageFilesIndex]))
 				lbl.Color = appState.Theme.GioTheme.ContrastFg
 				return lbl.Layout(gtx)
 			}),
