@@ -27,12 +27,39 @@ func loadGray16Testdata(t *testing.T, path string) *image.Gray16 {
 	return gray16
 }
 
+func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
+	connected := loadGray16Testdata(t, "testdata/grid_4x4_connected.png")
+	disconnected := loadGray16Testdata(t, "testdata/grid_4x4_disconnected.png")
+
+	connectedResult := SpResult{LabelMap: connected}
+	disconnectedResult := SpResult{LabelMap: disconnected}
+
+	disconnectedResult.EnforceConnectivity()
+
+	// At this point, the two label maps should be identical
+
+	bounds := connectedResult.LabelMap.Bounds()
+	if bounds != disconnectedResult.LabelMap.Bounds() {
+		t.Fatalf("bounds mismatch: connected=%v disconnected=%v", bounds, disconnectedResult.LabelMap.Bounds())
+	}
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			want := connectedResult.LabelMap.Gray16At(x, y).Y
+			got := disconnectedResult.LabelMap.Gray16At(x, y).Y
+			if want != got {
+				t.Errorf("label mismatch at (%d,%d): connected=%d disconnected(post-enforcement)=%d", x, y, want, got)
+			}
+		}
+	}
+}
+
 func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
 	continuous := loadGray16Testdata(t, "testdata/grid_4x4_continuous.png")
 	discontinuous := loadGray16Testdata(t, "testdata/grid_4x4_discontinuous.png")
 
-	continuousResult := MakeSpResult(continuous)
-	discontinuousResult := MakeSpResult(discontinuous)
+	continuousResult := NewSpResult(continuous, 0, true)
+	discontinuousResult := NewSpResult(discontinuous, 0, true)
 
 	if continuousResult.SpCount != discontinuousResult.SpCount {
 		t.Fatalf("SpCount mismatch: continuous=%d discontinuous=%d",

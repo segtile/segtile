@@ -12,9 +12,9 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			currentLabel := labelMap.Gray16At(x, y).Y
-			if currentLabel == 0 {
+			/*if currentLabel == 0 {
 				continue
-			}
+			}*/
 			if seen[currentLabel] == nil {
 				seen[currentLabel] = make(map[uint16]struct{})
 			}
@@ -22,7 +22,7 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 			// Check 4-neighborhoods
 			for _, nb := range Neighbors(image.Point{X: x, Y: y}, bounds, false) {
 				neighborLabel := labelMap.Gray16At(nb.X, nb.Y).Y
-				if neighborLabel != 0 && neighborLabel != currentLabel {
+				if /*neighborLabel != 0  &&*/ neighborLabel != currentLabel {
 					if _, exists := seen[currentLabel][neighborLabel]; !exists {
 						seen[currentLabel][neighborLabel] = struct{}{}
 						neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
