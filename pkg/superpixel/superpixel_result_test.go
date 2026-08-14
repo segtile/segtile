@@ -29,6 +29,8 @@ func loadGray16Testdata(t *testing.T, path string) *image.Gray16 {
 	return gray16
 }
 
+// generatePseudoRandomGray16 generates a pseudo-random 16-bit grayscale image of the specified width and height.
+// The pixel values are unique and deterministic based on a fixed random seed.
 func generatePseudoRandomGray16(t *testing.T, width, height int) *image.Gray16 {
 	t.Helper()
 	rng := rand.New(rand.NewSource(123))
@@ -83,6 +85,8 @@ func TestMakeSpResult_RemapsRandomLabels(t *testing.T) {
 	originalResult.EnforceContiguousIndexing()
 
 	// At this point, originalResult.LabelMap should have labels ranging from 0 to 1023 for this 32x32 image.
+
+	// Check which labels are actually used
 	seenLabels := make([]bool, 65535)
 	for i := 0; i < originalResult.LabelMap.Bounds().Dy(); i++ {
 		for j := 0; j < originalResult.LabelMap.Bounds().Dx(); j++ {
@@ -91,6 +95,7 @@ func TestMakeSpResult_RemapsRandomLabels(t *testing.T) {
 		}
 	}
 
+	// Throw errors for any labels that are expected to be present but are not, or the other way around.
 	for label := uint16(0); label < 65535; label++ {
 		if label < 1024 && !seenLabels[label] {
 			t.Errorf("Expected label %d to be present in the original result, but it was not found.", label)
