@@ -152,8 +152,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		// Handle simple move and update the hover preview
 		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
 			if inImageBounds {
-				labelMap := appState.ActiveSp.LabelMap
-				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(int(imageX), int(imageY)).Y)
+				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, appState.ActiveSp.LabelMap.Gray16At(int(imageX), int(imageY)).Y)
 			} else {
 				appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
 			}
@@ -163,15 +162,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		if inImageBounds {
 			// Sample the current superpixel label at the pointer position
-			labelMap := appState.ActiveSp.LabelMap
-			label := labelMap.Gray16At(int(imageX), int(imageY)).Y
+			label := appState.ActiveSp.LabelMap.Gray16At(int(imageX), int(imageY)).Y
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			selectionChanged := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
 				if pe.Modifiers&key.ModShift != 0 {
 					// If shift is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(labelMap, int(imageX), int(imageY), appState.SelectionIndex)
+					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(imageX), int(imageY), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
@@ -185,7 +183,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if selectionChanged {
 				// For testing: Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
 				if appState.EnableAutoFloodFill.Value {
-					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(labelMap, appState.SelectionIndex)
+					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
 				}
 
 				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)

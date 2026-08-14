@@ -32,7 +32,8 @@ type AppState struct {
 	// Bitmaps and Superpixel
 	ActiveImage             *image.NRGBA
 	ActiveImageExistingMask *image.Gray16
-	ActiveSp                superpixel.SpResult
+	RawSp                   superpixel.SpResult // The original output from the algorithm
+	ActiveSp                superpixel.SpResult // The current superpixel result, which is actually used for annotation
 
 	// Selection
 	SelectionIndex []bool
@@ -62,6 +63,9 @@ type UiState struct {
 	SuperpixelParameterEditorIds    []string
 	SuperpixelParameterEditorTitles []string
 	OptimizeParameterCheckboxes     []widget.Bool
+
+	// Smoothing
+	LabelMapSmoothingStrength widget.Float
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable

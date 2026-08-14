@@ -282,7 +282,14 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 
 func drawMiscSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Misc", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
-		return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Slider(&appState.Theme.GioTheme, &appState.LabelMapSmoothingStrength).Layout(gtx)
+			}),
+		)
 	})
 }
 
