@@ -2,7 +2,9 @@ package superpixel
 
 import (
 	"image"
+	"image/color"
 	"image/png"
+	"math/rand"
 	"os"
 	"testing"
 )
@@ -25,6 +27,27 @@ func loadGray16Testdata(t *testing.T, path string) *image.Gray16 {
 		t.Fatalf("%s is not a 16-bit grayscale PNG (got %T)", path, src)
 	}
 	return gray16
+}
+
+func generatePseudoRandomGray16(t *testing.T, width, height int) *image.Gray16 {
+	t.Helper()
+	rng := rand.New(rand.NewSource(123))
+	img := image.NewGray16(image.Rect(0, 0, width, height))
+	alreadyUsed := make(map[uint16]bool)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			var value uint16
+			for {
+				value = uint16(rng.Intn(65536))
+				if !alreadyUsed[value] {
+					alreadyUsed[value] = true
+					break
+				}
+			}
+			img.SetGray16(x, y, color.Gray16{Y: value})
+		}
+	}
+	return img
 }
 
 func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
@@ -52,6 +75,31 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestMakeSpResult_RemapsRandomLabels(t *testing.T) {
+	original := generatePseudoRandomGray16(t, 32, 32)
+	originalResult := NewSpResult(original, 0, false)
+	originalResult.EnforceContiguousIndexing()
+
+	// At this point, originalResult.LabelMap should have labels ranging from 0 to 1023 for this 32x32 image.
+	seenLabels := make([]bool, 65535)
+	for i := 0; i < originalResult.LabelMap.Bounds().Dy(); i++ {
+		for j := 0; j < originalResult.LabelMap.Bounds().Dx(); j++ {
+			label := originalResult.LabelMap.Gray16At(j, i).Y
+			seenLabels[label] = true
+		}
+	}
+
+	for label := uint16(0); label < 65535; label++ {
+		if label < 1024 && !seenLabels[label] {
+			t.Errorf("Expected label %d to be present in the original result, but it was not found.", label)
+		}
+		if label >= 1024 && seenLabels[label] {
+			t.Errorf("Did not expect label %d to be present in the original result, but it was found.", label)
+		}
+	}
+
 }
 
 func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
