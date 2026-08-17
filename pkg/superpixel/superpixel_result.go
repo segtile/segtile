@@ -296,38 +296,43 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	return changed
 }
 
-func (this *SpResult) MedianSmoothLabelMap(kernelRadius int) (err error) {
-	if kernelRadius < 1 {
-		err = fmt.Errorf("kernelRadius must be a positive integer")
+func (this *SpResult) SmoothLabelMap(strength int) (err error) {
+	if strength < 1 {
+		err = fmt.Errorf("strength must be a positive integer")
 		return
 	}
 
-	for y := 0; y < this.LabelMap.Bounds().Dy(); y++ {
-		for x := 0; x < this.LabelMap.Bounds().Dx(); x++ {
+	bounds := this.LabelMap.Bounds()
+	// Write results into a fresh map so lookups always see original, unsmoothed labels.
+	smoothed := image.NewGray16(bounds)
+
+	for y := 0; y < bounds.Dy(); y++ {
+		for x := 0; x < bounds.Dx(); x++ {
 			labelCounts := make(map[uint16]int)
-			for ky := -kernelRadius; ky <= kernelRadius; ky++ {
-				for kx := -kernelRadius; kx <= kernelRadius; kx++ {
+			for ky := -strength; ky <= strength; ky++ {
+				for kx := -strength; kx <= strength; kx++ {
 					nx := x + kx
 					ny := y + ky
-					if nx >= 0 && nx < this.LabelMap.Bounds().Dx() && ny >= 0 && ny < this.LabelMap.Bounds().Dy() {
+					if nx >= 0 && nx < bounds.Dx() && ny >= 0 && ny < bounds.Dy() {
 						label := this.LabelMap.Gray16At(nx, ny).Y
 						labelCounts[label]++
 					}
 				}
 			}
-			// Find the median label
-			var sortedLabels []int
+			// Find the most common label, ties broken by the lowest label for determinism
+			var modeLabel uint16
+			bestCount := -1
 			for label, count := range labelCounts {
-				for i := 0; i < count; i++ {
-					sortedLabels = append(sortedLabels, int(label))
+				if count > bestCount || (count == bestCount && label < modeLabel) {
+					bestCount = count
+					modeLabel = label
 				}
 			}
-			sort.Ints(sortedLabels)
-			medianLabel := uint16(sortedLabels[len(sortedLabels)/2])
-			this.LabelMap.SetGray16(x, y, color.Gray16{Y: medianLabel})
+			smoothed.SetGray16(x, y, color.Gray16{Y: modeLabel})
 		}
 	}
 
+	this.LabelMap = smoothed
 	this.connectivityEnforced = false
 	this.contiguousIndexingEnforced = false
 
