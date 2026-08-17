@@ -287,6 +287,9 @@ func drawMiscSection(gtx layout.Context, appState *app_config.AppState) layout.D
 				return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Label Map Smoothing Strength").Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Slider(&appState.Theme.GioTheme, &appState.LabelMapSmoothingStrength).Layout(gtx)
 			}),
 		)

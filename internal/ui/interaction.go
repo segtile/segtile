@@ -45,6 +45,12 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			}
 		}
 	}
+
+	// Handle smoothness strength slider changes
+	if appState.LabelMapSmoothingStrength.Update(gtx) {
+		recalculate = true
+	}
+
 	if recalculate {
 
 		appState.SyncEditors()
