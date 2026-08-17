@@ -30,10 +30,8 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		return err
 	}
 
-	// TMP
-
+	// Apply smoothing
 	newResult.SmoothLabelMap(int(appState.LabelMapSmoothingStrength.Value * float32(newResult.LabelMap.Bounds().Dx()) * 0.1))
-
 	newResult.EnforceConnectivity()
 	newResult.EnforceContiguousIndexing()
 

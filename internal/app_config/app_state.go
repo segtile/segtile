@@ -129,7 +129,7 @@ func NewAppState() *AppState {
 			FitToWindow:             true,
 			ImagesSectionOpen:       true,
 			SuperpixelSectionOpen:   true,
-			MiscSectionOpen:         false,
+			MiscSectionOpen:         true,
 		},
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),
