@@ -24,12 +24,16 @@ import (
 // drawExistingMaskCard renders a sidebar card asking the user to either start a fresh
 // selection (by clicking in the image) or approximate the on-disk mask as an editable
 // selection with the current superpixel settings.
-func drawExistingMaskCard(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawExistingMaskWarning(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+
+	if !appState.AwaitingMaskDecision {
+		return layout.Dimensions{}
+	}
 
 	return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				label := material.Body2(&appState.Theme.GioTheme, "An existing segmentation was found for this image.")
+				label := material.Body2(&appState.Theme.GioTheme, "An existing annotation was found for this image. Make a new annotation to overwrite it or recreate it using the current settings to make further edits.")
 				label.Color = appState.Theme.GioTheme.Palette.Fg
 				return label.Layout(gtx)
 			}),
@@ -312,9 +316,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 	})
 }
 
-func drawMiscSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Misc", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
+		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
 			}),
@@ -330,6 +334,10 @@ func drawMiscSection(gtx layout.Context, appState *app_config.AppState) layout.D
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
 			}),
+		}
+
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			children...,
 		)
 	})
 }

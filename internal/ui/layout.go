@@ -87,19 +87,17 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 							// Draw sidebar sections.
 							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									if !appState.AwaitingMaskDecision {
-										return layout.Dimensions{}
-									}
-									return drawExistingMaskCard(gtx, appState)
-								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return drawImagesSection(gtx, appState)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return drawSuperpixelSection(gtx, appState)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return drawMiscSection(gtx, appState)
+									return drawSelectionSection(gtx, appState)
+								}),
+								layout.Flexed(1, layout.Spacer{Height: unit.Dp(12)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return drawExistingMaskWarning(gtx, appState)
 								}),
 							)
 						}),
