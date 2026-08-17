@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"strconv"
 
@@ -38,7 +37,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
 					appState.Settings.Superpixel.SpAlgorithmParameters[param] = v
-					fmt.Printf("Set %s to %v\n", param, v)
+					log.Printf("Set %s to %v\n", param, v)
 
 					recalculate = true
 				}
@@ -46,13 +45,13 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 	}
 
-	// Handle smoothness strength slider changes and persist changes
+	// Handle smoothness strength slider changes, but only trigger recalculation when the user releases the slider, not while dragging.
+	previouslyDragging := appState.LabelMapSmoothingStrength.Dragging()
 	if appState.LabelMapSmoothingStrength.Update(gtx) {
-		recalculate = true
 		appState.Settings.LabelMapSmoothingStrength = appState.LabelMapSmoothingStrength.Value
-		if err := app_config.Save(appState.Settings); err != nil {
-			fmt.Println("Warning: could not save config:", err)
-		}
+	}
+	if previouslyDragging && !appState.LabelMapSmoothingStrength.Dragging() {
+		recalculate = true
 	}
 
 	if recalculate {
@@ -65,7 +64,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 		// Persist updated parameters to config.
 		if err := app_config.Save(appState.Settings); err != nil {
-			fmt.Println("Warning: could not save config:", err)
+			log.Println("Warning: could not save config:", err)
 		}
 
 	}
@@ -74,7 +73,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	if appState.EnableAutoFloodFill.Update(gtx) {
 		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
 		if err := app_config.Save(appState.Settings); err != nil {
-			fmt.Println("Warning: could not save config:", err)
+			log.Println("Warning: could not save config:", err)
 		}
 	}
 
@@ -337,7 +336,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuAlgorithmIds[i])
 		if err != nil {
-			fmt.Printf("Failed to change superpixel algorithm: %v\n", err)
+			log.Printf("Failed to change superpixel algorithm: %v", err)
 			return
 		}
 		appState.SpAlgorithmMenuOpen = false

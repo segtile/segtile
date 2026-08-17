@@ -3,6 +3,7 @@ package app_config
 import (
 	"fmt"
 	"image"
+	"log"
 	"time"
 
 	"github.com/reiver/go-giotoast"
@@ -10,9 +11,11 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
+const labelMapSmoothingMaxFactor = 0.05
+
 func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
-	fmt.Println("Calculating superpixels...")
+	log.Println("Recalculating superpixels...")
 	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
@@ -30,8 +33,10 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		return err
 	}
 
+	log.Println("Smoothing label map ...")
+
 	// Apply smoothing
-	newResult.SmoothLabelMap(int(appState.LabelMapSmoothingStrength.Value * float32(newResult.LabelMap.Bounds().Dx()) * 0.1))
+	newResult.SmoothLabelMap(int(appState.LabelMapSmoothingStrength.Value * float32(newResult.LabelMap.Bounds().Dx()) * labelMapSmoothingMaxFactor))
 	newResult.EnforceConnectivity()
 	newResult.EnforceContiguousIndexing()
 
@@ -50,7 +55,7 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 
 	// Log
 	end := time.Now().UnixMicro()
-	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+	log.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
 
 	if showToast {
 		// Add a toast
