@@ -98,11 +98,6 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		return
 	}
 
-	// No selection or hover interaction until the user resolves the existing-mask decision.
-	if appState.AwaitingMaskDecision {
-		return
-	}
-
 	// Iterate over all pointer events that occurred since the last frame
 	for {
 
@@ -209,6 +204,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if selectionChanged {
+				// A click while a mask decision is pending implicitly means "start from scratch".
+				if appState.AwaitingMaskDecision {
+					appState.StartSelectionFromScratch()
+				}
+
 				// Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
 				if appState.EnableAutoFloodFill.Value {
 					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
@@ -248,11 +248,6 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
-		return
-	}
-
-	if button == &appState.StartFromScratchButton {
-		appState.StartSelectionFromScratch()
 		return
 	}
 

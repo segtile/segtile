@@ -73,7 +73,6 @@ type UiState struct {
 	SmoothAmount     widget.Float
 
 	// Existing-mask decision popover
-	StartFromScratchButton widget.Clickable
 	EditExistingMaskButton widget.Clickable
 
 	// Image navigation buttons
