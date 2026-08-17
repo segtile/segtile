@@ -303,7 +303,6 @@ func (this *SpResult) SmoothLabelMap(strength int) (err error) {
 	}
 
 	bounds := this.LabelMap.Bounds()
-	// Write results into a fresh map so lookups always see original, unsmoothed labels.
 	smoothed := image.NewGray16(bounds)
 
 	for y := 0; y < bounds.Dy(); y++ {
