@@ -37,6 +37,10 @@ type AppState struct {
 
 	// Selection
 	SelectionIndex []bool
+
+	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
+	// user has not yet chosen to start from scratch or edit it. Selection is disabled while true.
+	AwaitingMaskDecision bool
 }
 
 // UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
@@ -67,6 +71,10 @@ type UiState struct {
 	// Selection post-processing
 	ShrinkGrowAmount widget.Float
 	SmoothAmount     widget.Float
+
+	// Existing-mask decision popover
+	StartFromScratchButton widget.Clickable
+	EditExistingMaskButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable

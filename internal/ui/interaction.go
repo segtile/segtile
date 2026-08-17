@@ -98,6 +98,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		return
 	}
 
+	// No selection or hover interaction until the user resolves the existing-mask decision.
+	if appState.AwaitingMaskDecision {
+		return
+	}
+
 	// Iterate over all pointer events that occurred since the last frame
 	for {
 
@@ -243,6 +248,16 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
+		return
+	}
+
+	if button == &appState.StartFromScratchButton {
+		appState.StartSelectionFromScratch()
+		return
+	}
+
+	if button == &appState.EditExistingMaskButton {
+		appState.EditExistingMaskWithCurrentSettings()
 		return
 	}
 

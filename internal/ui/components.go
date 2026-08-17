@@ -21,6 +21,48 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
+// drawExistingMaskPopover renders a panel asking the user to either start a fresh selection
+// or approximate the on-disk mask as an editable selection with the current superpixel settings.
+// Positioned in the top-right corner; gtx must carry the full window constraints.
+func drawExistingMaskPopover(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+	return layout.NE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Dp(unit.Dp(260))
+			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(260))
+
+			macro := op.Record(gtx.Ops)
+			dims := layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						label := material.Body2(&appState.Theme.GioTheme, "An existing segmentation was found for this image.")
+						label.Color = appState.Theme.GioTheme.Palette.Fg
+						return label.Layout(gtx)
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						HandleUiButtonClick(appState, gtx, &appState.EditExistingMaskButton)
+						return drawBigButton(gtx, &appState.EditExistingMaskButton, appState.Theme, "Edit with current settings", 14)
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						HandleUiButtonClick(appState, gtx, &appState.StartFromScratchButton)
+						return drawBigButton(gtx, &appState.StartFromScratchButton, appState.Theme, "Start from scratch", 14)
+					}),
+				)
+			})
+			call := macro.Stop()
+
+			bgClip := clip.RRect{Rect: image.Rectangle{Max: dims.Size}, SE: 8, SW: 8, NE: 8, NW: 8}.Push(gtx.Ops)
+			paint.ColorOp{Color: appState.Theme.GioTheme.Palette.Bg}.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+			bgClip.Pop()
+
+			call.Add(gtx.Ops)
+			return dims
+		})
+	})
+}
+
 // drawIconButton draws a button with an icon and handles its click event.
 func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string, filled bool) layout.Dimensions {
 	style := material.IconButton(&theme.GioTheme, btn, icon, description)

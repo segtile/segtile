@@ -85,6 +85,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	appState.ActiveImageExistingMask = nil
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	appState.ProcessedSelectionMask = nil
+	appState.AwaitingMaskDecision = false
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
@@ -92,6 +93,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ActiveImageExistingMask = loadedMask
 			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
+			appState.AwaitingMaskDecision = true
 		}
 	}
 

@@ -160,6 +160,10 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
 									}
 								}
+
+								if appState.AwaitingMaskDecision {
+									drawExistingMaskPopover(gtx, appState)
+								}
 							}
 
 							canvasClip.Pop()
