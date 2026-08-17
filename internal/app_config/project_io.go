@@ -22,11 +22,12 @@ type ProjectLoadingResult struct {
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	OutputDirectory           string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
-	InputDirectory            string             `yaml:"input_directory"`
-	Superpixel                SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill       bool               `yaml:"auto_flood_fill"`
-	LabelMapSmoothingStrength float32            `yaml:"label_map_smoothing_strength"`
+	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
+	InputDirectory      string             `yaml:"input_directory"`
+	Superpixel          SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
+	ShrinkGrowAmount    float32            `yaml:"shrink_grow_amount"`
+	SmoothAmount        float32            `yaml:"smooth_amount"`
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
@@ -122,9 +123,10 @@ func Save(settings *ProjectSettings) error {
 // settings, saves it to disk and returns the result.
 func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
-		InputDirectory:  inputDir,
-		OutputDirectory: outputDir,
-		Superpixel:      spSettings,
+		InputDirectory:   inputDir,
+		OutputDirectory:  outputDir,
+		Superpixel:       spSettings,
+		ShrinkGrowAmount: 0, // neutral (no shrink/grow)
 	}
 	if err := Save(cfg); err != nil {
 		return nil, err
@@ -152,7 +154,8 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	// Apply the new settings
 	appState.Settings = loadingResult.Settings
 	appState.EnableAutoFloodFill.Value = loadingResult.Settings.EnableAutoFloodFill
-	appState.LabelMapSmoothingStrength.Value = loadingResult.Settings.LabelMapSmoothingStrength
+	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadingResult.Settings.ShrinkGrowAmount)
+	appState.SmoothAmount.Value = loadingResult.Settings.SmoothAmount
 
 	// Rebuild editors
 	appState.RebuildEditors()

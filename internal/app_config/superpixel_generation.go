@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
-
-const labelMapSmoothingMaxFactor = 0.05
 
 func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
@@ -33,10 +30,6 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		return err
 	}
 
-	log.Println("Smoothing label map ...")
-
-	// Apply smoothing
-	newResult.SmoothLabelMap(int(appState.LabelMapSmoothingStrength.Value * float32(newResult.LabelMap.Bounds().Dx()) * labelMapSmoothingMaxFactor))
 	newResult.EnforceConnectivity()
 	newResult.EnforceContiguousIndexing()
 
@@ -50,8 +43,8 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		appState.SelectionIndex = make([]bool, appState.ActiveSp.SpCount)
 	}
 
-	// Rebuild the selection outline path spec for rendering
-	appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)
+	// Rebuild the yellow selection outline (processed) and orange on-disk outline is left untouched
+	appState.RecalculateProcessedSelection()
 
 	// Log
 	end := time.Now().UnixMicro()

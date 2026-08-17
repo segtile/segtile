@@ -1,13 +1,10 @@
 package superpixel
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
-	"runtime"
 	"sort"
-	"sync"
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
@@ -301,147 +298,6 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	this.contiguousIndexingEnforced = false
 
 	return changed
-}
-
-func (this *SpResult) SmoothLabelMap(strength int) (err error) {
-	if strength < 1 {
-		err = fmt.Errorf("strength must be a positive integer")
-		return
-	}
-
-	bounds := this.LabelMap.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-	smoothed := image.NewGray16(bounds)
-
-	numWorkers := runtime.NumCPU()
-	if numWorkers < 1 {
-		numWorkers = 1
-	}
-	if numWorkers > height {
-		numWorkers = height
-	}
-	if numWorkers < 1 {
-		numWorkers = 1
-	}
-	rowsPerWorker := (height + numWorkers - 1) / numWorkers
-
-	var wg sync.WaitGroup
-	for w := 0; w < numWorkers; w++ {
-		yStart := w * rowsPerWorker
-		yEnd := yStart + rowsPerWorker
-		if yEnd > height {
-			yEnd = height
-		}
-		if yStart >= yEnd {
-			continue
-		}
-		wg.Add(1)
-		go func(yStart, yEnd int) {
-			defer wg.Done()
-			smoothRowBand(this.LabelMap, smoothed, width, height, strength, yStart, yEnd)
-		}(yStart, yEnd)
-	}
-	wg.Wait()
-
-	this.LabelMap = smoothed
-	this.connectivityEnforced = false
-	this.contiguousIndexingEnforced = false
-
-	return nil
-}
-
-// smoothRowBand fills rows [yStart, yEnd) of dst with the majority label of the (2*strength+1)^2
-// neighborhood in src around each pixel (ties broken by the lowest label, for determinism).
-// The window is rebuilt once per row and then slid one column at a time (removing the outgoing
-// column, adding the incoming column) instead of being rescanned from scratch at every pixel.
-func smoothRowBand(src, dst *image.Gray16, width, height, strength, yStart, yEnd int) {
-	const histSize = 1 << 16 // labels are stored as uint16
-	counts := make([]int, histSize)
-	active := make([]uint16, 0, 64)
-
-	addLabel := func(label uint16) {
-		if counts[label] == 0 {
-			active = append(active, label)
-		}
-		counts[label]++
-	}
-	removeLabel := func(label uint16) {
-		counts[label]--
-		if counts[label] == 0 {
-			for i, l := range active {
-				if l == label {
-					active[i] = active[len(active)-1]
-					active = active[:len(active)-1]
-					break
-				}
-			}
-		}
-	}
-
-	for y := yStart; y < yEnd; y++ {
-		yLo := y - strength
-		if yLo < 0 {
-			yLo = 0
-		}
-		yHi := y + strength
-		if yHi >= height {
-			yHi = height - 1
-		}
-
-		// Start each row with a fresh window, since the y-range differs per row.
-		for _, l := range active {
-			counts[l] = 0
-		}
-		active = active[:0]
-
-		xLo := 0
-		xHi := strength
-		if xHi >= width {
-			xHi = width - 1
-		}
-		for ny := yLo; ny <= yHi; ny++ {
-			for nx := xLo; nx <= xHi; nx++ {
-				addLabel(src.Gray16At(nx, ny).Y)
-			}
-		}
-
-		for x := 0; x < width; x++ {
-			if x > 0 {
-				// Slide the window one column to the right.
-				outX := x - 1 - strength
-				inX := x + strength
-				if outX >= 0 {
-					for ny := yLo; ny <= yHi; ny++ {
-						removeLabel(src.Gray16At(outX, ny).Y)
-					}
-				}
-				if inX < width {
-					for ny := yLo; ny <= yHi; ny++ {
-						addLabel(src.Gray16At(inX, ny).Y)
-					}
-				}
-			}
-
-			if len(active) == 1 {
-				// If there's only one label in the neighborhood, no need to compute the most common label.
-				dst.SetGray16(x, y, color.Gray16{Y: src.Gray16At(x, y).Y})
-				continue
-			}
-
-			// Find the most common label, ties broken by the lowest label for determinism
-			var mostCommonLabel uint16
-			bestCount := -1
-			for _, label := range active {
-				count := counts[label]
-				if count > bestCount || (count == bestCount && label < mostCommonLabel) {
-					bestCount = count
-					mostCommonLabel = label
-				}
-			}
-			dst.SetGray16(x, y, color.Gray16{Y: mostCommonLabel})
-		}
-	}
 }
 
 // computeOverlapCounts counts, for each superpixel, the total number of pixels it contains

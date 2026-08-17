@@ -64,8 +64,9 @@ type UiState struct {
 	SuperpixelParameterEditorTitles []string
 	OptimizeParameterCheckboxes     []widget.Bool
 
-	// Smoothing
-	LabelMapSmoothingStrength widget.Float
+	// Selection post-processing
+	ShrinkGrowAmount widget.Float
+	SmoothAmount     widget.Float
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable
@@ -109,6 +110,10 @@ type CacheState struct {
 	SelectionPathSpec    clip.PathSpec
 	HoverPathSpec        clip.PathSpec
 	ExistingMaskPathSpec clip.PathSpec
+
+	// ProcessedSelectionMask is the current selection's mask after Shrink/Grow and Smooth are
+	// applied; it is what actually gets saved to disk and is shown by the (processed) yellow outline.
+	ProcessedSelectionMask *image.Gray16
 }
 
 // LoadingState holds the state of background loading and optimization operations.

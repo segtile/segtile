@@ -45,13 +45,26 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 	}
 
-	// Handle smoothness strength slider changes, but only trigger recalculation when the user releases the slider, not while dragging.
-	previouslyDragging := appState.LabelMapSmoothingStrength.Dragging()
-	if appState.LabelMapSmoothingStrength.Update(gtx) {
-		appState.Settings.LabelMapSmoothingStrength = appState.LabelMapSmoothingStrength.Value
+	// Handle Shrink/Grow and Smooth slider changes. Unlike the parameter editors, these apply
+	// live to the selection mask, so the processed-selection preview is recomputed on every
+	// value change instead of waiting for a superpixel recalculation. Config is only persisted
+	// once the slider is released, to avoid writing to disk on every drag frame.
+	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
+	if appState.ShrinkGrowAmount.Update(gtx) {
+		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
 	}
-	if previouslyDragging && !appState.LabelMapSmoothingStrength.Dragging() {
-		recalculate = true
+	smoothWasDragging := appState.SmoothAmount.Dragging()
+	if appState.SmoothAmount.Update(gtx) {
+		appState.Settings.SmoothAmount = appState.SmoothAmount.Value
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+	}
+	if (shrinkGrowWasDragging && !appState.ShrinkGrowAmount.Dragging()) || (smoothWasDragging && !appState.SmoothAmount.Dragging()) {
+		if err := app_config.Save(appState.Settings); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
 	}
 
 	if recalculate {
@@ -196,7 +209,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
 				}
 
-				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)
+				appState.RecalculateProcessedSelection()
 				appState.Window.Invalidate()
 			}
 		}
