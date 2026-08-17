@@ -46,9 +46,13 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 	}
 
-	// Handle smoothness strength slider changes
+	// Handle smoothness strength slider changes and persist changes
 	if appState.LabelMapSmoothingStrength.Update(gtx) {
 		recalculate = true
+		appState.Settings.LabelMapSmoothingStrength = appState.LabelMapSmoothingStrength.Value
+		if err := app_config.Save(appState.Settings); err != nil {
+			fmt.Println("Warning: could not save config:", err)
+		}
 	}
 
 	if recalculate {
@@ -73,6 +77,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			fmt.Println("Warning: could not save config:", err)
 		}
 	}
+
 }
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
@@ -187,7 +192,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if selectionChanged {
-				// For testing: Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
+				// Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
 				if appState.EnableAutoFloodFill.Value {
 					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
 				}

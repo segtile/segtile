@@ -20,6 +20,15 @@ type ProjectLoadingResult struct {
 	Err      error
 }
 
+// ProjectSettings stores all settings of a project that need to be persisted to disk.
+type ProjectSettings struct {
+	OutputDirectory           string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
+	InputDirectory            string             `yaml:"input_directory"`
+	Superpixel                SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill       bool               `yaml:"auto_flood_fill"`
+	LabelMapSmoothingStrength float32            `yaml:"label_map_smoothing_strength"`
+}
+
 // SuperpixelSettings stores the algorithm name and its parameters.
 // This is used for yaml persistence.
 type SuperpixelSettings struct {
@@ -66,14 +75,6 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 	}
 
 	return nil
-}
-
-// ProjectSettings stores all settings of a project that need to be persisted to disk.
-type ProjectSettings struct {
-	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
-	InputDirectory      string             `yaml:"input_directory"`
-	Superpixel          SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
 }
 
 // Load reads and unmarshals a config file from the given path.
@@ -151,6 +152,7 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	// Apply the new settings
 	appState.Settings = loadingResult.Settings
 	appState.EnableAutoFloodFill.Value = loadingResult.Settings.EnableAutoFloodFill
+	appState.LabelMapSmoothingStrength.Value = loadingResult.Settings.LabelMapSmoothingStrength
 
 	// Rebuild editors
 	appState.RebuildEditors()
