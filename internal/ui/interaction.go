@@ -3,11 +3,13 @@ package ui
 import (
 	"log"
 	"strconv"
+	"time"
 
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/widget"
+	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
@@ -210,7 +212,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 				// Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
 				if appState.EnableAutoFloodFill.Value {
-					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
+					var changed bool
+					appState.SelectionIndex, changed = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
+					if changed {
+						appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
+					}
 				}
 
 				appState.RecalculateProcessedSelection()
@@ -405,7 +411,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		}
 
 		// Ctrl: Disable smoothing of selection outline (while held)
-		if ke.Name == key.NameCtrl {
+		/*if ke.Name == key.NameCtrl {
 			if ke.State == key.Press {
 				appState.SmoothSelectionOutlines = false
 				appState.RecalculateProcessedSelection()
@@ -417,7 +423,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 				log.Println("Enable smoothing of selection outline")
 				appState.Window.Invalidate()
 			}
-		}
+		}*/
 
 		// Space: next image, Shift+Space: previous image
 		// Alternatively: Left/Right arrow keys

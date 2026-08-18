@@ -322,7 +322,7 @@ func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) lay
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						HandleUiButtonClick(appState, gtx, &appState.ShrinkGrowAmountReset)
-						return drawIconButton(gtx, &appState.ShrinkGrowAmountReset, appState.Theme, app_theme.IconContentClear, "Reset Shrink/Grow", false)
+						return drawIconButton(gtx, &appState.ShrinkGrowAmountReset, appState.Theme, app_theme.IconAvReplay, "Reset Shrink/Grow", false)
 					}),
 				)
 			}),
@@ -337,11 +337,9 @@ func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) lay
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						HandleUiButtonClick(appState, gtx, &appState.SmoothAmountReset)
-						return drawIconButton(gtx, &appState.SmoothAmountReset, appState.Theme, app_theme.IconContentClear, "Reset Smooth", false)
+						return drawIconButton(gtx, &appState.SmoothAmountReset, appState.Theme, app_theme.IconAvReplay, "Reset Smooth", false)
 					}),
 				)
-
-				//return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
 			}),
 		}
 
