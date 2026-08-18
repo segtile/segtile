@@ -3,7 +3,6 @@ package superpixel
 import (
 	"image"
 	"image/color"
-	"log"
 	"sort"
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
@@ -99,7 +98,7 @@ func (this *SpResult) EnforceContiguousIndexing() (changed bool) {
 		return false
 	}
 
-	log.Println("Enforcing contiguous indexing ...")
+	// log.Println("Enforcing contiguous indexing ...")
 
 	bounds := this.LabelMap.Bounds()
 
@@ -145,7 +144,7 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 		return false
 	}
 
-	log.Println("Enforcing connectivity ...")
+	//log.Println("Enforcing connectivity ...")
 
 	// Prepare variables
 	bounds := this.LabelMap.Bounds()
