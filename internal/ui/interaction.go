@@ -42,10 +42,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 	}
 
-	// Handle Shrink/Grow and Smooth slider changes. Unlike the parameter editors, these apply
-	// live to the selection mask, so the processed-selection preview is recomputed on every
-	// value change instead of waiting for a superpixel recalculation. Config is only persisted
-	// once the slider is released, to avoid writing to disk on every drag frame.
+	// Handle Shrink/Grow and Smooth slider changes.
 	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
 	if appState.ShrinkGrowAmount.Update(gtx) {
 		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
@@ -58,6 +55,8 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		appState.RecalculateProcessedSelection()
 		appState.Window.Invalidate()
 	}
+
+	// Persist config if user just let go of slider.
 	if (shrinkGrowWasDragging && !appState.ShrinkGrowAmount.Dragging()) || (smoothWasDragging && !appState.SmoothAmount.Dragging()) {
 		if err := app_config.Save(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
