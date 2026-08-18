@@ -191,17 +191,6 @@ func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return drawImageNavigationButtons(gtx, appState)
 			}),
-			/*
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					label := material.Body2(&appState.Theme.GioTheme, "An existing segmentation was found for this image. Click on it to start a fresh selection, or recreate it as an editable selection using the current superpixel settings.")
-					label.Color = appState.Theme.GioTheme.Palette.Fg
-					return label.Layout(gtx)
-				}),
-				layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					HandleUiButtonClick(appState, gtx, &appState.EditExistingMaskButton)
-					return drawBigButton(gtx, &appState.EditExistingMaskButton, appState.Theme, "Recreate with current settings", 14)
-				}),*/
 		)
 	})
 }
