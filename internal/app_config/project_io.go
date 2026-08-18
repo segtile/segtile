@@ -171,3 +171,15 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	appState.ImageFilesIndex = 0
 	appState.loadImageAtIndex(0)
 }
+
+// RecreateExistingMaskFromDisk resolves the pending existing-mask decision by
+// approximating the on-disk mask as a selection on the current superpixel segmentation,
+// so the user can keep editing it.
+func (appState *AppState) RecreateExistingMaskFromDisk() {
+	appState.AwaitingMaskDecision = false
+	if appState.ActiveImageExistingMask != nil {
+		appState.SelectionIndex = appState.ActiveSp.SelectFromMask(appState.ActiveImageExistingMask, 0.5)
+		appState.RecalculateProcessedSelection()
+	}
+	appState.Window.Invalidate()
+}
