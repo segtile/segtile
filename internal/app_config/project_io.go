@@ -20,6 +20,16 @@ type ProjectLoadingResult struct {
 	Err      error
 }
 
+// ProjectSettings stores all settings of a project that need to be persisted to disk.
+type ProjectSettings struct {
+	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
+	InputDirectory      string             `yaml:"input_directory"`
+	Superpixel          SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
+	ShrinkGrowAmount    float32            `yaml:"shrink_grow_amount"`
+	SmoothAmount        float32            `yaml:"smooth_amount"`
+}
+
 // SuperpixelSettings stores the algorithm name and its parameters.
 // This is used for yaml persistence.
 type SuperpixelSettings struct {
@@ -68,14 +78,6 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 	return nil
 }
 
-// ProjectSettings stores all settings of a project that need to be persisted to disk.
-type ProjectSettings struct {
-	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
-	InputDirectory      string             `yaml:"input_directory"`
-	Superpixel          SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
-}
-
 // Load reads and unmarshals a config file from the given path.
 func Load(path string) (*ProjectSettings, error) {
 
@@ -121,9 +123,10 @@ func Save(settings *ProjectSettings) error {
 // settings, saves it to disk and returns the result.
 func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
-		InputDirectory:  inputDir,
-		OutputDirectory: outputDir,
-		Superpixel:      spSettings,
+		InputDirectory:   inputDir,
+		OutputDirectory:  outputDir,
+		Superpixel:       spSettings,
+		ShrinkGrowAmount: 0, // neutral (no shrink/grow)
 	}
 	if err := Save(cfg); err != nil {
 		return nil, err
@@ -151,6 +154,8 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	// Apply the new settings
 	appState.Settings = loadingResult.Settings
 	appState.EnableAutoFloodFill.Value = loadingResult.Settings.EnableAutoFloodFill
+	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadingResult.Settings.ShrinkGrowAmount)
+	appState.SmoothAmount.Value = loadingResult.Settings.SmoothAmount
 
 	// Rebuild editors
 	appState.RebuildEditors()
@@ -165,4 +170,16 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	appState.ImageFiles = imageFiles
 	appState.ImageFilesIndex = 0
 	appState.loadImageAtIndex(0)
+}
+
+// RecreateExistingMaskFromDisk resolves the pending existing-mask decision by
+// approximating the on-disk mask as a selection on the current superpixel segmentation,
+// so the user can keep editing it.
+func (appState *AppState) RecreateExistingMaskFromDisk() {
+	appState.AwaitingMaskDecision = false
+	if appState.ActiveImageExistingMask != nil {
+		appState.SelectionIndex = appState.ActiveSp.SelectFromMask(appState.ActiveImageExistingMask, 0.5)
+		appState.RecalculateProcessedSelection()
+	}
+	appState.Window.Invalidate()
 }

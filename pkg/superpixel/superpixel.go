@@ -125,6 +125,7 @@ func Run(id string, img image.Image, params map[string]float64) (result SpResult
 		return SpResult{}, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)
 	}
 	result, err = entry.Run(img, params)
-	result.Cleanup()
+	result.EnforceConnectivity()
+	result.EnforceContiguousIndexing()
 	return result, err
 }

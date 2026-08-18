@@ -84,6 +84,8 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	// Reset the outline for showing the existing mask
 	appState.ActiveImageExistingMask = nil
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
+	appState.ProcessedSelectionMask = nil
+	appState.AwaitingMaskDecision = false
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
@@ -91,6 +93,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ActiveImageExistingMask = loadedMask
 			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
+			appState.AwaitingMaskDecision = true
 		}
 	}
 
@@ -111,13 +114,16 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 }
 
-// SaveCurrentMask writes the current selection as a Gray16 PNG to the output directory.
+// SaveCurrentMask writes the current selection (after Shrink/Grow + Smooth) as a Gray16 PNG to the output directory.
 func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
 	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
 
-		// Rasterize the current selection
-		mask := appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
+		// Prefer the already-computed processed mask; fall back to the raw selection defensively.
+		mask := appState.ProcessedSelectionMask
+		if mask == nil {
+			mask = appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
+		}
 
 		// Save as image
 		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
@@ -130,7 +136,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 		} else {
 
 			if recalculateOutline {
-				// Recalculate the ExistingMaskPathSpec
+				// The saved mask is now the on-disk state too.
 				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
 			}
 

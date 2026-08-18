@@ -1,17 +1,15 @@
 package ui
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"github.com/ncruces/zenity"
+	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
@@ -38,13 +36,35 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
 					appState.Settings.Superpixel.SpAlgorithmParameters[param] = v
-					fmt.Printf("Set %s to %v\n", param, v)
+					log.Printf("Set %s to %v\n", param, v)
 
 					recalculate = true
 				}
 			}
 		}
 	}
+
+	// Handle Shrink/Grow and Smooth slider changes.
+	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
+	if appState.ShrinkGrowAmount.Update(gtx) {
+		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+	}
+	smoothWasDragging := appState.SmoothAmount.Dragging()
+	if appState.SmoothAmount.Update(gtx) {
+		appState.Settings.SmoothAmount = appState.SmoothAmount.Value
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+	}
+
+	// Persist config if user just let go of slider.
+	if (shrinkGrowWasDragging && !appState.ShrinkGrowAmount.Dragging()) || (smoothWasDragging && !appState.SmoothAmount.Dragging()) {
+		if err := app_config.Save(appState.Settings); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
+	}
+
 	if recalculate {
 
 		appState.SyncEditors()
@@ -55,7 +75,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 		// Persist updated parameters to config.
 		if err := app_config.Save(appState.Settings); err != nil {
-			fmt.Println("Warning: could not save config:", err)
+			log.Println("Warning: could not save config:", err)
 		}
 
 	}
@@ -64,9 +84,10 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	if appState.EnableAutoFloodFill.Update(gtx) {
 		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
 		if err := app_config.Save(appState.Settings); err != nil {
-			fmt.Println("Warning: could not save config:", err)
+			log.Println("Warning: could not save config:", err)
 		}
 	}
+
 }
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
@@ -152,8 +173,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		// Handle simple move and update the hover preview
 		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
 			if inImageBounds {
-				labelMap := appState.ActiveSp.LabelMap
-				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*labelMap, labelMap.Gray16At(int(imageX), int(imageY)).Y)
+				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, appState.ActiveSp.LabelMap.Gray16At(int(imageX), int(imageY)).Y)
 			} else {
 				appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
 			}
@@ -163,15 +183,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		if inImageBounds {
 			// Sample the current superpixel label at the pointer position
-			labelMap := appState.ActiveSp.LabelMap
-			label := labelMap.Gray16At(int(imageX), int(imageY)).Y
+			label := appState.ActiveSp.LabelMap.Gray16At(int(imageX), int(imageY)).Y
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			selectionChanged := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
-				if pe.Modifiers&key.ModShift != 0 {
-					// If shift is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(labelMap, int(imageX), int(imageY), appState.SelectionIndex)
+				if pe.Modifiers&key.ModCtrl != 0 {
+					// If ctrl is held, perform a flood fill selection
+					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(imageX), int(imageY), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
@@ -183,12 +202,24 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if selectionChanged {
-				// For testing: Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
-				if appState.EnableAutoFloodFill.Value {
-					appState.SelectionIndex = superpixel_utils.SuperpixelAutoFloodFillSelection(labelMap, appState.SelectionIndex)
+				// A click while a mask decision is pending implicitly means "start from scratch".
+				if appState.AwaitingMaskDecision {
+					appState.AwaitingMaskDecision = false
+					appState.ActiveImageExistingMask = nil
+					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
+					appState.Window.Invalidate()
 				}
 
-				appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)
+				// Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
+				if appState.EnableAutoFloodFill.Value {
+					var changed bool
+					appState.SelectionIndex, changed = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
+					if changed {
+						appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
+					}
+				}
+
+				appState.RecalculateProcessedSelection()
 				appState.Window.Invalidate()
 			}
 		}
@@ -225,6 +256,11 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.EditExistingMaskButton {
+		appState.RecreateExistingMaskFromDisk()
+		return
+	}
+
 	if button == &appState.PrevUnlabeledButton {
 		appState.LoadPreviousUnlabeledImage()
 		return
@@ -256,49 +292,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	}
 
 	if button == &appState.OptimizeButton {
-
-		// Create a progress indicator and start it
-		progress := &ZenityProgressIndicator{}
-		if err := progress.Start(); err != nil {
-			log.Printf("Failed to show optimization progress: %v", err)
-			return
-		}
-
-		// Indicate that the optimization is running. This will be reset when the result is processed in the main loop.
-		appState.CurrentlyOptimizing = true
-
-		// Create the context for the optimization, which can be canceled if the user closes the progress dialog
-		ctx, cancelFunction := context.WithCancel(context.Background())
-
-		// First goroutine which blocks until either the progress dialog is closed or the optimization is done, and cancels the context if the progress dialog is closed.
-		go func() {
-			select {
-			case <-progress.Done():
-				cancelFunction()
-			case <-ctx.Done():
-			}
-		}()
-
-		// Second goroutine which runs the actual optimization and writes the result to the channel
-		go func() {
-
-			defer cancelFunction()
-
-			result, err := appState.OptimizeSpParameters(ctx, progress)
-			if errors.Is(err, zenity.ErrCanceled) {
-				err = context.Canceled
-			}
-
-			if err == nil {
-				err = progress.Finish()
-			} else {
-				_ = progress.Close()
-			}
-
-			result.Err = err
-			appState.OptimizationResult <- result
-			appState.Window.Invalidate()
-		}()
+		triggerOptimization(appState)
 		return
 	}
 
@@ -320,6 +314,22 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.ShrinkGrowAmountReset {
+		appState.ShrinkGrowAmount.Value = 0.5
+		appState.Settings.ShrinkGrowAmount = 0.5
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+		return
+	}
+
+	if button == &appState.SmoothAmountReset {
+		appState.SmoothAmount.Value = 0
+		appState.Settings.SmoothAmount = 0
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+		return
+	}
+
 	for i := range appState.SpAlgorithmMenuButtons {
 
 		if button != &appState.SpAlgorithmMenuButtons[i] {
@@ -328,7 +338,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuAlgorithmIds[i])
 		if err != nil {
-			fmt.Printf("Failed to change superpixel algorithm: %v\n", err)
+			log.Printf("Failed to change superpixel algorithm: %v", err)
 			return
 		}
 		appState.SpAlgorithmMenuOpen = false
@@ -348,10 +358,11 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 	for {
 		ev, ok := gtx.Event(
 			key.FocusFilter{Target: &appState.KeyboardTag},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "F"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "S"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "F", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
@@ -389,13 +400,30 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		if ke.Name == "D" {
 			if ke.State == key.Press {
 				appState.RenderSelectionOutlines = false
+				appState.RecalculateProcessedSelection()
 				appState.Window.Invalidate()
 			} else if ke.State == key.Release {
 				appState.RenderSelectionOutlines = true
+				appState.RecalculateProcessedSelection()
 				appState.Window.Invalidate()
 			}
 			continue
 		}
+
+		// Ctrl: Disable smoothing of selection outline (while held)
+		/*if ke.Name == key.NameCtrl {
+			if ke.State == key.Press {
+				appState.SmoothSelectionOutlines = false
+				appState.RecalculateProcessedSelection()
+				log.Println("Disable smoothing of selection outline")
+				appState.Window.Invalidate()
+			} else if ke.State == key.Release {
+				appState.SmoothSelectionOutlines = true
+				appState.RecalculateProcessedSelection()
+				log.Println("Enable smoothing of selection outline")
+				appState.Window.Invalidate()
+			}
+		}*/
 
 		// Space: next image, Shift+Space: previous image
 		// Alternatively: Left/Right arrow keys

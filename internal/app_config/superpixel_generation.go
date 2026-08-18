@@ -3,16 +3,16 @@ package app_config
 import (
 	"fmt"
 	"image"
+	"log"
 	"time"
 
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
-	fmt.Println("Calculating superpixels...")
+	log.Println("Recalculating superpixels...")
 	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
@@ -30,6 +30,9 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		return err
 	}
 
+	newResult.EnforceConnectivity()
+	newResult.EnforceContiguousIndexing()
+
 	appState.ActiveSp = newResult
 
 	// Restore the selection by matching old mask pixels to new superpixels,
@@ -40,12 +43,12 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		appState.SelectionIndex = make([]bool, appState.ActiveSp.SpCount)
 	}
 
-	// Rebuild the selection outline path spec for rendering
-	appState.SelectionPathSpec = rendering.CalculateSelectionOutlineFromSlice(*appState.ActiveSp.LabelMap, appState.SelectionIndex)
+	// Rebuild the yellow selection outline (processed) and orange on-disk outline is left untouched
+	appState.RecalculateProcessedSelection()
 
 	// Log
 	end := time.Now().UnixMicro()
-	fmt.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+	log.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
 
 	if showToast {
 		// Add a toast

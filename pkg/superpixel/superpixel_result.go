@@ -3,47 +3,110 @@ package superpixel
 import (
 	"image"
 	"image/color"
+	"log"
 	"sort"
+
+	"github.com/struffel/annotation-tool/internal/io_utils"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 // SpResult encapsulates the result of a superpixel segmentation, including the label map and the count of superpixels.
 // LabelMap is a grayscale image where each pixel's value corresponds to the superpixel label it belongs to. Labels should be contiguous and start from 0.
 // SpCount is the total number of superpixels in the label map.
 type SpResult struct {
-	LabelMap *image.Gray16
-	SpCount  int // Number of superpixels. This should be the actual number of SP in the final map.
+	LabelMap                   *image.Gray16
+	SpCount                    int // Number of superpixels. This should be the actual number of SP in the final map.
+	connectivityEnforced       bool
+	contiguousIndexingEnforced bool
 }
 
-func MakeSpResult(labelMap *image.Gray16) SpResult {
+// NewSpResult creates a new SpResult with the given label map and superpixel count.
+// If optimize is true, it will enforce connectivity and contiguous indexing on the label map and recalculate SpCount.
+func NewSpResult(labelMap *image.Gray16, spCount int, optimize bool) SpResult {
 	result := SpResult{
-		LabelMap: labelMap,
-		SpCount:  0, // Will be updated in Cleanup
+		LabelMap:                   labelMap,
+		SpCount:                    spCount,
+		connectivityEnforced:       false,
+		contiguousIndexingEnforced: false,
 	}
-	result.Cleanup()
+	if optimize {
+		result.EnforceConnectivity()
+		result.EnforceContiguousIndexing()
+		result.SetActualSpCount() // Recalculate SpCount after enforcing connectivity and contiguous indexing
+	}
 	return result
 }
 
-func (this *SpResult) Cleanup() {
-	// Determine which label indices are actually used in the map
-	labelUsed := make(map[uint16]bool)
-	highestLabel := uint16(0)
+// Clone creates a deep copy of the result, including a newly allocated copy of the label map.
+func (this *SpResult) Clone() SpResult {
+	newLabelMap := io_utils.ToGray16(this.LabelMap)
+	return SpResult{
+		LabelMap:                   newLabelMap,
+		SpCount:                    this.SpCount,
+		connectivityEnforced:       this.connectivityEnforced,
+		contiguousIndexingEnforced: this.contiguousIndexingEnforced,
+	}
+}
+
+func (this *SpResult) SuperpixelCount() int {
+	return this.SpCount
+}
+
+func (this *SpResult) ConnectivityEnforced() bool {
+	return this.connectivityEnforced
+}
+
+func (this *SpResult) ContiguousIndexingEnforced() bool {
+	return this.contiguousIndexingEnforced
+}
+
+func (this *SpResult) analyzeLabelMap() (lowestLabel uint16, highestLabel uint16, labelUsed map[uint16]bool) {
+
+	labelUsed = make(map[uint16]bool)
+	lowestLabel = ^uint16(0) // max uint16
+	highestLabel = uint16(0)
 
 	bounds := this.LabelMap.Bounds()
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+	for x := 0; x < bounds.Max.X; x++ {
+		for y := 0; y < bounds.Max.Y; y++ {
 			label := this.LabelMap.Gray16At(x, y).Y
 
 			labelUsed[label] = true
 			if label > highestLabel {
 				highestLabel = label
 			}
+			if label < lowestLabel {
+				lowestLabel = label
+			}
 		}
 	}
 
+	return lowestLabel, highestLabel, labelUsed
+}
+
+func (this *SpResult) SetActualSpCount() {
+	_, _, labelUsed := this.analyzeLabelMap()
+	this.SpCount = len(labelUsed)
+}
+
+// EnforceContiguousIndexing ensures that the superpixel labels are contiguous and start from 0.
+// If the labels are not contiguous, they are remapped to be contiguous, and SpCount is updated accordingly.
+// If the labels are already contiguous, no changes are made.
+// Returns true if any changes were made to the label map.
+func (this *SpResult) EnforceContiguousIndexing() (changed bool) {
+
+	if this.contiguousIndexingEnforced {
+		return false
+	}
+
+	log.Println("Enforcing contiguous indexing ...")
+
+	bounds := this.LabelMap.Bounds()
+
 	// Get the actual number of superpixels from the map
+	_, highestLabel, labelUsed := this.analyzeLabelMap()
 	spCount := len(labelUsed)
 
-	// If the labels are not contiguous, we need to remap them to ensure they are.
 	if spCount != int(highestLabel)+1 {
 		sortedLabels := make([]uint16, 0, len(labelUsed))
 		for label := range labelUsed {
@@ -57,15 +120,184 @@ func (this *SpResult) Cleanup() {
 		}
 		newLabel := len(sortedLabels)
 		// Remap the labels in the label map
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := 0; x < bounds.Max.X; x++ {
+			for y := 0; y < bounds.Max.Y; y++ {
 				oldLabel := this.LabelMap.Gray16At(x, y).Y
 				this.LabelMap.SetGray16(x, y, color.Gray16{Y: labelRemap[oldLabel]})
 			}
 		}
 		spCount = newLabel
 	}
-	this.SpCount = spCount
+
+	this.contiguousIndexingEnforced = true
+
+	return spCount != int(highestLabel)+1
+}
+
+// EnforceConnectivity ensures that every label forms a single 4-connected component.
+// If a label appears in multiple disjoint components, the largest component keeps the
+// label, and every smaller component is merged into the label most common along its border.
+// Labels are renumbered to remain contiguous afterwards.
+func (this *SpResult) EnforceConnectivity() (changed bool) {
+
+	// Skip if connectivity has already been enforced
+	if this.connectivityEnforced {
+		return false
+	}
+
+	log.Println("Enforcing connectivity ...")
+
+	// Prepare variables
+	bounds := this.LabelMap.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Step 1: find every connected component in the label map.
+
+	// componentId maps each pixel (indexed [y][x]) to its
+	// component id. -1 means unvisited.
+	componentId := make([][]int, height)
+	visited := make([][]bool, height)
+	for y := range componentId {
+		componentId[y] = make([]int, width)
+		visited[y] = make([]bool, width)
+		for x := range componentId[y] {
+			componentId[y][x] = -1
+		}
+	}
+
+	// Each component has a label, size, and list of pixel coordinates, indexed by component id.
+	var componentLabel []uint16
+	var componentSize []int
+	var componentPixels [][]image.Point
+
+	// Loop over every pixel in the label map, and for each unvisited pixel, flood fill to find all pixels of the new component it starts.
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			if visited[y][x] {
+				continue
+			}
+
+			start := image.Point{X: x, Y: y}
+			label := this.LabelMap.Gray16At(start.X, start.Y).Y
+			currentComponentId := len(componentLabel)
+			visited[y][x] = true
+
+			pixels := superpixel_utils.MaskedFloodFill(start, this.LabelMap, &visited)
+			for _, p := range pixels {
+				componentId[p.Y][p.X] = currentComponentId
+			}
+
+			componentLabel = append(componentLabel, label)
+			componentSize = append(componentSize, len(pixels))
+			componentPixels = append(componentPixels, pixels)
+		}
+	}
+	numComponents := len(componentLabel)
+
+	// Step 2: build a component-level relationship graph, weighted by shared border length.
+	neighborBorder := make([]map[int]int, numComponents)
+	for i := range neighborBorder {
+		neighborBorder[i] = make(map[int]int)
+	}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			id := componentId[y][x]
+			for _, nb := range superpixel_utils.Neighbors(image.Point{X: x, Y: y}, bounds, false) {
+				if nid := componentId[nb.Y][nb.X]; nid != id {
+					neighborBorder[id][nid]++
+				}
+			}
+		}
+	}
+
+	// Step 3: the largest component of each label survives with that label; every other
+	// component sharing the label is a loser that must be merged elsewhere.
+	winnerOfLabel := make(map[uint16]int, numComponents)
+	for id := 0; id < numComponents; id++ {
+		lbl := componentLabel[id]
+		if cur, ok := winnerOfLabel[lbl]; !ok || componentSize[id] > componentSize[cur] {
+			winnerOfLabel[lbl] = id
+		}
+	}
+	finalLabel := make([]uint16, numComponents)
+	finalized := make([]bool, numComponents)
+	pending := make([]int, 0, numComponents)
+	for id := 0; id < numComponents; id++ {
+		if winnerOfLabel[componentLabel[id]] == id {
+			finalLabel[id] = componentLabel[id]
+			finalized[id] = true
+		} else {
+			pending = append(pending, id)
+		}
+	}
+
+	// Step 4: repeatedly merge every pending component that borders an already-finalized
+	// one into whichever finalized neighbor shares the longest border (ties broken by the
+	// lowest label, for determinism). Once a component is finalized it is never revisited.
+	for len(pending) > 0 {
+		stillPending := pending[:0:0]
+		progressed := false
+		for _, id := range pending {
+			bestWeight := -1
+			bestTarget := -1
+			for nid, weight := range neighborBorder[id] {
+				if !finalized[nid] {
+					continue
+				}
+				if weight > bestWeight || (weight == bestWeight && bestTarget != -1 && finalLabel[nid] < finalLabel[bestTarget]) {
+					bestWeight = weight
+					bestTarget = nid
+				}
+			}
+			if bestTarget == -1 {
+				stillPending = append(stillPending, id)
+				continue
+			}
+			finalLabel[id] = finalLabel[bestTarget]
+			finalized[id] = true
+			progressed = true
+		}
+
+		// A group of minority components that only border each other has no finalized neighbor to attach to.
+		// Break the deadlock deterministically by letting the largest of them survive with its own label, then keep resolving the rest.
+		if !progressed {
+			largest := stillPending[0]
+			for _, id := range stillPending[1:] {
+				if componentSize[id] > componentSize[largest] {
+					largest = id
+				}
+			}
+			finalLabel[largest] = componentLabel[largest]
+			finalized[largest] = true
+			remaining := stillPending[:0:0]
+			for _, id := range stillPending {
+				if id != largest {
+					remaining = append(remaining, id)
+				}
+			}
+			stillPending = remaining
+		}
+
+		pending = stillPending
+	}
+
+	// Step 5: put  the resolved labels back to the label map.
+	changed = false
+	for id := 0; id < numComponents; id++ {
+		if finalLabel[id] == componentLabel[id] {
+			continue
+		}
+		changed = true
+		for _, p := range componentPixels[id] {
+			this.LabelMap.SetGray16(p.X, p.Y, color.Gray16{Y: finalLabel[id]})
+		}
+	}
+
+	this.connectivityEnforced = true
+	this.contiguousIndexingEnforced = false
+
+	return changed
 }
 
 // computeOverlapCounts counts, for each superpixel, the total number of pixels it contains

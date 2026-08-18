@@ -36,6 +36,10 @@ type AppState struct {
 
 	// Selection
 	SelectionIndex []bool
+
+	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
+	// user has not yet chosen to start from scratch or edit it. Selection is disabled while true.
+	AwaitingMaskDecision bool
 }
 
 // UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
@@ -62,6 +66,15 @@ type UiState struct {
 	SuperpixelParameterEditorIds    []string
 	SuperpixelParameterEditorTitles []string
 	OptimizeParameterCheckboxes     []widget.Bool
+
+	// Selection post-processing
+	ShrinkGrowAmount      widget.Float
+	ShrinkGrowAmountReset widget.Clickable
+	SmoothAmount          widget.Float
+	SmoothAmountReset     widget.Clickable
+
+	// Existing-mask decision popover
+	EditExistingMaskButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable
@@ -93,6 +106,7 @@ type UiState struct {
 	EnableAutoFloodFill     widget.Bool
 	SpAlgorithmMenuOpen     bool
 	RenderSelectionOutlines bool
+	SmoothSelectionOutlines bool
 
 	// View transform
 	ViewScale, ViewOffsetX, ViewOffsetY float32
@@ -105,6 +119,10 @@ type CacheState struct {
 	SelectionPathSpec    clip.PathSpec
 	HoverPathSpec        clip.PathSpec
 	ExistingMaskPathSpec clip.PathSpec
+
+	// ProcessedSelectionMask is the current selection's mask after Shrink/Grow and Smooth are
+	// applied; it is what actually gets saved to disk and is shown by the (processed) yellow outline.
+	ProcessedSelectionMask *image.Gray16
 }
 
 // LoadingState holds the state of background loading and optimization operations.
@@ -121,11 +139,12 @@ func NewAppState() *AppState {
 	appState := &AppState{
 		UiState: UiState{
 			RenderSelectionOutlines: true,
+			SmoothSelectionOutlines: true,
 			Theme:                   app_theme.Theme,
 			FitToWindow:             true,
 			ImagesSectionOpen:       true,
 			SuperpixelSectionOpen:   true,
-			MiscSectionOpen:         false,
+			MiscSectionOpen:         true,
 		},
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),

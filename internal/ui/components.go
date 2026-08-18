@@ -21,6 +21,31 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
+// drawExistingMaskCard renders a sidebar card asking the user to either start a fresh
+// selection (by clicking in the image) or approximate the on-disk mask as an editable
+// selection with the current superpixel settings.
+func drawExistingMaskWarning(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+
+	if !appState.AwaitingMaskDecision {
+		return layout.Dimensions{}
+	}
+
+	return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				label := material.Body2(&appState.Theme.GioTheme, "An existing annotation was found for this image. Make a new annotation to overwrite it or recreate it using the current settings to make further edits.")
+				label.Color = appState.Theme.GioTheme.Palette.Fg
+				return label.Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				HandleUiButtonClick(appState, gtx, &appState.EditExistingMaskButton)
+				return drawBigButton(gtx, &appState.EditExistingMaskButton, appState.Theme, "Recreate", 14)
+			}),
+		)
+	})
+}
+
 // drawIconButton draws a button with an icon and handles its click event.
 func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string, filled bool) layout.Dimensions {
 	style := material.IconButton(&theme.GioTheme, btn, icon, description)
@@ -280,9 +305,47 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 	})
 }
 
-func drawMiscSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Misc", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
-		return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
+		children := []layout.FlexChild{
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Shrink / Grow").Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Slider(&appState.Theme.GioTheme, &appState.ShrinkGrowAmount).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						HandleUiButtonClick(appState, gtx, &appState.ShrinkGrowAmountReset)
+						return drawIconButton(gtx, &appState.ShrinkGrowAmountReset, appState.Theme, app_theme.IconAvReplay, "Reset Shrink/Grow", false)
+					}),
+				)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Smooth").Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						HandleUiButtonClick(appState, gtx, &appState.SmoothAmountReset)
+						return drawIconButton(gtx, &appState.SmoothAmountReset, appState.Theme, app_theme.IconAvReplay, "Reset Smooth", false)
+					}),
+				)
+			}),
+		}
+
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			children...,
+		)
 	})
 }
 

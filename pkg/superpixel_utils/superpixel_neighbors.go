@@ -1,6 +1,8 @@
 package superpixel_utils
 
-import "image"
+import (
+	"image"
+)
 
 // Computes for each superpixel which other superpixels are its neighbors (i.e. share a border with it)
 func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
@@ -12,9 +14,9 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			currentLabel := labelMap.Gray16At(x, y).Y
-			if currentLabel == 0 {
+			/*if currentLabel == 0 {
 				continue
-			}
+			}*/
 			if seen[currentLabel] == nil {
 				seen[currentLabel] = make(map[uint16]struct{})
 			}
@@ -22,7 +24,7 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 			// Check 4-neighborhoods
 			for _, nb := range Neighbors(image.Point{X: x, Y: y}, bounds, false) {
 				neighborLabel := labelMap.Gray16At(nb.X, nb.Y).Y
-				if neighborLabel != 0 && neighborLabel != currentLabel {
+				if /*neighborLabel != 0  &&*/ neighborLabel != currentLabel {
 					if _, exists := seen[currentLabel][neighborLabel]; !exists {
 						seen[currentLabel][neighborLabel] = struct{}{}
 						neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
@@ -95,9 +97,10 @@ func SuperpixelFloodFillFromPoint(labelMap *image.Gray16, x, y int, selection []
 // Selects all superpixels that are enclosed by selected superpixels (i.e. they are not connected to the edge of the image)
 // This is done by performing a flood fill from all unselected superpixels touching the edge of the image and marking
 // all reachable superpixels as unselected, and selecting all other superpixels.
-func SuperpixelAutoFloodFillSelection(labelMap *image.Gray16, selection []bool) (newSelection []bool) {
+func SuperpixelAutoFloodFillSelection(labelMap *image.Gray16, selection []bool) (newSelection []bool, changed bool) {
 
 	bounds := labelMap.Bounds()
+	changed = false
 
 	// Collect every unselected label touching the edge of the image.
 	seeds := make(map[uint16]struct{})
@@ -118,7 +121,7 @@ func SuperpixelAutoFloodFillSelection(labelMap *image.Gray16, selection []bool) 
 		}
 	}
 	if len(seeds) == 0 {
-		return selection
+		return selection, false
 	}
 
 	// Flood fill from all border seeds
@@ -147,6 +150,14 @@ func SuperpixelAutoFloodFillSelection(labelMap *image.Gray16, selection []bool) 
 		newSelection[i] = !newSelection[i] || selection[i]
 	}
 
-	return newSelection
+	// Compare old and new selection to see if anything changed
+	for i := 0; i < len(selection); i++ {
+		if selection[i] != newSelection[i] {
+			changed = true
+			break
+		}
+	}
+
+	return newSelection, changed
 
 }

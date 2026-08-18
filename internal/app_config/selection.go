@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/rendering"
 )
 
 func (appState *AppState) SelectionMade() bool {
@@ -20,7 +19,7 @@ func (appState *AppState) ClearSelection(showToast bool) {
 	for i := range appState.SelectionIndex {
 		appState.SelectionIndex[i] = false
 	}
-	appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
+	appState.RecalculateProcessedSelection()
 	appState.Window.Invalidate()
 	if showToast {
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)

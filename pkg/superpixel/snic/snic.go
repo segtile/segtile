@@ -110,7 +110,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
 		}
 	}
-	result := superpixel.MakeSpResult(resultLabelMap)
+	result := superpixel.NewSpResult(resultLabelMap, 0, true)
 	return result, nil
 
 }

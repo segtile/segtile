@@ -112,21 +112,15 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		state.recalculateClusterCenters()
 	}
 
-	state.enforceConnectivity()
-
-	// Write the final result into a SpResult struct#
+	// Write the final result into a SpResult struct
 	resultLabelMap := image.NewGray16(image.Rect(0, 0, width, height))
-	maxLabel := 0
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			label := state.labelMap[y*width+x]
-			if label > maxLabel {
-				maxLabel = label
-			}
 			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
 		}
 	}
-	result := superpixel.MakeSpResult(resultLabelMap)
+	result := superpixel.NewSpResult(resultLabelMap, 0, true)
 	return result, nil
 
 }
@@ -210,90 +204,6 @@ func (state *slicState) gradient(pixelX int, pixelY int) float64 {
 }
 
 // This step is not discussed in detail in the original paper which is why this function leans more on the existing implementation mentioned above.
-func (state *slicState) enforceConnectivity() {
-
-	// Minimum component size: components smaller than minimumSpPixelCount pixels are merged into a neighbor.
-	minimumSpPixelCount := (state.gridInterval * state.gridInterval) / 4
-
-	// Read current labels into a flat int slice for efficient access during flood fill.
-	labels := make([]int, state.imgPixelCount)
-	copy(labels, state.labelMap)
-
-	// Templates for creating the 4-connected neighborhood of a pixel
-	dx4 := [4]int{-1, 0, 1, 0}
-	dy4 := [4]int{0, -1, 0, 1}
-
-	// Vectors for the flood fill.
-	xVector := make([]int, state.imgPixelCount)
-	yVector := make([]int, state.imgPixelCount)
-
-	originIndex := 0
-	adjacentLabel := 0
-
-	label := 0
-	newLabelMap := make([]int, state.imgPixelCount)
-	for i := range newLabelMap {
-		newLabelMap[i] = -1
-	}
-
-	for indexHeight := range state.imgHeight {
-		for indexWidth := range state.imgWidth {
-			if newLabelMap[originIndex] < 0 {
-				newLabelMap[originIndex] = label
-
-				// Start a new segment
-				xVector[0] = indexWidth
-				yVector[0] = indexHeight
-
-				// Quickly find an adjacent label for use later if needed
-				for n := range 4 {
-					x := xVector[0] + dx4[n]
-					y := yVector[0] + dy4[n]
-					if x >= 0 && x < state.imgWidth && y >= 0 && y < state.imgHeight {
-						newIndex := y*state.imgWidth + x
-						if newLabelMap[newIndex] >= 0 {
-							adjacentLabel = newLabelMap[newIndex]
-						}
-					}
-				}
-
-				// Flood fill: expand to all connected pixels sharing the same original label
-				originLabel := labels[originIndex]
-				count := 1
-				for c := 0; c < count; c++ {
-					for n := range 4 {
-						x := xVector[c] + dx4[n]
-						y := yVector[c] + dy4[n]
-						if x >= 0 && x < state.imgWidth && y >= 0 && y < state.imgHeight {
-							nindex := y*state.imgWidth + x
-							if newLabelMap[nindex] < 0 && labels[nindex] == originLabel {
-								xVector[count] = x
-								yVector[count] = y
-								newLabelMap[nindex] = label
-								count++
-							}
-						}
-					}
-				}
-
-				// If the component is too small, absorb it into an adjacent segment
-				if count <= minimumSpPixelCount {
-					for c := 0; c < count; c++ {
-						ind := yVector[c]*state.imgWidth + xVector[c]
-						newLabelMap[ind] = adjacentLabel
-					}
-					label--
-				}
-				label++
-			}
-			originIndex++
-		}
-	}
-
-	// Write new labels back to the label map
-	copy(state.labelMap, newLabelMap)
-}
-
 func (state *slicState) labelPixels() {
 
 	workers := runtime.NumCPU()
