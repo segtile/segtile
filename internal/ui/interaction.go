@@ -186,8 +186,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			selectionChanged := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
-				if pe.Modifiers&key.ModShift != 0 {
-					// If shift is held, perform a flood fill selection
+				if pe.Modifiers&key.ModCtrl != 0 {
+					// If ctrl is held, perform a flood fill selection
 					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(imageX), int(imageY), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
@@ -336,10 +336,11 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 	for {
 		ev, ok := gtx.Event(
 			key.FocusFilter{Target: &appState.KeyboardTag},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "F"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "C"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "S"},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "D"},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "F", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
@@ -377,12 +378,29 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		if ke.Name == "D" {
 			if ke.State == key.Press {
 				appState.RenderSelectionOutlines = false
+				appState.RecalculateProcessedSelection()
 				appState.Window.Invalidate()
 			} else if ke.State == key.Release {
 				appState.RenderSelectionOutlines = true
+				appState.RecalculateProcessedSelection()
 				appState.Window.Invalidate()
 			}
 			continue
+		}
+
+		// Ctrl: Disable smoothing of selection outline (while held)
+		if ke.Name == key.NameCtrl {
+			if ke.State == key.Press {
+				appState.SmoothSelectionOutlines = false
+				appState.RecalculateProcessedSelection()
+				log.Println("Disable smoothing of selection outline")
+				appState.Window.Invalidate()
+			} else if ke.State == key.Release {
+				appState.SmoothSelectionOutlines = true
+				appState.RecalculateProcessedSelection()
+				log.Println("Enable smoothing of selection outline")
+				appState.Window.Invalidate()
+			}
 		}
 
 		// Space: next image, Shift+Space: previous image

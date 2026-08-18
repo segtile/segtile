@@ -104,6 +104,7 @@ type UiState struct {
 	EnableAutoFloodFill     widget.Bool
 	SpAlgorithmMenuOpen     bool
 	RenderSelectionOutlines bool
+	SmoothSelectionOutlines bool
 
 	// View transform
 	ViewScale, ViewOffsetX, ViewOffsetY float32
@@ -136,6 +137,7 @@ func NewAppState() *AppState {
 	appState := &AppState{
 		UiState: UiState{
 			RenderSelectionOutlines: true,
+			SmoothSelectionOutlines: true,
 			Theme:                   app_theme.Theme,
 			FitToWindow:             true,
 			ImagesSectionOpen:       true,

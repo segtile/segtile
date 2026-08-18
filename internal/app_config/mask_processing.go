@@ -31,6 +31,13 @@ func (appState *AppState) RecalculateProcessedSelection() {
 		return
 	}
 
+	if !appState.SmoothSelectionOutlines {
+		// If smoothing is disabled, just use the raw selection mask as-is.
+		appState.ProcessedSelectionMask = appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
+		appState.SelectionPathSpec = rendering.CalculateOutlineFromMask(appState.ProcessedSelectionMask)
+		return
+	}
+
 	rawMask := appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
 	width := float32(rawMask.Bounds().Dx())
 
