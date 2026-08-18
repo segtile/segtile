@@ -23,6 +23,7 @@ var (
 	IconOptimize        = mustIcon(widget.NewIcon(icons.ImageTune))
 	IconSave            = mustIcon(widget.NewIcon(icons.ContentSave))
 	IconChangeAlgorithm = mustIcon(widget.NewIcon(icons.ActionAutorenew))
+	IconContentClear    = mustIcon(widget.NewIcon(icons.ContentClear))
 )
 
 func mustIcon(icon *widget.Icon, err error) *widget.Icon {

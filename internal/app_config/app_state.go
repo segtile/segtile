@@ -68,8 +68,10 @@ type UiState struct {
 	OptimizeParameterCheckboxes     []widget.Bool
 
 	// Selection post-processing
-	ShrinkGrowAmount widget.Float
-	SmoothAmount     widget.Float
+	ShrinkGrowAmount      widget.Float
+	ShrinkGrowAmountReset widget.Clickable
+	SmoothAmount          widget.Float
+	SmoothAmountReset     widget.Clickable
 
 	// Existing-mask decision popover
 	EditExistingMaskButton widget.Clickable

@@ -308,6 +308,22 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
+	if button == &appState.ShrinkGrowAmountReset {
+		appState.ShrinkGrowAmount.Value = 0.5
+		appState.Settings.ShrinkGrowAmount = 0.5
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+		return
+	}
+
+	if button == &appState.SmoothAmountReset {
+		appState.SmoothAmount.Value = 0
+		appState.Settings.SmoothAmount = 0
+		appState.RecalculateProcessedSelection()
+		appState.Window.Invalidate()
+		return
+	}
+
 	for i := range appState.SpAlgorithmMenuButtons {
 
 		if button != &appState.SpAlgorithmMenuButtons[i] {

@@ -315,13 +315,33 @@ func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) lay
 				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Shrink / Grow").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Slider(&appState.Theme.GioTheme, &appState.ShrinkGrowAmount).Layout(gtx)
+
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Slider(&appState.Theme.GioTheme, &appState.ShrinkGrowAmount).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						HandleUiButtonClick(appState, gtx, &appState.ShrinkGrowAmountReset)
+						return drawIconButton(gtx, &appState.ShrinkGrowAmountReset, appState.Theme, app_theme.IconContentClear, "Reset Shrink/Grow", false)
+					}),
+				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Smooth").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
+
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						HandleUiButtonClick(appState, gtx, &appState.SmoothAmountReset)
+						return drawIconButton(gtx, &appState.SmoothAmountReset, appState.Theme, app_theme.IconContentClear, "Reset Smooth", false)
+					}),
+				)
+
+				//return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
 			}),
 		}
 
