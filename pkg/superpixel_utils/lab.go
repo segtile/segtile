@@ -8,7 +8,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-func BuildLab(img image.Image, labCache *[][3]float64) {
+func BuildLabCache(img image.Image, labCache *[][3]float64) {
 	width := img.Bounds().Dx()
 	height := img.Bounds().Dy()
 	if *labCache == nil || len(*labCache) != width*height {
