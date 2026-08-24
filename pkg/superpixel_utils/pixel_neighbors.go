@@ -4,7 +4,10 @@ import (
 	"image"
 )
 
-func Neighbors(point image.Point, bounds image.Rectangle, includeDiagonals bool) []image.Point {
+// PixelNeighbours returns the neighboring pixels of a given pixel within the specified bounds.
+// If includeDiagonals is true, it includes diagonal neighbors as well.
+// If a pixel is on the edge of the image, it will only return the neighbors that are within the bounds.
+func PixelNeighbours(point image.Point, bounds image.Rectangle, includeDiagonals bool) []image.Point {
 	neighbors := []image.Point{}
 	directions := []image.Point{
 		{X: -1, Y: 0},
@@ -59,7 +62,7 @@ func MaskedFloodFill(start image.Point, img *image.Gray16, visited *[][]bool) (p
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
-		for _, nb := range Neighbors(cur, bounds, false) {
+		for _, nb := range PixelNeighbours(cur, bounds, false) {
 
 			if img.Gray16At(nb.X, nb.Y).Y != targetValue || (*visited)[nb.Y][nb.X] {
 				continue
