@@ -23,7 +23,7 @@ func GetEmptySelectionOutline() (pathSpec clip.PathSpec) {
 
 func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool) (pathSpec clip.PathSpec) {
 
-	//fmt.Println("Updating selection outline ...")
+	//log.Println("Updating selection outline ...")
 	//start := time.Now().UnixMicro()
 
 	width := labelMap.Bounds().Dx()
@@ -119,10 +119,11 @@ func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool)
 		p.MoveTo(seg[0])
 		p.LineTo(seg[1])
 	}
-	return p.End()
 
 	//end := time.Now().UnixMicro()
-	//fmt.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
+	//log.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
+	return p.End()
+
 }
 
 // CalculateOutlineFromMask computes a clip.PathSpec that traces the border between

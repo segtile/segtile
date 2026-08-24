@@ -4,6 +4,7 @@ import (
 	_ "image/jpeg"
 	"log"
 	"os"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/op"
@@ -32,12 +33,10 @@ func main() {
 		// If a config was provided on the CLI, load the project immediately.
 		if len(os.Args) >= 2 {
 			configPath := os.Args[1]
-			cfg, err := app_config.Load(configPath)
-			if err != nil {
-				log.Printf("Warning: failed to load config %q: %v", configPath, err)
-			} else {
-				appState.ApplyProject(cfg)
-			}
+			go func() {
+				cfg, err := app_config.Load(configPath)
+				appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, Err: err}
+			}()
 		}
 
 		// Main app loop
@@ -62,6 +61,7 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 
 			return e.Err
 		case app.FrameEvent:
+			frameStart := time.Now()
 			// Apply loaded projects
 			select {
 			case result := <-appState.ProjectLoadResult:
@@ -90,6 +90,16 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 
 			// Draw!
 			e.Frame(&ops)
+
+			// Measure frame time
+			frameEnd := time.Now()
+			frameTime := frameEnd.Sub(frameStart)
+
+			// Warn if the frame time no longer allows 60 FPS (16.67 ms per frame)
+			if frameTime > 16*time.Millisecond {
+				log.Printf("Frame time was %v > 16ms", frameTime)
+			}
+
 		}
 	}
 }

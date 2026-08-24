@@ -56,7 +56,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 	pixelCountPerSuperpixel := make([]int, result.SpCount)
 
 	// For each superpixel, keep track of how many pixels overlap with each island
-	spIslandOverlap := make([]map[uint16]int, result.SpCount)
+	pixelCountPerSuperpixelPerIsland := make([]map[uint16]int, result.SpCount)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -67,10 +67,10 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 			pixelCountPerIsland[islandIndex]++
 
 			if islandIndex > 0 {
-				if spIslandOverlap[spLabel] == nil {
-					spIslandOverlap[spLabel] = make(map[uint16]int)
+				if pixelCountPerSuperpixelPerIsland[spLabel] == nil {
+					pixelCountPerSuperpixelPerIsland[spLabel] = make(map[uint16]int)
 				}
-				spIslandOverlap[spLabel][islandIndex]++
+				pixelCountPerSuperpixelPerIsland[spLabel][islandIndex]++
 			}
 		}
 	}
@@ -79,7 +79,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 	// at most 1, so at most one island can reach the 50% threshold.
 	const selectionThreshold = 0.5
 	owningIsland := make([]uint16, result.SpCount)
-	for spLabel, overlaps := range spIslandOverlap {
+	for spLabel, overlaps := range pixelCountPerSuperpixelPerIsland {
 		for islandLabel, overlapCount := range overlaps {
 			if float64(overlapCount)/float64(pixelCountPerSuperpixel[spLabel]) >= selectionThreshold {
 				owningIsland[spLabel] = islandLabel

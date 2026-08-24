@@ -245,6 +245,7 @@ func main() {
 						fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
 						return
 					}
+					spResult.EnforceConnectivity()
 
 					metrics, err := evaluateBenchmark(spResult, img, groundTruthMask, metricIDs, metricParameters)
 					if err != nil {

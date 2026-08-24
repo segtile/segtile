@@ -131,10 +131,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\sync\\MasterThesisData\\Projects\\LungSegmentation\\settings.yaml",
-				"slic",
-				"count=600",
-				"compactness=15"
+				"\\\\lennart\\sync\\MasterThesisData\\Projects\\LungSegmentation\\settings.yaml"
 			]
 		},
 	]
