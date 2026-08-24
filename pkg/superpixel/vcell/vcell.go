@@ -322,43 +322,27 @@ func (state *vcellState) runEwcvtLnn() {
 				idx := y*width + x
 				currentLabel := state.labelMap[idx]
 
-				// Step 6: Identify boundary pixel and candidate clusters {k: IN1(p) cap Pk != empty}
-				var candidates [5]int
-				candidateCount := 0
-
-				candidates[0] = currentLabel
-				candidateCount = 1
-
-				// 4-neighbors
+				// Check if pixel is on a cluster boundary
+				isOnBoundary := false
 				for _, dir := range [4][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
 					nx := x + dir[0]
 					ny := y + dir[1]
 					if nx >= 0 && nx < width && ny >= 0 && ny < height {
-						nLabel := state.labelMap[ny*width+nx]
-						if nLabel != currentLabel {
-							// Check if already in candidates
-							alreadyIn := false
-							for c := 0; c < candidateCount; c++ {
-								if candidates[c] == nLabel {
-									alreadyIn = true
-									break
-								}
-							}
-							if !alreadyIn {
-								candidates[candidateCount] = nLabel
-								candidateCount++
-							}
+						if state.labelMap[ny*width+nx] != currentLabel {
+							isOnBoundary = true
+							break
 						}
 					}
 				}
-
-				// If there are no neighboring clusters, p is not on a boundary
-				if candidateCount <= 1 {
+				if !isOnBoundary {
 					continue
 				}
 
-				// Count pixels in disk IN_omega(p) \ {p} per candidate cluster
-				var candidateDiskCounts [5]int
+				// Collect candidate clusters from disk neighborhood IN_omega(p)
+				var candidates [32]int
+				var candidateDiskCounts [32]int
+				candidates[0] = currentLabel
+				candidateCount := 1
 				validNeighbors := 0
 
 				for _, offset := range state.diskOffsets {
@@ -367,11 +351,18 @@ func (state *vcellState) runEwcvtLnn() {
 					if nx >= 0 && nx < width && ny >= 0 && ny < height {
 						validNeighbors++
 						qLabel := state.labelMap[ny*width+nx]
+						found := false
 						for c := 0; c < candidateCount; c++ {
 							if candidates[c] == qLabel {
 								candidateDiskCounts[c]++
+								found = true
 								break
 							}
+						}
+						if !found && candidateCount < len(candidates) {
+							candidates[candidateCount] = qLabel
+							candidateDiskCounts[candidateCount] = 1
+							candidateCount++
 						}
 					}
 				}
