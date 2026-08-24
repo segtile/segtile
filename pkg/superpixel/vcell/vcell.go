@@ -97,7 +97,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 	}
 
 	// Build Lab cache
-	superpixel_utils.BuildLab(img, &state.labCache)
+	superpixel_utils.BuildLabCache(img, &state.labCache)
 
 	// Stage 1 uniform hexagonal initial segmentation
 	state.initializeClusters()
