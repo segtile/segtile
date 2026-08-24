@@ -167,10 +167,8 @@ func buildDiskOffsets(omega int) [][2]int {
 
 // initializeClusters performs uniform hexagonal initial segmentation.
 func (state *vcellState) initializeClusters() {
-	points, gridInterval := superpixel_utils.HexagonalGridPoints(state.imgWidth, state.imgHeight, state.count)
-	if len(points) == 0 {
-		points, gridInterval = superpixel_utils.RegularGridPoints(state.imgWidth, state.imgHeight, state.count)
-	}
+
+	points, gridInterval := superpixel_utils.RegularGridPoints(state.imgWidth, state.imgHeight, state.count)
 
 	// Build spatial buckets for fast nearest-center lookup
 	bucketSize := gridInterval
