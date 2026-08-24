@@ -44,7 +44,7 @@ func init() {
 			Description: "The compactness weight (lambda) of the superpixels. If 0, it is automatically computed.",
 			Kind:        superpixel.SpParameterKindFloat,
 			Default:     10.0,
-			Min:         0,
+			Min:         0.1,
 			Max:         1000,
 		},
 	}
@@ -62,11 +62,11 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 
 	// Validate Parameters
 	if count < 2 {
-		return superpixel.SpResult{}, errors.New("Superpixel count must be at least 2.")
+		count = 2
 	}
 
-	if compactness < 0 {
-		return superpixel.SpResult{}, errors.New("Compactness can not be negative.")
+	if compactness <= 0 {
+		compactness = 0.1
 	}
 
 	if img == nil {
@@ -102,9 +102,6 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 	// Stage 1 uniform hexagonal initial segmentation
 	state.initializeClusters()
 
-	// Compute or set lambda (edge-weight factor)
-	state.initializeLambda()
-
 	// Stage 2 EWCVT-LNN iterations
 	state.runEwcvtLnn()
 
@@ -138,7 +135,6 @@ type vcellState struct {
 
 	count       int
 	compactness float64
-	lambda      float64
 	iterations  int
 	omega       int
 
@@ -178,9 +174,9 @@ func (state *vcellState) initializeClusters() {
 	bucketCols := (state.imgWidth + bucketSize - 1) / bucketSize
 	bucketRows := (state.imgHeight + bucketSize - 1) / bucketSize
 	buckets := make([][]int, bucketCols*bucketRows)
-	for i, pt := range points {
-		bx := pt.X / bucketSize
-		by := pt.Y / bucketSize
+	for index, point := range points {
+		bx := point.X / bucketSize
+		by := point.Y / bucketSize
 		if bx >= bucketCols {
 			bx = bucketCols - 1
 		}
@@ -188,7 +184,7 @@ func (state *vcellState) initializeClusters() {
 			by = bucketRows - 1
 		}
 		bIdx := by*bucketCols + bx
-		buckets[bIdx] = append(buckets[bIdx], i)
+		buckets[bIdx] = append(buckets[bIdx], index)
 	}
 
 	// Assign each pixel to the nearest initial center
@@ -256,56 +252,6 @@ func (state *vcellState) initializeClusters() {
 			c.a = c.sumA / cnt
 			c.b = c.sumB / cnt
 		}
-	}
-}
-
-// initializeLambda sets or auto-computes the lambda parameter according to Section 3.2.
-func (state *vcellState) initializeLambda() {
-	if state.compactness > 0 {
-		state.lambda = state.compactness
-		return
-	}
-
-	// Auto-compute lambda based on energy ratio EL(P) / ECVT(G, P) = M
-	width := state.imgWidth
-	height := state.imgHeight
-
-	var eCvt float64
-	var totalEdgeNeighbors int64
-
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			idx := y*width + x
-			label := state.labelMap[idx]
-			lab := state.labCache[idx]
-			centroid := state.clusters[label]
-
-			diffL := lab[0] - centroid.l
-			diffA := lab[1] - centroid.a
-			diffB := lab[2] - centroid.b
-			eCvt += diffL*diffL + diffA*diffA + diffB*diffB
-
-			// Count neighbor pixels in IN_omega(p) \ {p} that do not belong to cluster 'label'
-			for _, offset := range state.diskOffsets {
-				nx := x + offset[0]
-				ny := y + offset[1]
-				if nx >= 0 && nx < width && ny >= 0 && ny < height {
-					if state.labelMap[ny*width+nx] != label {
-						totalEdgeNeighbors++
-					}
-				}
-			}
-		}
-	}
-
-	nc := float64(len(state.clusters))
-	numPixels := float64(state.imgPixelCount)
-	m := math.Max(1.0, math.Min(10.0, 25.0*math.Sqrt(nc/numPixels)))
-
-	if totalEdgeNeighbors > 0 && eCvt > 0 {
-		state.lambda = (m * eCvt) / float64(totalEdgeNeighbors)
-	} else {
-		state.lambda = 10.0
 	}
 }
 
@@ -382,7 +328,7 @@ func (state *vcellState) runEwcvtLnn() {
 					diffB := lab[2] - centroid.b
 					colorDistSq := diffL*diffL + diffA*diffA + diffB*diffB
 
-					distSq := colorDistSq + 2.0*state.lambda*nK
+					distSq := colorDistSq + 2.0*state.compactness*nK
 					if distSq < bestDistSq {
 						bestDistSq = distSq
 						bestCluster = k
