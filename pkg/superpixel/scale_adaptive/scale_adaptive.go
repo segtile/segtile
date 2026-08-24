@@ -209,7 +209,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 
 					switch {
 					case labelMap[nbIdx] == -1:
-						// Condition 1: unassigned – claim immediately.
+						// Condition 1: unassigned -> claim immediately.
 						labelMap[nbIdx] = currentLabel
 						distMap[nbIdx] = newDist
 						spStates[currentLabel].add(nbLAB)
@@ -217,7 +217,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 
 					case labelMap[nbIdx] != currentLabel && newDist < distMap[nbIdx]:
 						// Condition 2: belongs to a completed superpixel but our
-						// path is shorter – steal the pixel.
+						// path is shorter -> steal the pixel.
 						oldLabel := labelMap[nbIdx]
 						spStates[oldLabel].remove(nbLAB)
 
@@ -242,8 +242,8 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 
 	// Build result
 	resultLabelMap := image.NewGray16(img.Bounds())
-	for y := range height {
-		for x := range width {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
 			lbl := labelMap[y*width+x]
 			if lbl < 0 {
 				lbl = 0
