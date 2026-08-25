@@ -58,7 +58,7 @@ func init() {
 func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, error) {
 
 	const iterations = 10
-	const omega = 3 // Neighborhood radius omega = 3 as specified in paper Section 3.2
+	const omega = 3
 
 	// Validate Parameters
 	if count < 2 {
@@ -124,7 +124,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 type vcellSpCluster struct {
 	pixelCount       int
 	sumL, sumA, sumB float64
-	l, a, b          float64 // Color centroid (g_k)
+	l, a, b          float64 // Color centroid
 }
 
 type vcellState struct {
@@ -144,7 +144,6 @@ type vcellState struct {
 	diskOffsets [][2]int
 }
 
-// buildDiskOffsets returns the relative (dx, dy) offsets for pixels in disk IN_omega(p) \ {p}.
 func buildDiskOffsets(omega int) [][2]int {
 	var offsets [][2]int
 	omega2 := omega * omega
@@ -161,7 +160,7 @@ func buildDiskOffsets(omega int) [][2]int {
 	return offsets
 }
 
-// initializeClusters performs uniform hexagonal initial segmentation.
+// initializeClusters performs the initial segmentation.
 func (state *vcellState) initializeClusters() {
 
 	points, gridInterval := superpixel_utils.RegularGridPoints(state.imgWidth, state.imgHeight, state.count)
