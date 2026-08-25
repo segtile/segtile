@@ -7,6 +7,7 @@ import (
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/circularity"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -25,45 +26,47 @@ func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *ima
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityCalibrationScore float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityScore float64, err error) {
 
 	// Check that images are valid
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
-	// Find islands in GT
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
+	// Approximate gt using superpixels
+	selection := result.SelectFromMask(groundTruth, 0.5)
 
-	// Prepare metrics
-	cumulativeRegularityCalibrationScore := 0.0
-
-	// Return early
-	if groundTruthIslandCount == 0 {
-		return 0.0, nil
-	}
-
-	// The superpixel fill ratio does not depend on any particular island, so compute it once
-	// instead of redundantly recomputing it on every loop iteration.
-	superpixelFillRatio := fillRatioOfOwnBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount)
-
-	// Compute the fill ratio of every ground truth island in a single pass over the image,
-	// instead of re-scanning the whole image (via SelectIsland + fillRatioOfOwnBoundingBox) once
-	// per island.
-	islandFillRatios := fillRatioOfOwnBoundingBoxPerIsland(groundTruthIslands, groundTruthIslandCount)
-
-	// Evaluate islands
-	for i := uint16(1); i <= groundTruthIslandCount; i++ {
-		// Regularity Calibration Score
-		groundTruthFillRatio := islandFillRatios[i]
-		if groundTruthFillRatio > 0.0 || superpixelFillRatio > 0.0 {
-			cumulativeRegularityCalibrationScore += math.Min(groundTruthFillRatio, superpixelFillRatio) / math.Max(groundTruthFillRatio, superpixelFillRatio)
+	// Count SP used to approximate GT
+	usedSuperpixelCount := 0
+	for i := 0; i < len(selection); i++ {
+		if selection[i] {
+			usedSuperpixelCount++
 		}
 	}
 
-	// Calculate the final metric
-	regularityCalibrationScore = cumulativeRegularityCalibrationScore / float64(groundTruthIslandCount)
+	// Find islands in GT
+	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
 
-	return regularityCalibrationScore, nil
+	// Calculate circularity of GT islands
+	gtCircularity, err := circularity.Run(superpixel.SpResult{LabelMap: groundTruthIslands, SpCount: int(groundTruthIslandCount)})
+	if err != nil {
+		return 0, fmt.Errorf("Error calculating circularity of ground truth islands: %v", err)
+	}
+
+	// Calculate circularity of superpixels
+	spCircularity, err := circularity.Run(result)
+	if err != nil {
+		return 0, fmt.Errorf("Error calculating circularity of superpixels: %v", err)
+	}
+
+	if spCircularity == 0 && gtCircularity == 0 {
+		return 0, fmt.Errorf("Superpixel and ground truth circularity is zero, cannot compute regularity score")
+	}
+
+	//log.Printf("Superpixel circularity: %f, Ground truth circularity: %f", spCircularity, gtCircularity)
+
+	regularityScore = math.Min(spCircularity, gtCircularity) / math.Max(spCircularity, gtCircularity)
+
+	return regularityScore, nil
 
 }

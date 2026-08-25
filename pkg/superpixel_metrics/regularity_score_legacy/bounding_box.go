@@ -1,4 +1,4 @@
-package regularity_score
+package regularity_score_legacy
 
 import (
 	"image"

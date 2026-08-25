@@ -7,6 +7,7 @@ require (
 	gioui.org/x v0.10.2
 	github.com/emirpasic/gods/v2 v2.0.0-alpha
 	github.com/goccy/go-yaml v1.19.2
+	github.com/jamesallured/convexhull v0.0.0-20201024224243-9f316ea0c658
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	github.com/ncruces/zenity v0.10.15
 	github.com/reiver/go-giotoast v0.0.0-20260530213940-e1bb4d6f5a14
