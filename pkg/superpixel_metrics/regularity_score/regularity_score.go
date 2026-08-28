@@ -3,6 +3,7 @@ package regularity_score
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
@@ -53,8 +54,20 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityScore
 		return 0, fmt.Errorf("Error calculating circularity of ground truth islands: %v", err)
 	}
 
+	// Build superpixel map containing only the selection
+	selectedSuperpixels := result.Clone()
+	for y := 0; y < selectedSuperpixels.LabelMap.Bounds().Dy(); y++ {
+		for x := 0; x < selectedSuperpixels.LabelMap.Bounds().Dx(); x++ {
+			spId := selectedSuperpixels.LabelMap.Gray16At(x, y).Y
+			if !selection[spId] {
+				selectedSuperpixels.LabelMap.SetGray16(x, y, color.Gray16{Y: 0})
+			}
+		}
+	}
+	selectedSuperpixels.SetActualSpCount()
+
 	// Calculate circularity of superpixels
-	spCircularity, err := circularity.Run(result)
+	spCircularity, err := circularity.Run(selectedSuperpixels)
 	if err != nil {
 		return 0, fmt.Errorf("Error calculating circularity of superpixels: %v", err)
 	}

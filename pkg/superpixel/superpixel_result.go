@@ -3,9 +3,9 @@ package superpixel
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	"sort"
 
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -38,7 +38,9 @@ func NewSpResult(labelMap *image.Gray16, spCount int, optimize bool) SpResult {
 
 // Clone creates a deep copy of the result, including a newly allocated copy of the label map.
 func (this *SpResult) Clone() SpResult {
-	newLabelMap := io_utils.ToGray16(this.LabelMap)
+	b := this.LabelMap.Bounds()
+	newLabelMap := image.NewGray16(b)
+	draw.Draw(newLabelMap, b, this.LabelMap, b.Min, draw.Src)
 	return SpResult{
 		LabelMap:                   newLabelMap,
 		SpCount:                    this.SpCount,
