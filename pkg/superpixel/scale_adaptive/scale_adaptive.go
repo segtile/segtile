@@ -202,7 +202,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 
 			if currentDistance < threshold {
 				// Interior pixel: try to expand into all 4-connected neighbours
-				for _, nb := range superpixel_utils.PixelNeighbours(currentStartingPoint, bounds, false) {
+				for _, nb := range superpixel_utils.PixelNeighbours(currentStartingPoint, bounds, false, false) {
 					nbIdx := nb.Y*width + nb.X
 					nbLAB := labCache[nbIdx]
 					newDist := currentDistance*beta + colourDist(nbLAB, avgL, avgA, avgB)
@@ -229,7 +229,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 				}
 			} else {
 				// Boundary pixel: add unassigned neighbours as future seeds
-				for _, nb := range superpixel_utils.PixelNeighbours(currentStartingPoint, bounds, false) {
+				for _, nb := range superpixel_utils.PixelNeighbours(currentStartingPoint, bounds, false, false) {
 					nbIdx := nb.Y*width + nb.X
 					if labelMap[nbIdx] == -1 && !inSeedSet[nbIdx] {
 						seeds = append(seeds, nbIdx)

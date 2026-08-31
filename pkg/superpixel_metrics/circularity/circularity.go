@@ -30,20 +30,25 @@ func Run(result superpixel.SpResult) (circularity float64, err error) {
 	areaPerSp := make(map[uint16]float64)
 	boundaryLengthPerSp := make(map[uint16]float64)
 
-	for y := 0; y < result.LabelMap.Bounds().Dy(); y++ {
-		for x := 0; x < result.LabelMap.Bounds().Dx(); x++ {
+	bounds := result.LabelMap.Bounds()
+
+	for y := 0; y < bounds.Dy(); y++ {
+		for x := 0; x < bounds.Dx(); x++ {
 			spId := result.LabelMap.Gray16At(x, y).Y
 
 			// Tally up area
 			areaPerSp[spId]++
 
-			// Count bounding pixels per SP
-			for _, neighbour := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, result.LabelMap.Bounds(), false) {
+			// Count bounding pixels per SP.
+			for _, neighbour := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, bounds, false, true) {
+				if !neighbour.In(bounds) {
+					boundaryLengthPerSp[spId]++
+					continue
+				}
 				neighbourSpId := result.LabelMap.Gray16At(neighbour.X, neighbour.Y).Y
 				if neighbourSpId != spId {
 					boundaryLengthPerSp[spId]++
 				}
-
 			}
 		}
 	}
@@ -57,7 +62,8 @@ func Run(result superpixel.SpResult) (circularity float64, err error) {
 		area := areaPerSp[spId]
 		boundaryLength := boundaryLengthPerSp[spId]
 		if boundaryLength > 0 {
-			circularity += (4 * math.Pi * area) / (boundaryLength * boundaryLength)
+			tmp := (4 * math.Pi * area) / (boundaryLength * boundaryLength)
+			circularity += tmp
 		}
 	}
 

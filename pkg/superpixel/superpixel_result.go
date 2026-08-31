@@ -204,7 +204,7 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			id := componentId[y][x]
-			for _, nb := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, bounds, false) {
+			for _, nb := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, bounds, false, false) {
 				if nid := componentId[nb.Y][nb.X]; nid != id {
 					neighborBorder[id][nid]++
 				}

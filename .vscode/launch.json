@@ -59,10 +59,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\EBHI\\Normal\\IMAGES\\GT2000000-1-400-006.png",
-				"slic",
-				"count=350",
-				"compactness=200"
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\EBHI-Normal\\settings.yaml",
 			]
 		},
 		{
@@ -95,10 +92,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"S:\\MasterThesisData\\Datasets\\PulmonaryVascular\\IMAGES\\JK_02_0205AA4_4.png",
-				"slic",
-				"count=900",
-				"compactness=15"
+				"S:\\MasterThesisData\\Projects\\PulmonaryVascular\\settings.yaml"
 			]
 		},
 		{
