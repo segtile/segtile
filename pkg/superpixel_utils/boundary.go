@@ -7,12 +7,12 @@ import (
 
 // Finds all pixels in the image that have a neighbor with a different value and returns them as a slice of image.Points
 // If singleSided is true, only the brighter pixel of each edge is returned, otherwise both pixels are returned.
-func BoundaryPoints(img *image.Gray16, singleSided bool) []image.Point {
-	bounds := img.Bounds()
+func BoundaryPoints(mask *image.Gray16, singleSided bool) []image.Point {
+	bounds := mask.Bounds()
 	points := []image.Point{}
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			value := img.Gray16At(x, y).Y
+			value := mask.Gray16At(x, y).Y
 			hasBoundaryNeighbor := false
 
 			for _, neighbor := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
@@ -25,7 +25,7 @@ func BoundaryPoints(img *image.Gray16, singleSided bool) []image.Point {
 				}
 
 				// Check if the neighbor has a different value
-				neighborValue := img.Gray16At(neighborX, neighborY).Y
+				neighborValue := mask.Gray16At(neighborX, neighborY).Y
 				if singleSided {
 					if neighborValue < value {
 						hasBoundaryNeighbor = true
@@ -38,6 +38,38 @@ func BoundaryPoints(img *image.Gray16, singleSided bool) []image.Point {
 			}
 			if hasBoundaryNeighbor {
 				points = append(points, image.Point{X: x, Y: y})
+			}
+		}
+	}
+	return points
+}
+
+func BoundaryPointsPerValue(labelMap *image.Gray16) (points map[uint16][]image.Point) {
+	bounds := labelMap.Bounds()
+	points = make(map[uint16][]image.Point)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			value := labelMap.Gray16At(x, y).Y
+			hasBoundaryNeighbor := false
+
+			for _, neighbor := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+				neighborX := x + neighbor[0]
+				neighborY := y + neighbor[1]
+
+				// Skip out-of-bounds neighbors
+				if neighborX < bounds.Min.X || neighborX >= bounds.Max.X || neighborY < bounds.Min.Y || neighborY >= bounds.Max.Y {
+					continue
+				}
+
+				// Check if the neighbor has a different value
+				neighborValue := labelMap.Gray16At(neighborX, neighborY).Y
+				if neighborValue != value {
+					hasBoundaryNeighbor = true
+					break
+				}
+			}
+			if hasBoundaryNeighbor {
+				points[value] = append(points[value], image.Point{X: x, Y: y})
 			}
 		}
 	}
