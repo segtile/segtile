@@ -55,28 +55,12 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityScore
 	}
 
 	// Build superpixel map containing only superpixels that are in the selection and are touching the outside of the selection
-	neighbours := superpixel_utils.LabelMapNeighborhoods(result.LabelMap, result.SpCount)
 	selectedSuperpixels := result.Clone()
 	for y := 0; y < selectedSuperpixels.LabelMap.Bounds().Dy(); y++ {
 		for x := 0; x < selectedSuperpixels.LabelMap.Bounds().Dx(); x++ {
 			spId := selectedSuperpixels.LabelMap.Gray16At(x, y).Y
-			keep := true
 
-			// Not selected itself -> remove
 			if !selection[spId] {
-				keep = false
-			} else {
-				// Not touching the outside of the selection -> remove
-				keep = false
-				for _, neighbour := range neighbours[spId] {
-					if !selection[neighbour] {
-						keep = true
-						break
-					}
-				}
-			}
-
-			if !keep {
 				selectedSuperpixels.LabelMap.SetGray16(x, y, color.Gray16{Y: 0})
 			}
 		}
