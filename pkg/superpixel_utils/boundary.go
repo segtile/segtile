@@ -100,8 +100,7 @@ func DistanceToNextBoundaryPixel(segmentation *image.Gray16) *image.Gray16 {
 
 	neighbors := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 
-	// BFS propagation — each step increments distance by 1 (Chebyshev-like; use squared for Euclidean approximation).
-	// For exact squared-Euclidean use a two-pass approach; BFS gives L∞ (Chebyshev) distance which is a fast, tight approximation.
+	// BFS propagation
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -112,9 +111,9 @@ func DistanceToNextBoundaryPixel(segmentation *image.Gray16) *image.Gray16 {
 			if nx < bounds.Min.X || nx >= bounds.Max.X || ny < bounds.Min.Y || ny >= bounds.Max.Y {
 				continue
 			}
-			if segmentation.Gray16At(nx, ny).Y == 0 {
+			/*if segmentation.Gray16At(nx, ny).Y == 0 {
 				continue
-			}
+			}*/
 			nIdx := (ny-bounds.Min.Y)*w + (nx - bounds.Min.X)
 			if nd := curDist + 1; nd < dist[nIdx] {
 				dist[nIdx] = nd
@@ -127,16 +126,21 @@ func DistanceToNextBoundaryPixel(segmentation *image.Gray16) *image.Gray16 {
 	distanceMap := image.NewGray16(bounds)
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			if segmentation.Gray16At(x, y).Y > 0 {
-				idx := (y-bounds.Min.Y)*w + (x - bounds.Min.X)
-				d := dist[idx]
-				if d > 65535 {
-					d = 65535
-				}
-				distanceMap.SetGray16(x, y, color.Gray16{Y: uint16(d)})
+			/*if segmentation.Gray16At(x, y).Y > 0 {*/
+			idx := (y-bounds.Min.Y)*w + (x - bounds.Min.X)
+			d := dist[idx]
+			if d > 65535 {
+				d = 65535
 			}
+			distanceMap.SetGray16(x, y, color.Gray16{Y: uint16(d)})
+			/*}*/
 		}
 	}
+
+	// For testing: save the segmentation map with a random name in the current folder
+	/*randomInt, _ := rand.Int(rand.Reader, big.NewInt(1000000))
+	randomFileName := fmt.Sprintf("distance_map_%d.png", randomInt)
+	io_utils.SaveImage(randomFileName, distanceMap)*/
 
 	return distanceMap
 }

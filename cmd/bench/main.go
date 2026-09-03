@@ -31,7 +31,7 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
 
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score_legacy"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/f1_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/dice_coefficient"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
 
 	//_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/outer_boundary_pixel_count"
@@ -41,7 +41,7 @@ import (
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_bordering_superpixel_count"
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_superpixel_count"
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/total_boundary_pixel_count"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 

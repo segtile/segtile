@@ -1,4 +1,4 @@
-package weighted_f1_score
+package dice_coefficient
 
 import (
 	"fmt"
@@ -6,15 +6,14 @@ import (
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 func init() {
 	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
 	superpixel_metrics.RegisterSpMetric(
-		"weighted_f1_score",
-		"Weighted F1 Score",
-		"Computes the F1 score of the superpixel segmentation against the ground truth mask, weighted by distance to the nearest boundary pixel.",
+		"f1_score",
+		"F1 Score",
+		"Computes the F1 score of the superpixel segmentation against the ground truth mask.",
 		1.0,
 		runWithParams,
 		parameterInfo,
@@ -35,10 +34,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 	selectionFromGroundTruth := result.SelectFromMask(groundTruth, 0.5)
 	maskApproximated := result.SelectionToMask(selectionFromGroundTruth)
 
-	// Create the boundary distance map which dictates the weight for the union calculation
-	distanceMap := superpixel_utils.DistanceToNextBoundaryPixel(groundTruth)
-
-	// Tally up the weighted F1 score
+	// Tally up the F1 score
 	var intersection, union int
 	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
@@ -48,9 +44,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 				intersection++
 				union += 2
 			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
-
-				// Use the distance to the nearest boundary pixel as a weight for the union
-				union += int(distanceMap.Gray16At(x, y).Y)
+				union += 1
 			}
 		}
 	}
