@@ -101,7 +101,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 
 		// Does it have a neighbor pixel not in the same island's selection?
 		hasNeighborOutsideSelection := false
-		for _, neighbor := range superpixel_utils.PixelNeighbours(boundaryPoint, result.LabelMap.Bounds(), true) {
+		for _, neighbor := range superpixel_utils.PixelNeighbours(boundaryPoint, result.LabelMap.Bounds(), true, false) {
 			neighborSpLabel := result.LabelMap.Gray16At(neighbor.X, neighbor.Y).Y
 			if owningIsland[neighborSpLabel] != owner {
 				hasNeighborOutsideSelection = true

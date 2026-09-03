@@ -1,4 +1,4 @@
-package weighted_f1_score
+package distance_weighted_dice_coefficient
 
 import (
 	"fmt"
@@ -12,9 +12,9 @@ import (
 func init() {
 	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
 	superpixel_metrics.RegisterSpMetric(
-		"weighted_f1_score",
-		"Weighted F1 Score",
-		"Computes the F1 score of the superpixel segmentation against the ground truth mask, weighted by distance to the nearest boundary pixel.",
+		"distance_weighted_dice_coefficient",
+		"Distance Weighted Dice Coefficient",
+		"Computes the Dice coefficient of the superpixel segmentation against the ground truth mask, weighted by distance to the nearest boundary pixel.",
 		1.0,
 		runWithParams,
 		parameterInfo,
@@ -39,25 +39,49 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 	distanceMap := superpixel_utils.DistanceToNextBoundaryPixel(groundTruth)
 
 	// Tally up the weighted F1 score
-	var intersection, union int
+	var intersectionPixels, unionPixels, distancePenalty, pixelPenalty, gtPixels int
+	var avgBorderDistance float64
 	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
-			pOriginal := groundTruth.Gray16At(x, y)
-			pApproximated := maskApproximated.Gray16At(x, y)
-			if pOriginal.Y > 0 && pApproximated.Y > 0 {
-				intersection++
-				union += 2
-			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
+
+			// Read the maps
+			gtValue := groundTruth.Gray16At(x, y).Y
+			approxValue := maskApproximated.Gray16At(x, y).Y
+			distance := int(distanceMap.Gray16At(x, y).Y)
+
+			// Tally up area and average squared distance
+			if gtValue > 0 {
+				gtPixels++
+				avgBorderDistance += float64(distance /* * distance*/)
+			}
+
+			// Test for a mismatch
+			if (gtValue > 0) != (approxValue > 0) {
 
 				// Use the distance to the nearest boundary pixel as a weight for the union
-				union += int(distanceMap.Gray16At(x, y).Y)
+				distancePenalty += distance /* * distance */
+				pixelPenalty++
+
+				continue
 			}
+
+			// Test for a match
+			if gtValue > 0 && approxValue > 0 {
+				intersectionPixels++
+				unionPixels += 2
+
+				continue
+			}
+
 		}
 	}
 
-	if union == 0 {
+	if unionPixels == 0 || gtPixels == 0 {
 		return 0, nil
 	}
 
-	return float64(2*intersection) / float64(union), nil
+	avgBorderDistance = float64(avgBorderDistance) / float64(gtPixels)
+	distancePenalty = int(float64(distancePenalty) / avgBorderDistance)
+
+	return float64(2*intersectionPixels) / float64(unionPixels+pixelPenalty+distancePenalty), nil
 }

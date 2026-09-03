@@ -3,9 +3,9 @@ package superpixel
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	"sort"
 
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -38,7 +38,9 @@ func NewSpResult(labelMap *image.Gray16, spCount int, optimize bool) SpResult {
 
 // Clone creates a deep copy of the result, including a newly allocated copy of the label map.
 func (this *SpResult) Clone() SpResult {
-	newLabelMap := io_utils.ToGray16(this.LabelMap)
+	b := this.LabelMap.Bounds()
+	newLabelMap := image.NewGray16(b)
+	draw.Draw(newLabelMap, b, this.LabelMap, b.Min, draw.Src)
 	return SpResult{
 		LabelMap:                   newLabelMap,
 		SpCount:                    this.SpCount,
@@ -202,7 +204,7 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			id := componentId[y][x]
-			for _, nb := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, bounds, false) {
+			for _, nb := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, bounds, false, false) {
 				if nid := componentId[nb.Y][nb.X]; nid != id {
 					neighborBorder[id][nid]++
 				}

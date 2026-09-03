@@ -3,5 +3,5 @@ go run ./cmd/bench `
     "\\lennart\Sync\MasterThesisData\Datasets\Breast Ultrasound\MASKS\" `
     "\\lennart\Sync\MasterThesisData\BenchmarkResults\SLIC\BreastUltrasound.csv" `
     slic `
-    "count=25,1000,25" `
-    "compactness=0,150,20"
+    "count=100,1500,50" `
+    "compactness=0,200,10"

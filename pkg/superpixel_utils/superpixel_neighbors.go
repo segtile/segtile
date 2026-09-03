@@ -22,7 +22,7 @@ func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 			}
 
 			// Check 4-neighborhoods
-			for _, nb := range PixelNeighbours(image.Point{X: x, Y: y}, bounds, false) {
+			for _, nb := range PixelNeighbours(image.Point{X: x, Y: y}, bounds, false, false) {
 				neighborLabel := labelMap.Gray16At(nb.X, nb.Y).Y
 				if /*neighborLabel != 0  &&*/ neighborLabel != currentLabel {
 					if _, exists := seen[currentLabel][neighborLabel]; !exists {

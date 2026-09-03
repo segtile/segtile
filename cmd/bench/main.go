@@ -23,18 +23,25 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/achievable_segmentation_accuracy"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/actual_superpixel_count"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/average_boundary_distance"
+
+	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/average_boundary_distance"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/circularity"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score_legacy"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/f1_score"
+
+	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score_legacy"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/dice_coefficient"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/outer_boundary_pixel_count"
+
+	//_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/outer_boundary_pixel_count"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_bordering_superpixel_count"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_superpixel_count"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/total_boundary_pixel_count"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/weighted_f1_score"
+	//_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score_legacy"
+
+	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_bordering_superpixel_count"
+	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_superpixel_count"
+	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/total_boundary_pixel_count"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 

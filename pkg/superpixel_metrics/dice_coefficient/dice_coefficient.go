@@ -1,4 +1,4 @@
-package f1_score
+package dice_coefficient
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 func init() {
 	parameterInfo := []superpixel_metrics.SpMetricParameterInfo{}
 	superpixel_metrics.RegisterSpMetric(
-		"f1_score",
-		"F1 Score",
-		"Computes the F1 score of the superpixel segmentation against the ground truth mask.",
+		"dice_coefficient",
+		"Dice Coefficient",
+		"Computes the Dice coefficient of the superpixel segmentation against the ground truth mask.",
 		1.0,
 		runWithParams,
 		parameterInfo,
@@ -34,7 +34,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 	selectionFromGroundTruth := result.SelectFromMask(groundTruth, 0.5)
 	maskApproximated := result.SelectionToMask(selectionFromGroundTruth)
 
-	// Tally up the F1 score
+	// Tally up the Dice score
 	var intersection, union int
 	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
