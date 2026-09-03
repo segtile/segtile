@@ -21,9 +21,9 @@ func main() {
 	result.SetActualSpCount()
 	result.EnforceContiguousIndexing()
 
-	f1_score, _ := dice_coefficient.Run(result, gtImage)
-	weighted_f1, _ := distance_weighted_dice_coefficient.Run(result, gtImage)
+	dice, _ := dice_coefficient.Run(result, gtImage)
+	dwdc, _ := distance_weighted_dice_coefficient.Run(result, gtImage)
 
-	fmt.Println("F1 Score:", f1_score)
-	fmt.Println("Weighted F1 Score:", weighted_f1)
+	fmt.Println("Dice Score:", dice)
+	fmt.Println("Distance Weighted Dice Coefficient:", dwdc)
 }

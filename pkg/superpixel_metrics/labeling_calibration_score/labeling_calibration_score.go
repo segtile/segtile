@@ -29,8 +29,8 @@ func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *ima
 func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16) (score float64, err error) {
 
 	densityScore, _ := density_score.Run(result, groundTruth)
-	weighted_f1_score, _ := distance_weighted_dice_coefficient.Run(result, groundTruth)
+	dwdc, _ := distance_weighted_dice_coefficient.Run(result, groundTruth)
 	regularityScore, _ := regularity_score.Run(result, groundTruth)
 
-	return densityScore * weighted_f1_score * regularityScore, nil
+	return densityScore * dwdc * regularityScore, nil
 }
