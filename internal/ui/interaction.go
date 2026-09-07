@@ -127,14 +127,18 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		gtx.Execute(key.FocusCmd{Tag: &appState.KeyboardTag})
 
 		// From the raw position of the pointer, calculate the position in image space
-		imageX := (pe.Position.X - appState.ViewOffsetX) / appState.ViewScale
-		imageY := (pe.Position.Y - appState.ViewOffsetY) / appState.ViewScale
+		appState.LastHoverImagePosition.X = (pe.Position.X - appState.ViewOffsetX) / appState.ViewScale
+		appState.LastHoverImagePosition.Y = (pe.Position.Y - appState.ViewOffsetY) / appState.ViewScale
 
 		// Check if the position is within the bounds of the image
-		inImageBounds := appState.ActiveSp.LabelMap != nil && imageX >= 0 && imageY >= 0 && int(imageX) < appState.ActiveImage.Bounds().Dx() && int(imageY) < appState.ActiveImage.Bounds().Dy()
+		appState.InImageBounds = appState.ActiveSp.LabelMap != nil && appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 && int(appState.LastHoverImagePosition.X) < appState.ActiveImage.Bounds().Dx() && int(appState.LastHoverImagePosition.Y) < appState.ActiveImage.Bounds().Dy()
+
+		if pe.Modifiers&key.ModShift != 0 {
+			appState.ManualFixMode = true
+		}
 
 		// Handle manual fix mode
-		if (pe.Modifiers&key.ModShift != 0) && appState.ActiveImage != nil {
+		if appState.ManualFixMode && appState.ActiveImage != nil {
 
 			// Scroll event (change radius)
 			if pe.Kind == pointer.Scroll {
@@ -150,31 +154,22 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.ManualFixBrushRadius = 1
 				}
 
-				// Update the hover preview for the manual fix brush
-				if inImageBounds {
-					appState.HoverPathSpec = rendering.CalculateCircleOutline(int(imageX), int(imageY), appState.ManualFixBrushRadius)
-				} else {
-					appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
-				}
+				refreshHoverPreview(appState)
 				appState.Window.Invalidate()
 				continue
 			}
 
 			// Move event
 			if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
-				if inImageBounds {
-					appState.HoverPathSpec = rendering.CalculateCircleOutline(int(imageX), int(imageY), appState.ManualFixBrushRadius)
-				} else {
-					appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
-				}
+				refreshHoverPreview(appState)
 			}
 
 			// Paint event
-			if inImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
+			if appState.InImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
 				if pe.Buttons&pointer.ButtonPrimary != 0 {
-					appState.ApplyManualFixAt(int(imageX), int(imageY), true)
+					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), true)
 				} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-					appState.ApplyManualFixAt(int(imageX), int(imageY), false)
+					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), false)
 				}
 				continue
 			}
@@ -222,25 +217,21 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		// Handle simple move and update the hover preview
 		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
-			if inImageBounds {
-				appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, appState.ActiveSp.LabelMap.Gray16At(int(imageX), int(imageY)).Y)
-			} else {
-				appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
-			}
+			refreshHoverPreview(appState)
 		}
 
 		//  Handle primary/secondary click for de-/selection
 
-		if inImageBounds {
+		if appState.InImageBounds {
 			// Sample the current superpixel label at the pointer position
-			label := appState.ActiveSp.LabelMap.Gray16At(int(imageX), int(imageY)).Y
+			label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			selectionChanged := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
 				if pe.Modifiers&key.ModCtrl != 0 {
 					// If ctrl is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(imageX), int(imageY), appState.SelectionIndex)
+					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
@@ -274,6 +265,21 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 		}
 	}
+}
+
+func refreshHoverPreview(appState *app_config.AppState) {
+	if !appState.InImageBounds || appState.ActiveSp.LabelMap == nil {
+		appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+		return
+	}
+
+	if appState.ManualFixMode {
+		appState.HoverPathSpec = rendering.CalculateCircleOutline(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius)
+		return
+	}
+
+	label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
+	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, label)
 }
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
@@ -413,6 +419,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameShift, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
@@ -422,6 +429,13 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		}
 		ke, ok := ev.(key.Event)
 		if !ok {
+			continue
+		}
+
+		if ke.Name == key.NameShift {
+			appState.ManualFixMode = ke.State == key.Press
+			refreshHoverPreview(appState)
+			appState.Window.Invalidate()
 			continue
 		}
 

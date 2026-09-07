@@ -101,10 +101,13 @@ type UiState struct {
 	SpAlgoritmMenuTitles        []string
 
 	// Hover state
-	IsPanning        bool
-	LastPanPosition  f32.Point
-	KeyboardTag      bool
-	InitialFocusDone bool
+	IsPanning              bool
+	LastPanPosition        f32.Point
+	LastHoverImagePosition f32.Point
+	InImageBounds          bool
+	ManualFixMode          bool
+	KeyboardTag            bool
+	InitialFocusDone       bool
 
 	// Other UI state
 	EnableAutoFloodFill     widget.Bool
