@@ -372,8 +372,11 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.ShrinkGrowAmountReset {
 		appState.ShrinkGrowAmount.Value = 0.5
-		appState.Settings.ShrinkGrowAmount = 0.5
+		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
 		appState.ReprocessSelection()
+		if err := app_config.Save(appState.Settings); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
 		appState.Window.Invalidate()
 		return
 	}
@@ -382,6 +385,9 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		appState.SmoothAmount.Value = 0
 		appState.Settings.SmoothAmount = 0
 		appState.ReprocessSelection()
+		if err := app_config.Save(appState.Settings); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
 		appState.Window.Invalidate()
 		return
 	}

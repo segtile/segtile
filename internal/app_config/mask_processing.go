@@ -99,10 +99,6 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	}
 }
 
-// ShrinkGrowAmount's widget.Float is restricted to gioui's fixed 0..1 range, but Shrink/Grow is a
-// signed amount (negative = shrink, positive = grow). SliderToSignedShrinkGrow/SignedShrinkGrowToSlider
-// convert between the widget's 0..1 representation and the persisted/logical -1..1 signed amount,
-// so that a zero-value (e.g. missing from an old settings file) maps to a neutral slider position.
 func SliderToSignedShrinkGrow(sliderValue float32) float32 {
 	return sliderValue*2 - 1
 }
