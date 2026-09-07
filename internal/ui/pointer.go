@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image/color"
 	"time"
 
 	"gioui.org/io/key"
@@ -157,10 +158,38 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 				} else {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
+
+					// Get a mask of the current selection
+					mask := appState.ActiveSp.IndexToMask(label)
+					bounds := mask.Bounds()
+
+					// Remove all manual corrections for the newly selected SP
+					for x := 0; x < bounds.Dx(); x++ {
+						for y := 0; y < bounds.Dy(); y++ {
+							if mask.Gray16At(x, y).Y > 0 {
+								appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
+							}
+						}
+					}
+
 				}
 				selectionChanged = true
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 && appState.SelectionIndex[label] {
 				appState.SelectionIndex[label] = false
+
+				// Get a mask of the current selection
+				mask := appState.ActiveSp.IndexToMask(label)
+				bounds := mask.Bounds()
+
+				// Remove all manual corrections for the newly selected SP
+				for x := 0; x < bounds.Dx(); x++ {
+					for y := 0; y < bounds.Dy(); y++ {
+						if mask.Gray16At(x, y).Y > 0 {
+							appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
+						}
+					}
+				}
+
 				selectionChanged = true
 			}
 

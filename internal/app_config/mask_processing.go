@@ -14,9 +14,9 @@ const shrinkGrowMaxFactor = 0.10
 const smoothMaxFactor = 0.05
 
 const (
-	manualFixNone uint16 = iota
-	manualFixAdd
-	manualFixRemove
+	ManualFixNone uint16 = iota
+	ManualFixAdd
+	ManualFixRemove
 )
 
 // ApplyManualFixMask combines the base mask (from superpixel selection) and the manual fix mask (from user brush strokes).
@@ -42,9 +42,9 @@ func ApplyManualFixMask(baseMask *image.Gray16, manualFixMask *image.Gray16) *im
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 			for x := bounds.Min.X; x < bounds.Max.X; x++ {
 				switch manualFixMask.Gray16At(x, y).Y {
-				case manualFixAdd:
+				case ManualFixAdd:
 					result.SetGray16(x, y, color.Gray16{Y: 65535})
-				case manualFixRemove:
+				case ManualFixRemove:
 					result.SetGray16(x, y, color.Gray16{})
 				}
 			}
@@ -71,9 +71,9 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 		radius = 1
 	}
 
-	manualFixValue := manualFixRemove
+	manualFixValue := ManualFixRemove
 	if add {
-		manualFixValue = manualFixAdd
+		manualFixValue = ManualFixAdd
 	}
 	applyBrush := func(mask *image.Gray16) {
 		if mask == nil {

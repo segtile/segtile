@@ -335,6 +335,20 @@ func (this *SpResult) SelectionToMask(selection []bool) *image.Gray16 {
 	return mask
 }
 
+func (this *SpResult) IndexToMask(spId uint16) *image.Gray16 {
+	spBounds := this.LabelMap.Bounds()
+	mask := image.NewGray16(spBounds)
+
+	for x := 0; x < spBounds.Dx(); x++ {
+		for y := 0; y < spBounds.Dy(); y++ {
+			if this.LabelMap.Gray16At(x, y).Y == spId {
+				mask.SetGray16(x, y, color.Gray16{Y: 65535})
+			}
+		}
+	}
+	return mask
+}
+
 // SelectFromMask returns a boolean selection indicating which superpixels best approximate
 // the given binary mask. A superpixel is selected when the fraction of its pixels that
 // overlap the mask meets or exceeds threshold (e.g. 0.5 = 50%).
