@@ -85,6 +85,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	appState.ActiveImageExistingMask = nil
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	appState.ProcessedSelectionMask = nil
+	appState.ResetManualFixes()
 	appState.AwaitingMaskDecision = false
 
 	maskPath := appState.maskPathForIndex(i)

@@ -48,13 +48,13 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
 	if appState.ShrinkGrowAmount.Update(gtx) {
 		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
-		appState.RecalculateProcessedSelection()
+		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 	}
 	smoothWasDragging := appState.SmoothAmount.Dragging()
 	if appState.SmoothAmount.Update(gtx) {
 		appState.Settings.SmoothAmount = appState.SmoothAmount.Value
-		appState.RecalculateProcessedSelection()
+		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 	}
 
@@ -104,6 +104,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			pointer.Filter{
 				Target:  &appState.CanvasTag,
 				Kinds:   pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll | pointer.Move,
+				ScrollX: pointer.ScrollRange{Min: -100, Max: 100},
 				ScrollY: pointer.ScrollRange{Min: -100, Max: 100},
 			},
 		)
@@ -132,7 +133,56 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		// Check if the position is within the bounds of the image
 		inImageBounds := appState.ActiveSp.LabelMap != nil && imageX >= 0 && imageY >= 0 && int(imageX) < appState.ActiveImage.Bounds().Dx() && int(imageY) < appState.ActiveImage.Bounds().Dy()
 
-		// We start with actions that always fire, even if the cursor is outside the image bounds
+		// Handle manual fix mode
+		if (pe.Modifiers&key.ModShift != 0) && appState.ActiveImage != nil {
+
+			// Scroll event (change radius)
+			if pe.Kind == pointer.Scroll {
+
+				// Determine the new radius of the selection brush
+				if pe.Scroll.X > 0 {
+					appState.ManualFixBrushRadius -= 2
+				} else if pe.Scroll.X < 0 {
+					appState.ManualFixBrushRadius += 2
+				}
+
+				if appState.ManualFixBrushRadius < 1 {
+					appState.ManualFixBrushRadius = 1
+				}
+
+				// Update the hover preview for the manual fix brush
+				if inImageBounds {
+					appState.HoverPathSpec = rendering.CalculateCircleOutline(int(imageX), int(imageY), appState.ManualFixBrushRadius)
+				} else {
+					appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+				}
+				appState.Window.Invalidate()
+				continue
+			}
+
+			// Move event
+			if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
+				if inImageBounds {
+					appState.HoverPathSpec = rendering.CalculateCircleOutline(int(imageX), int(imageY), appState.ManualFixBrushRadius)
+				} else {
+					appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+				}
+			}
+
+			// Paint event
+			if inImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
+				if pe.Buttons&pointer.ButtonPrimary != 0 {
+					appState.ApplyManualFixAt(int(imageX), int(imageY), true)
+				} else if pe.Buttons&pointer.ButtonSecondary != 0 {
+					appState.ApplyManualFixAt(int(imageX), int(imageY), false)
+				}
+				continue
+			}
+
+			continue
+		}
+
+		// Now handle normal selections
 
 		// Handle scroll (zoom)
 		if pe.Kind == pointer.Scroll {
@@ -219,7 +269,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					}
 				}
 
-				appState.RecalculateProcessedSelection()
+				appState.ReprocessSelection()
 				appState.Window.Invalidate()
 			}
 		}
@@ -317,7 +367,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	if button == &appState.ShrinkGrowAmountReset {
 		appState.ShrinkGrowAmount.Value = 0.5
 		appState.Settings.ShrinkGrowAmount = 0.5
-		appState.RecalculateProcessedSelection()
+		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 		return
 	}
@@ -325,7 +375,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 	if button == &appState.SmoothAmountReset {
 		appState.SmoothAmount.Value = 0
 		appState.Settings.SmoothAmount = 0
-		appState.RecalculateProcessedSelection()
+		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 		return
 	}
@@ -400,11 +450,11 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		if ke.Name == "D" {
 			if ke.State == key.Press {
 				appState.RenderSelectionOutlines = false
-				appState.RecalculateProcessedSelection()
+				appState.ReprocessSelection()
 				appState.Window.Invalidate()
 			} else if ke.State == key.Release {
 				appState.RenderSelectionOutlines = true
-				appState.RecalculateProcessedSelection()
+				appState.ReprocessSelection()
 				appState.Window.Invalidate()
 			}
 			continue

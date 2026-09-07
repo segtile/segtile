@@ -44,7 +44,7 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 	}
 
 	// Rebuild the yellow selection outline (processed) and orange on-disk outline is left untouched
-	appState.RecalculateProcessedSelection()
+	appState.ReprocessSelection()
 
 	// Log
 	end := time.Now().UnixMicro()

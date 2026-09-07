@@ -37,6 +37,10 @@ type AppState struct {
 	// Selection
 	SelectionIndex []bool
 
+	// Manual Selection Fixes
+	ManualFixMask        *image.Gray16
+	ManualFixBrushRadius int
+
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
 	// user has not yet chosen to start from scratch or edit it. Selection is disabled while true.
 	AwaitingMaskDecision bool
@@ -146,6 +150,7 @@ func NewAppState() *AppState {
 			SuperpixelSectionOpen:   true,
 			MiscSectionOpen:         true,
 		},
+		ManualFixBrushRadius: 16,
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),
