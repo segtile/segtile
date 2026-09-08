@@ -26,7 +26,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		ev, ok := gtx.Event(
 			pointer.Filter{
 				Target:  &appState.CanvasTag,
-				Kinds:   pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll | pointer.Move,
+				Kinds:   pointer.Cancel | pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll | pointer.Move | pointer.Enter | pointer.Leave,
 				ScrollX: pointer.ScrollRange{Min: -100, Max: 100},
 				ScrollY: pointer.ScrollRange{Min: -100, Max: 100},
 			},
@@ -46,6 +46,13 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
+		if pe.Kind == pointer.Leave || pe.Kind == pointer.Cancel {
+			appState.InImageBounds = false
+			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.Window.Invalidate()
+			continue
+		}
+
 		// Always set the keyboard focus to the canvas when hovering on it, so that key commands work without requiring an extra click
 		gtx.Execute(key.FocusCmd{Tag: &appState.KeyboardTag})
 
@@ -55,10 +62,6 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		// Check if the position is within the bounds of the image
 		appState.InImageBounds = appState.ActiveSp.LabelMap != nil && appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 && int(appState.LastHoverImagePosition.X) < appState.ActiveImage.Bounds().Dx() && int(appState.LastHoverImagePosition.Y) < appState.ActiveImage.Bounds().Dy()
-
-		if pe.Modifiers&key.ModAlt != 0 {
-			appState.ManualFixMode = true
-		}
 
 		// Handle manual fix mode
 		if appState.ManualFixMode && appState.ActiveImage != nil {
@@ -77,14 +80,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.ManualFixBrushRadius = 1
 				}
 
-				refreshHoverPreview(appState)
+				appState.RefreshHoverPreview()
 				appState.Window.Invalidate()
 				continue
 			}
 
 			// Move event
 			if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
-				refreshHoverPreview(appState)
+				appState.RefreshHoverPreview()
 			}
 
 			// Paint event
@@ -140,7 +143,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		// Handle simple move and update the hover preview
 		if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
-			refreshHoverPreview(appState)
+			appState.RefreshHoverPreview()
 		}
 
 		//  Handle primary/secondary click for de-/selection
@@ -153,8 +156,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			inputMade := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 {
 				inputMade = true
-				if pe.Modifiers&key.ModCtrl != 0 {
-					// If ctrl is held, perform a flood fill selection
+				if pe.Modifiers.Contain(key.ModShift) {
+					// If shift is held, perform a flood fill selection
 					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.SelectionIndex)
 				} else {
 					// Perform a normal selection of a single superpixel
@@ -216,19 +219,4 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 		}
 	}
-}
-
-func refreshHoverPreview(appState *app_config.AppState) {
-	if !appState.InImageBounds || appState.ActiveSp.LabelMap == nil {
-		appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
-		return
-	}
-
-	if appState.ManualFixMode {
-		appState.HoverPathSpec = rendering.CalculateCircleOutline(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius)
-		return
-	}
-
-	label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
-	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, label)
 }

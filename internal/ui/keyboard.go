@@ -17,7 +17,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
-			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameAlt},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
@@ -25,15 +25,24 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		if !ok {
 			break
 		}
+
+		// If the keyboard focus is lost, always disable manual fix mode
+		if focusEvent, ok := ev.(key.FocusEvent); ok {
+			if !focusEvent.Focus {
+				appState.SetManualFixMode(false)
+			}
+			continue
+		}
+
+		// If the event is not a key event, ignore it
 		ke, ok := ev.(key.Event)
 		if !ok {
 			continue
 		}
 
-		if ke.Name == key.NameAlt {
-			appState.ManualFixMode = ke.State == key.Press
-			refreshHoverPreview(appState)
-			appState.Window.Invalidate()
+		// Ctrl key: Enable manual fix mode while held
+		if ke.Name == key.NameCtrl {
+			appState.SetManualFixMode(ke.State == key.Press)
 			continue
 		}
 

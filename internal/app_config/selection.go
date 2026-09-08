@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/reiver/go-giotoast"
+	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -48,4 +49,28 @@ func (appState *AppState) ClearSelection(showToast bool) {
 	if showToast {
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
 	}
+}
+
+func (appState *AppState) SetManualFixMode(enabled bool) {
+	if appState.ManualFixMode == enabled {
+		return
+	}
+	appState.ManualFixMode = enabled
+	appState.RefreshHoverPreview()
+	appState.Window.Invalidate()
+}
+
+func (appState *AppState) RefreshHoverPreview() {
+	if !appState.InImageBounds || appState.ActiveSp.LabelMap == nil {
+		appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+		return
+	}
+
+	if appState.ManualFixMode {
+		appState.HoverPathSpec = rendering.CalculateCircleOutline(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius)
+		return
+	}
+
+	label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
+	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, label)
 }
