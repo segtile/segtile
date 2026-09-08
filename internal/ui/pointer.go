@@ -56,7 +56,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		// Check if the position is within the bounds of the image
 		appState.InImageBounds = appState.ActiveSp.LabelMap != nil && appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 && int(appState.LastHoverImagePosition.X) < appState.ActiveImage.Bounds().Dx() && int(appState.LastHoverImagePosition.Y) < appState.ActiveImage.Bounds().Dy()
 
-		if pe.Modifiers&key.ModShift != 0 {
+		if pe.Modifiers&key.ModAlt != 0 {
 			appState.ManualFixMode = true
 		}
 
@@ -67,9 +67,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if pe.Kind == pointer.Scroll {
 
 				// Determine the new radius of the selection brush
-				if pe.Scroll.X > 0 {
+				if pe.Scroll.Y > 0 {
 					appState.ManualFixBrushRadius -= 2
-				} else if pe.Scroll.X < 0 {
+				} else if pe.Scroll.Y < 0 {
 					appState.ManualFixBrushRadius += 2
 				}
 
@@ -150,8 +150,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
-			selectionChanged := false
-			if pe.Buttons&pointer.ButtonPrimary != 0 && !appState.SelectionIndex[label] {
+			inputMade := false
+			if pe.Buttons&pointer.ButtonPrimary != 0 {
+				inputMade = true
 				if pe.Modifiers&key.ModCtrl != 0 {
 					// If ctrl is held, perform a flood fill selection
 					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.SelectionIndex)
@@ -173,8 +174,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					}
 
 				}
-				selectionChanged = true
-			} else if pe.Buttons&pointer.ButtonSecondary != 0 && appState.SelectionIndex[label] {
+			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
 				appState.SelectionIndex[label] = false
 
 				// Get a mask of the current selection
@@ -190,10 +190,10 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					}
 				}
 
-				selectionChanged = true
+				inputMade = true
 			}
 
-			if selectionChanged {
+			if inputMade {
 				// A click while a mask decision is pending implicitly means "start from scratch".
 				if appState.AwaitingMaskDecision {
 					appState.AwaitingMaskDecision = false

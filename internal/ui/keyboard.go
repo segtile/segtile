@@ -17,8 +17,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
-			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
-			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameShift, Optional: key.ModShift},
+			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameAlt},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameRightArrow},
@@ -31,7 +30,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		if ke.Name == key.NameShift {
+		if ke.Name == key.NameAlt {
 			appState.ManualFixMode = ke.State == key.Press
 			refreshHoverPreview(appState)
 			appState.Window.Invalidate()
@@ -73,16 +72,16 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// Ctrl: Disable smoothing of selection outline (while held)
-		/*if ke.Name == key.NameCtrl {
+		// Shift: Disable smoothing of selection outline (while held)
+		/*if ke.Name == key.NameShift {
 			if ke.State == key.Press {
 				appState.SmoothSelectionOutlines = false
-				appState.RecalculateProcessedSelection()
+				appState.ReprocessSelection()
 				log.Println("Disable smoothing of selection outline")
 				appState.Window.Invalidate()
 			} else if ke.State == key.Release {
 				appState.SmoothSelectionOutlines = true
-				appState.RecalculateProcessedSelection()
+				appState.ReprocessSelection()
 				log.Println("Enable smoothing of selection outline")
 				appState.Window.Invalidate()
 			}
