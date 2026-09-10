@@ -96,16 +96,13 @@
 			]
 		},
 		{
-			"name": "Synthetic",
+			"name": "Missing (Error Case)",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"\\\\lennart\\Sync\\MasterThesisData\\Datasets\\Synthetic\\IMAGES_NOISE_A\\0001.png",
-				"slic",
-				"count=800",
-				"compactness=40"
+				"/does/not/exist/settings.yaml"
 			]
 		},
 		{
