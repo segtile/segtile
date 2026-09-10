@@ -20,7 +20,7 @@ const defaultSpAlgorithmId = "snic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	ProjectDirectory    string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
+	SettingsFile        string             `yaml:"-"` // The path to the settings file itself, not persisted in the yaml.
 	InputDirectory      string             `yaml:"input_directory"`
 	Superpixel          SuperpixelSettings `yaml:"superpixel"`
 	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
@@ -78,13 +78,25 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 }
 
 // LoadProjectSettings reads and unmarshals a config file from the given path.
-// On failure, the returned ProjectSettings is non-nil with only Err populated.
-func LoadProjectSettings(path string) *ProjectSettings {
+// This can be either a direct path to a settings yaml file or the path to a directory,
+// in which case it will look for a settings yaml file within that directory.
+func LoadProjectSettings(settingsPath string) *ProjectSettings {
 
-	// Read the file
-	data, err := os.ReadFile(filepath.Clean(path))
+	// Check if the given path exists and whether it is a file or directory
+	stat, err := os.Stat(settingsPath)
 	if err != nil {
-		return &ProjectSettings{Err: &SettingsFileReadError{path: path, err: err}}
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
+	}
+
+	// If the path is a directory, append the default config file name
+	if stat.IsDir() {
+		settingsPath = filepath.Join(settingsPath, DefaultConfigFileName)
+	}
+
+	// Then try reading the settings
+	data, err := os.ReadFile(filepath.Clean(settingsPath))
+	if err != nil {
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
 	}
 
 	// Parse yaml
@@ -93,14 +105,14 @@ func LoadProjectSettings(path string) *ProjectSettings {
 		return &ProjectSettings{Err: &SettingsFileYamlParseError{err: err}}
 	}
 
-	// Set the output directory based on the location of the settings file
-	settings.ProjectDirectory = filepath.Dir(path)
+	// Store the settings file path
+	settings.SettingsFile = settingsPath
 
 	// Test if the input directory exists
 	if _, err := os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
 
-		// If it does not exist, try treating it as a relative path from the settings
-		settings.InputDirectory = filepath.Join(settings.ProjectDirectory, settings.InputDirectory)
+		// If it does not exist, try treating it as a relative path from the directory of the settings file
+		settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
 
 		if _, err = os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
 
@@ -117,38 +129,35 @@ func LoadProjectSettings(path string) *ProjectSettings {
 	return &settings
 }
 
-// SaveProjectSettings marshals cfg and writes it to outputDir/settings.yaml,
+// SaveProjectSettings marshals cfg and writes it to the settings file
 // creating the directory if it does not exist.
 func SaveProjectSettings(settings *ProjectSettings) error {
 
-	targetPath := filepath.Join(settings.ProjectDirectory, DefaultConfigFileName)
-
-	if settings.ProjectDirectory == "" {
-		return &SettingsSaveError{path: "", err: fmt.Errorf("output directory is not set")}
+	if settings.SettingsFile == "" {
+		return &SettingsSaveError{path: "", err: fmt.Errorf("settings file path is not set")}
 	}
 
 	data, err := yaml.Marshal(settings)
 	if err != nil {
-		return &SettingsSaveError{path: targetPath, err: err}
+		return &SettingsSaveError{path: settings.SettingsFile, err: err}
 	}
 
-	if err := os.MkdirAll(settings.ProjectDirectory, 0750); err != nil {
-		return &SettingsSaveError{path: targetPath, err: err}
+	if err := os.MkdirAll(filepath.Dir(settings.SettingsFile), 0750); err != nil {
+		return &SettingsSaveError{path: settings.SettingsFile, err: err}
 	}
 
-	if err := os.WriteFile(targetPath, data, 0600); err != nil {
-		return &SettingsSaveError{path: targetPath, err: err}
+	if err := os.WriteFile(settings.SettingsFile, data, 0600); err != nil {
+		return &SettingsSaveError{path: settings.SettingsFile, err: err}
 	}
 
 	return nil
 }
 
-// NewProjectSettings creates a new ProjectSettings with the given directories and superpixel
-// settings, saves it to disk and returns the result.
+// NewProjectSettings creates a new ProjectSettings with the given directories and superpixel settings, saves it to disk and returns the result.
 func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
+		SettingsFile:     filepath.Join(outputDir, DefaultConfigFileName),
 		InputDirectory:   inputDir,
-		ProjectDirectory: outputDir,
 		Superpixel:       spSettings,
 		ShrinkGrowAmount: 0,
 	}

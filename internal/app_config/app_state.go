@@ -42,7 +42,7 @@ type AppState struct {
 	ManualFixBrushRadius int
 
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
-	// user has not yet chosen to start from scratch or edit it. Selection is disabled while true.
+	// user has not yet chosen to start from scratch or edit it.
 	AwaitingMaskDecision bool
 }
 

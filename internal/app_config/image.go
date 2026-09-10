@@ -156,7 +156,7 @@ func (appState *AppState) maskPathForIndex(i int) string {
 	base := filepath.Base(appState.ImageFiles[i])
 	ext := filepath.Ext(base)
 	name := base[:len(base)-len(ext)] + ".png"
-	return filepath.Join(appState.Settings.ProjectDirectory, name)
+	return filepath.Join(filepath.Dir(appState.Settings.SettingsFile), name)
 }
 
 // FitImageToWindow updates the scale and offset to fit the active image within the given canvas size.
