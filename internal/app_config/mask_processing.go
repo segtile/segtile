@@ -54,7 +54,7 @@ func ApplyManualFixMask(baseMask *image.Gray16, manualFixMask *image.Gray16) *im
 	return result
 }
 
-func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
+func (appState *AppState) ApplyManualFixAt(x int, y int, radius int, add bool) {
 
 	// Early return if there is no image
 	if appState.ActiveImage == nil {
@@ -66,32 +66,37 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 		appState.ManualFixMask = image.NewGray16(appState.ActiveImage.Bounds())
 	}
 
-	radius := appState.ManualFixBrushRadius
+	// Cap radius and precompute squared radius
 	if radius < 1 {
 		radius = 1
 	}
+	radius2 := radius * radius
 
+	// Set manual fix mode
 	manualFixValue := ManualFixRemove
 	if add {
 		manualFixValue = ManualFixAdd
 	}
-	applyBrush := func(mask *image.Gray16) {
-		if mask == nil {
-			return
-		}
-		bounds := mask.Bounds()
-		for py := bounds.Min.Y; py < bounds.Max.Y; py++ {
-			for px := bounds.Min.X; px < bounds.Max.X; px++ {
-				dx := px - x
-				dy := py - y
-				if dx*dx+dy*dy <= radius*radius {
-					mask.SetGray16(px, py, color.Gray16{Y: manualFixValue})
-				}
+
+	if appState.ManualFixMask == nil {
+		return
+	}
+
+	// Precompute the target area for the circular brush
+	targetBbox := superpixel_utils.BoundingBox{}
+	targetBbox.AddPoint(x-radius, y-radius)
+	targetBbox.AddPoint(x+radius, y+radius)
+	targetBounds := targetBbox.Bounds()
+
+	for py := targetBounds.Min.Y; py < targetBounds.Max.Y; py++ {
+		for px := targetBounds.Min.X; px < targetBounds.Max.X; px++ {
+			dx := px - x
+			dy := py - y
+			if dx*dx+dy*dy <= radius2 {
+				appState.ManualFixMask.SetGray16(px, py, color.Gray16{Y: manualFixValue})
 			}
 		}
 	}
-
-	applyBrush(appState.ManualFixMask)
 
 	appState.ReprocessSelection()
 	if appState.Window != nil {

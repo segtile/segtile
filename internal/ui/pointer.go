@@ -93,9 +93,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			// Paint event
 			if appState.InImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
 				if pe.Buttons&pointer.ButtonPrimary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), true)
+					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius, true)
 				} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), false)
+					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius, false)
 				}
 				continue
 			}
