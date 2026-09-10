@@ -163,14 +163,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					// Perform a normal selection of a single superpixel
 					appState.SelectionIndex[label] = true
 
-					// Get a mask of the current selection
-					mask := appState.ActiveSp.IndexToMask(label)
-					bounds := mask.Bounds()
-
-					// Remove all manual corrections for the newly selected SP
-					for x := 0; x < bounds.Dx(); x++ {
-						for y := 0; y < bounds.Dy(); y++ {
-							if mask.Gray16At(x, y).Y > 0 {
+					// Remove all manual corrections for the (newly) selected SP.
+					lb := appState.ActiveSp.LabelMap.Bounds()
+					for y := lb.Min.Y; y < lb.Max.Y; y++ {
+						for x := lb.Min.X; x < lb.Max.X; x++ {
+							if appState.ActiveSp.LabelMap.Gray16At(x, y).Y == label {
 								appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
 							}
 						}
@@ -180,14 +177,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
 				appState.SelectionIndex[label] = false
 
-				// Get a mask of the current selection
-				mask := appState.ActiveSp.IndexToMask(label)
-				bounds := mask.Bounds()
-
-				// Remove all manual corrections for the newly selected SP
-				for x := 0; x < bounds.Dx(); x++ {
-					for y := 0; y < bounds.Dy(); y++ {
-						if mask.Gray16At(x, y).Y > 0 {
+				// Remove all manual corrections for the (newly) selected SP.
+				lb := appState.ActiveSp.LabelMap.Bounds()
+				for y := lb.Min.Y; y < lb.Max.Y; y++ {
+					for x := lb.Min.X; x < lb.Max.X; x++ {
+						if appState.ActiveSp.LabelMap.Gray16At(x, y).Y == label {
 							appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
 						}
 					}
