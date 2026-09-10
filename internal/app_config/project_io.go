@@ -179,7 +179,7 @@ func (appState *AppState) RecreateExistingMaskFromDisk() {
 	appState.AwaitingMaskDecision = false
 	if appState.ActiveImageExistingMask != nil {
 		appState.SelectionIndex = appState.ActiveSp.SelectFromMask(appState.ActiveImageExistingMask, 0.5)
-		appState.RecalculateProcessedSelection()
+		appState.ReprocessSelection()
 	}
 	appState.Window.Invalidate()
 }

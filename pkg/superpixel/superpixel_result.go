@@ -307,8 +307,8 @@ func (this *SpResult) computeOverlapCounts(mask *image.Gray16) (spPixelCount []i
 	spBounds := this.LabelMap.Bounds()
 	spPixelCount = make([]int, this.SpCount)
 	spOverlapCount = make([]int, this.SpCount)
-	for x := 0; x < spBounds.Dx(); x++ {
-		for y := 0; y < spBounds.Dy(); y++ {
+	for x := spBounds.Min.X; x < spBounds.Max.X; x++ {
+		for y := spBounds.Min.Y; y < spBounds.Max.Y; y++ {
 			spLabel := this.LabelMap.Gray16At(x, y).Y
 			spPixelCount[spLabel]++
 			if mask.Gray16At(x, y).Y > 0 {
@@ -325,9 +325,23 @@ func (this *SpResult) SelectionToMask(selection []bool) *image.Gray16 {
 	spBounds := this.LabelMap.Bounds()
 	mask := image.NewGray16(spBounds)
 
-	for x := 0; x < spBounds.Dx(); x++ {
-		for y := 0; y < spBounds.Dy(); y++ {
+	for x := spBounds.Min.X; x < spBounds.Max.X; x++ {
+		for y := spBounds.Min.Y; y < spBounds.Max.Y; y++ {
 			if selection[this.LabelMap.Gray16At(x, y).Y] {
+				mask.SetGray16(x, y, color.Gray16{Y: 65535})
+			}
+		}
+	}
+	return mask
+}
+
+func (this *SpResult) IndexToMask(spId uint16) *image.Gray16 {
+	spBounds := this.LabelMap.Bounds()
+	mask := image.NewGray16(spBounds)
+
+	for x := spBounds.Min.X; x < spBounds.Max.X; x++ {
+		for y := spBounds.Min.Y; y < spBounds.Max.Y; y++ {
+			if this.LabelMap.Gray16At(x, y).Y == spId {
 				mask.SetGray16(x, y, color.Gray16{Y: 65535})
 			}
 		}

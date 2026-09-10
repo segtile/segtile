@@ -1,6 +1,9 @@
 package superpixel_utils
 
-import "math"
+import (
+	"image"
+	"math"
+)
 
 type BoundingBox struct {
 	minX, minY, maxX, maxY int
@@ -25,6 +28,13 @@ func (bb *BoundingBox) AddPoint(x, y int) {
 	if y > bb.maxY {
 		bb.maxY = y
 	}
+}
+
+func (bb BoundingBox) Bounds() image.Rectangle {
+	if !bb.initialized {
+		return image.Rectangle{}
+	}
+	return image.Rect(bb.minX, bb.minY, bb.maxX+1, bb.maxY+1)
 }
 
 func (bb BoundingBox) Area() int {

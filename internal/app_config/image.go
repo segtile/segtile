@@ -76,6 +76,9 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Update the current image and run the superpixel algorithm
 	appState.ActiveImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
+	// Reset manual fixes before recalculating superpixels, since that recalculation
+	// reprocesses the selection using whatever ManualFixMask is currently set.
+	appState.ResetManualFixes()
 	err := appState.RecalculateSuperpixels(false, false)
 	if err != nil {
 		return err

@@ -21,6 +21,16 @@ func GetEmptySelectionOutline() (pathSpec clip.PathSpec) {
 	return p.End()
 }
 
+func CalculateCircleOutline(centerX int, centerY int, radius int) (pathSpec clip.PathSpec) {
+	if radius <= 0 {
+		return GetEmptySelectionOutline()
+	}
+
+	ops := new(op.Ops)
+	bounds := image.Rect(centerX-radius, centerY-radius, centerX+radius, centerY+radius)
+	return clip.Ellipse(bounds).Path(ops)
+}
+
 func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool) (pathSpec clip.PathSpec) {
 
 	//log.Println("Updating selection outline ...")

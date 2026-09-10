@@ -37,6 +37,10 @@ type AppState struct {
 	// Selection
 	SelectionIndex []bool
 
+	// Manual Selection Fixes
+	ManualFixMask        *image.Gray16
+	ManualFixBrushRadius int
+
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
 	// user has not yet chosen to start from scratch or edit it. Selection is disabled while true.
 	AwaitingMaskDecision bool
@@ -97,10 +101,13 @@ type UiState struct {
 	SpAlgoritmMenuTitles        []string
 
 	// Hover state
-	IsPanning        bool
-	LastPanPosition  f32.Point
-	KeyboardTag      bool
-	InitialFocusDone bool
+	IsPanning              bool
+	LastPanPosition        f32.Point
+	LastHoverImagePosition f32.Point
+	InImageBounds          bool
+	ManualFixMode          bool
+	KeyboardTag            bool
+	InitialFocusDone       bool
 
 	// Other UI state
 	EnableAutoFloodFill     widget.Bool
@@ -146,6 +153,7 @@ func NewAppState() *AppState {
 			SuperpixelSectionOpen:   true,
 			MiscSectionOpen:         true,
 		},
+		ManualFixBrushRadius: 16,
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),
