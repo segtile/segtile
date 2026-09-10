@@ -31,6 +31,15 @@ func (e SettingsInputDirectoryError) Error() string {
 	return fmt.Sprintf("Error parsing input directory %s: %v", e.path, e.err)
 }
 
+// Input directory could be parsed, but contains no images
+type SettingsNoImagesInInputDirectoryError struct {
+	path string
+}
+
+func (e SettingsNoImagesInInputDirectoryError) Error() string {
+	return fmt.Sprintf("Input directory %s contains no images", e.path)
+}
+
 // Save error
 type SettingsSaveError struct {
 	path string

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func createAndOpen(filePath string) *os.File {
@@ -26,7 +27,7 @@ func createAndOpen(filePath string) *os.File {
 	return file
 }
 
-func ListFiles(dir string) ([]string, error) {
+func ListFiles(dir string, imagesOnly bool) ([]string, error) {
 
 	// Read all files
 	entries, err := os.ReadDir(dir)
@@ -43,6 +44,15 @@ func ListFiles(dir string) ([]string, error) {
 		if entry.Name() == ".DS_Store" || entry.Name() == "Thumbs.db" {
 			continue
 		}
+
+		if imagesOnly {
+			// Skip files that are not images based on their extension
+			ext := strings.ToLower(filepath.Ext(entry.Name()))
+			if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".tiff" && ext != ".tif" {
+				continue
+			}
+		}
+
 		files = append(files, filepath.Join(dir, entry.Name()))
 	}
 

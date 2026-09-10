@@ -120,6 +120,15 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 
 	}
 
+	// Test if the input directory contains any images
+	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	if err != nil {
+		return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
+	}
+	if len(imageFiles) == 0 {
+		return &ProjectSettings{Err: &SettingsNoImagesInInputDirectoryError{path: settings.InputDirectory}}
+	}
+
 	if err := settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
 		return &ProjectSettings{Err: err}
 	}
@@ -203,9 +212,16 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	appState.RebuildEditors()
 
 	// List all image files in the input directory
-	imageFiles, err := io_utils.ListFiles(settings.InputDirectory)
-	if err != nil || len(imageFiles) == 0 {
+	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	if err != nil {
 		log.Printf("Could not list input directory %q: %v", settings.InputDirectory, err)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
+		return
+	}
+
+	if len(imageFiles) == 0 {
+		err := fmt.Errorf("No image files found in input directory %q", settings.InputDirectory)
+		log.Printf("%v", err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
 		return
 	}

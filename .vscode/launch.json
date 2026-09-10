@@ -106,6 +106,16 @@
 			]
 		},
 		{
+			"name": "No image files (Error Case)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${workspaceFolder}/cmd/main",
+			"args": [
+				"../../internal/app_config/testdata/settings_no_images_in_directory.yaml"
+			]
+		},
+		{
 			"name": "Brain MRI",
 			"type": "go",
 			"request": "launch",
