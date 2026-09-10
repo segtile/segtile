@@ -1,9 +1,7 @@
 package app_config
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -109,12 +107,12 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 	settings.SettingsFile = settingsPath
 
 	// Test if the input directory exists
-	if _, err := os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(settings.InputDirectory); err != nil {
 
-		// If it does not exist, try treating it as a relative path from the directory of the settings file
+		// If it can not be read, try treating it as a relative path from the directory of the settings file
 		settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
 
-		if _, err = os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
+		if _, err = os.Stat(settings.InputDirectory); err != nil {
 
 			// If this also fails, return an error indicating that the input directory could not be found.
 			return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
