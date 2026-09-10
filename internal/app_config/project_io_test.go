@@ -9,26 +9,24 @@ import (
 func TestLoadOkProjectSettings(t *testing.T) {
 
 	settingsPath := "testdata/settings_ok.yaml"
-	result := Load(settingsPath)
+	settings := LoadProjectSettings(settingsPath)
 
 	// This should not contain an error
-
-	if result.Err != nil {
-		t.Fatal(result.Err)
-	}
-	if result.Settings == nil {
+	if settings == nil {
 		t.Fatal("Settings is nil")
 	}
-
+	if settings.Err != nil {
+		t.Fatal(settings.Err)
+	}
 }
 
 func TestLoadUnknownAlgorithmProjectSettings(t *testing.T) {
 
 	settingsPath := "testdata/settings_bad_algorithm.yaml"
-	result := Load(settingsPath)
+	settings := LoadProjectSettings(settingsPath)
 
 	// Expect an error
-	if result.Err == nil {
+	if settings.Err == nil {
 		t.Fatal("Expected an error due to unknown algorithm, but got none")
 	}
 
@@ -37,10 +35,10 @@ func TestLoadUnknownAlgorithmProjectSettings(t *testing.T) {
 func TestBadInputDirectoryProjectSettings(t *testing.T) {
 
 	settingsPath := "testdata/settings_bad_in_dir.yaml"
-	result := Load(settingsPath)
+	settings := LoadProjectSettings(settingsPath)
 
 	// Expect an error
-	if result.Err == nil {
+	if settings.Err == nil {
 		t.Fatal("Expected an error due to bad input directory, but got none")
 	}
 
@@ -49,10 +47,10 @@ func TestBadInputDirectoryProjectSettings(t *testing.T) {
 func TestNonExistentSettingsYaml(t *testing.T) {
 
 	settingsPath := "testdata/settings_does_not_exist.yaml"
-	result := Load(settingsPath)
+	settings := LoadProjectSettings(settingsPath)
 
 	// Expect an error
-	if result.Err == nil {
+	if settings.Err == nil {
 		t.Fatal("Expected an error due to non-existent settings.yaml, but got none")
 	}
 

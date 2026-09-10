@@ -35,7 +35,7 @@ func main() {
 		if len(os.Args) >= 2 {
 			configPath := os.Args[1]
 			go func() {
-				result := app_config.Load(configPath)
+				result := app_config.LoadProjectSettings(configPath)
 				appState.ProjectLoadResult <- result
 			}()
 		}
@@ -68,7 +68,7 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 			// Apply loaded projects
 			select {
 			case result := <-appState.ProjectLoadResult:
-				appState.ApplyProjectLoadingResult(result)
+				appState.ApplyProjectSettings(result)
 			default:
 			}
 

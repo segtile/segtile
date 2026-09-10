@@ -21,6 +21,20 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
+// drawProjectLoadError renders the error from a failed project load/creation attempt,
+// shown under the New/Open Project buttons on the start screen.
+func drawProjectLoadError(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+
+	if appState.Settings == nil || appState.Settings.Err == nil {
+		return layout.Dimensions{}
+	}
+
+	label := material.Body2(&appState.Theme.GioTheme, appState.Settings.Err.Error())
+	label.Color = color.NRGBA{R: 220, G: 80, B: 80, A: 255}
+	label.Alignment = text.Start
+	return label.Layout(gtx)
+}
+
 // drawExistingMaskCard renders a sidebar card asking the user to either start a fresh
 // selection (by clicking in the image) or approximate the on-disk mask as an editable
 // selection with the current superpixel settings.
