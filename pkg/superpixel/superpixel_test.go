@@ -37,7 +37,6 @@ func BenchmarkSuperpixel(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
-			b.ReportMetric(float64(b.Elapsed().Milliseconds())/float64(b.N), "ms/op")
 		})
 	}
 }
