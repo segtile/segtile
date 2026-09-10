@@ -2,13 +2,16 @@ package app_config
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/goccy/go-yaml"
 	"github.com/ncruces/zenity"
+	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
@@ -86,13 +89,13 @@ func Load(path string) ProjectLoadingResult {
 	// Read the file
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
-		return ProjectLoadingResult{Settings: nil, Err: err}
+		return ProjectLoadingResult{Settings: nil, Err: &SettingsFileReadError{path: path, err: err}}
 	}
 
 	// Parse yaml
 	var settings ProjectSettings
 	if err := yaml.Unmarshal(data, &settings); err != nil {
-		return ProjectLoadingResult{Settings: nil, Err: err}
+		return ProjectLoadingResult{Settings: nil, Err: &SettingsFileYamlParseError{err: err}}
 	}
 
 	// Set the output directory based on the location of the settings file
@@ -107,7 +110,7 @@ func Load(path string) ProjectLoadingResult {
 		if _, err = os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
 
 			// If this also fails, return an error indicating that the input directory could not be found.
-			return ProjectLoadingResult{Settings: nil, Err: err}
+			return ProjectLoadingResult{Settings: nil, Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
 		}
 
 	}
@@ -122,17 +125,27 @@ func Load(path string) ProjectLoadingResult {
 // Save marshals cfg and writes it to outputDir/settings.yaml,
 // creating the directory if it does not exist.
 func Save(settings *ProjectSettings) error {
+
+	targetPath := filepath.Join(settings.OutputDirectory, ConfigFileName)
+
 	if settings.OutputDirectory == "" {
-		return os.ErrInvalid
+		return &SettingsSaveError{path: "", err: fmt.Errorf("output directory is not set")}
 	}
+
 	data, err := yaml.Marshal(settings)
 	if err != nil {
-		return err
+		return &SettingsSaveError{path: targetPath, err: err}
 	}
+
 	if err := os.MkdirAll(settings.OutputDirectory, 0750); err != nil {
-		return err
+		return &SettingsSaveError{path: targetPath, err: err}
 	}
-	return os.WriteFile(filepath.Join(settings.OutputDirectory, ConfigFileName), data, 0600)
+
+	if err := os.WriteFile(targetPath, data, 0600); err != nil {
+		return &SettingsSaveError{path: targetPath, err: err}
+	}
+
+	return nil
 }
 
 // NewProjectSettings creates a new ProjectSettings with the given directories and superpixel
@@ -142,7 +155,7 @@ func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSetting
 		InputDirectory:   inputDir,
 		OutputDirectory:  outputDir,
 		Superpixel:       spSettings,
-		ShrinkGrowAmount: 0, // neutral (no shrink/grow)
+		ShrinkGrowAmount: 0,
 	}
 	if err := Save(cfg); err != nil {
 		return nil, err
@@ -152,12 +165,17 @@ func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSetting
 
 // ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
 func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoadingResult) {
+
 	appState.CurrentlyLoadingProject = false
+
 	if loadingResult.Err == zenity.ErrCanceled || loadingResult.Settings == nil {
+		// User canceled the operation
 		return
 	}
+
 	if loadingResult.Err != nil {
 		log.Printf("Failed to open project: %v", loadingResult.Err)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, loadingResult.Err.Error(), 5*time.Second)
 		return
 	}
 
@@ -180,6 +198,7 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	imageFiles, err := io_utils.ListFiles(loadingResult.Settings.InputDirectory)
 	if err != nil || len(imageFiles) == 0 {
 		log.Printf("Could not list input directory %q: %v", loadingResult.Settings.InputDirectory, err)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
 		return
 	}
 

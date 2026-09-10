@@ -1,6 +1,6 @@
-input_directory: "../img/"
+input_directory: "img/"
 superpixel:
-  algorithm: slic
+  algorithm: asdf
   parameters:
     compactness: 10
     count: 200
