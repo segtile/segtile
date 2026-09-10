@@ -72,5 +72,5 @@ func (appState *AppState) RefreshHoverPreview() {
 	}
 
 	label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
-	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(*appState.ActiveSp.LabelMap, label)
+	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(appState.ActiveSp.LabelMap, label)
 }

@@ -8,7 +8,7 @@ import (
 	"gioui.org/op/clip"
 )
 
-func CalculateSelectionOutlineFromIndex(labelMap image.Gray16, selectionIndex uint16) (pathSpec clip.PathSpec) {
+func CalculateSelectionOutlineFromIndex(labelMap *image.Gray16, selectionIndex uint16) (pathSpec clip.PathSpec) {
 	selection := make([]bool, 65536)
 	selection[selectionIndex] = true
 	return CalculateSelectionOutlineFromSlice(labelMap, selection)
@@ -31,7 +31,7 @@ func CalculateCircleOutline(centerX int, centerY int, radius int) (pathSpec clip
 	return clip.Ellipse(bounds).Path(ops)
 }
 
-func CalculateSelectionOutlineFromSlice(labelMap image.Gray16, selection []bool) (pathSpec clip.PathSpec) {
+func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool) (pathSpec clip.PathSpec) {
 
 	//log.Println("Updating selection outline ...")
 	//start := time.Now().UnixMicro()
