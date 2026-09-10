@@ -1,6 +1,8 @@
 package app_config
 
 import (
+	"errors"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -79,28 +81,42 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 }
 
 // Load reads and unmarshals a config file from the given path.
-func Load(path string) (*ProjectSettings, error) {
+func Load(path string) ProjectLoadingResult {
 
 	// Read the file
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
-		return nil, err
+		return ProjectLoadingResult{Settings: nil, Err: err}
 	}
 
 	// Parse yaml
 	var settings ProjectSettings
 	if err := yaml.Unmarshal(data, &settings); err != nil {
-		return nil, err
+		return ProjectLoadingResult{Settings: nil, Err: err}
 	}
 
 	// Set the output directory based on the location of the settings file
 	settings.OutputDirectory = filepath.Dir(path)
 
-	if err := settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
-		return nil, err
+	// Test if the input directory exists
+	if _, err := os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
+
+		// If it does not exist, try treating it as a relative path from the settings
+		settings.InputDirectory = filepath.Join(settings.OutputDirectory, settings.InputDirectory)
+
+		if _, err = os.Stat(settings.InputDirectory); errors.Is(err, fs.ErrNotExist) {
+
+			// If this also fails, return an error indicating that the input directory could not be found.
+			return ProjectLoadingResult{Settings: nil, Err: err}
+		}
+
 	}
 
-	return &settings, nil
+	if err := settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
+		return ProjectLoadingResult{Settings: nil, Err: err}
+	}
+
+	return ProjectLoadingResult{Settings: &settings, Err: nil}
 }
 
 // Save marshals cfg and writes it to outputDir/settings.yaml,

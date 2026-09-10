@@ -15,8 +15,8 @@ func triggerOpenProject(appState *app_config.AppState) {
 	}
 	appState.CurrentlyLoadingProject = true
 	go func() {
-		settings, err := showOpenProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: settings, Err: err}
+		result := showOpenProjectDialogs()
+		appState.ProjectLoadResult <- result
 		appState.Window.Invalidate()
 	}()
 }
@@ -29,15 +29,15 @@ func triggerNewProject(appState *app_config.AppState) {
 	}
 	appState.CurrentlyLoadingProject = true
 	go func() {
-		cfg, err := showNewProjectDialogs()
-		appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, Err: err}
+		result := showNewProjectDialogs()
+		appState.ProjectLoadResult <- result
 		appState.Window.Invalidate()
 	}()
 }
 
 // Prompts the user to pick an existing config file.
 // Must be called from a background goroutine.
-func showOpenProjectDialogs() (*app_config.ProjectSettings, error) {
+func showOpenProjectDialogs() app_config.ProjectLoadingResult {
 	path, err := zenity.SelectFile(
 		zenity.Title("Open Configuration File"),
 		zenity.FileFilter{
@@ -46,19 +46,15 @@ func showOpenProjectDialogs() (*app_config.ProjectSettings, error) {
 		},
 	)
 	if err != nil {
-		return nil, err // includes zenity.ErrCanceled
+		return app_config.ProjectLoadingResult{Settings: nil, Err: err} // includes zenity.ErrCanceled
 	}
-	cfg, err := app_config.Load(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config %q: %w", path, err)
-	}
-	return cfg, nil
+	return app_config.Load(path)
 }
 
 // showNewProjectDialogs prompts the user to select an input directory and then
 // an output directory, then initialises a new project.
 // Must be called from a background goroutine.
-func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
+func showNewProjectDialogs() app_config.ProjectLoadingResult {
 
 	// Prompt for the input directory
 	inputDir, err := zenity.SelectFile(
@@ -66,7 +62,7 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
 		zenity.Directory(),
 	)
 	if err != nil {
-		return nil, err
+		return app_config.ProjectLoadingResult{Settings: nil, Err: err}
 	}
 
 	// Prompt for the output directory
@@ -75,14 +71,14 @@ func showNewProjectDialogs() (*app_config.ProjectSettings, error) {
 		zenity.Directory(),
 	)
 	if err != nil {
-		return nil, err
+		return app_config.ProjectLoadingResult{Settings: nil, Err: err}
 	}
 
 	cfg, err := app_config.NewProjectSettings(outputDir, inputDir, app_config.NewSuperpixelSettings())
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize project: %w", err)
+		return app_config.ProjectLoadingResult{Settings: nil, Err: fmt.Errorf("failed to initialize project: %w", err)}
 	}
-	return cfg, nil
+	return app_config.ProjectLoadingResult{Settings: cfg, Err: nil}
 }
 
 func showSaveEmptyMaskWarning() (ok bool) {

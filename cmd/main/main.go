@@ -35,8 +35,8 @@ func main() {
 		if len(os.Args) >= 2 {
 			configPath := os.Args[1]
 			go func() {
-				cfg, err := app_config.Load(configPath)
-				appState.ProjectLoadResult <- app_config.ProjectLoadingResult{Settings: cfg, Err: err}
+				result := app_config.Load(configPath)
+				appState.ProjectLoadResult <- result
 			}()
 		}
 
@@ -46,6 +46,8 @@ func main() {
 		}
 		os.Exit(0)
 	}()
+
+	// Start the Gio application main loop.
 	app.Main()
 }
 
