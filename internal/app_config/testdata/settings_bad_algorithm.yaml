@@ -1,0 +1,9 @@
+input_directory: "img/"
+superpixel:
+  algorithm: asdf
+  parameters:
+    compactness: 10
+    count: 200
+auto_flood_fill: true
+shrink_grow_amount: 0.123
+smooth_amount: 0.456

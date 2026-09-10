@@ -42,7 +42,7 @@ type AppState struct {
 	ManualFixBrushRadius int
 
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
-	// user has not yet chosen to start from scratch or edit it. Selection is disabled while true.
+	// user has not yet chosen to start from scratch or edit it.
 	AwaitingMaskDecision bool
 }
 
@@ -136,7 +136,7 @@ type CacheState struct {
 type LoadingState struct {
 	// State for loading operations
 	CurrentlyLoadingProject bool
-	ProjectLoadResult       chan ProjectLoadingResult
+	ProjectLoadResult       chan *ProjectSettings
 	CurrentlyOptimizing     bool
 	OptimizationResult      chan superpixel_optimizer.SpOptimizerResult
 }
@@ -155,7 +155,7 @@ func NewAppState() *AppState {
 		},
 		ManualFixBrushRadius: 16,
 		LoadingState: LoadingState{
-			ProjectLoadResult:  make(chan ProjectLoadingResult, 1),
+			ProjectLoadResult:  make(chan *ProjectSettings, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),
 		},
 	}

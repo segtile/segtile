@@ -123,13 +123,13 @@ func main() {
 	}
 
 	// Read image directory and GT mask directory
-	images, err := io_utils.ListFiles(os.Args[1])
+	images, err := io_utils.ListFiles(os.Args[1], true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing image files: %v\n", err)
 		os.Exit(1)
 	}
 
-	masks, err := io_utils.ListFiles(os.Args[2])
+	masks, err := io_utils.ListFiles(os.Args[2], true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing mask files: %v\n", err)
 		os.Exit(1)

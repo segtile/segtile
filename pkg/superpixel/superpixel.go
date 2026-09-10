@@ -41,18 +41,12 @@ func RegisterSpAlgorithm(id string, title string, description string, run func(i
 		panic("Attempted to register algorithm with duplicate id " + id)
 	}
 
-	// Ensure that no two parameters have the same id
-	paramIds := make(map[string]bool)
-	for _, param := range parameters {
-		if _, exists := paramIds[param.Id]; exists {
-			panic("Attempted to register duplicate parameter id " + param.Id + " for superpixel algorithm " + id)
-		}
-		paramIds[param.Id] = true
-	}
-
-	// Build the parameter index for quick lookup by id
+	// Ensure that no two parameters have the same id while building the parameter index for quick lookup by id
 	parameterIndex := make(map[string]int)
 	for i, param := range parameters {
+		if _, exists := parameterIndex[param.Id]; exists {
+			panic("Attempted to register duplicate parameter id " + param.Id + " for superpixel algorithm " + id)
+		}
 		parameterIndex[param.Id] = i
 	}
 
@@ -68,7 +62,7 @@ func RegisterSpAlgorithm(id string, title string, description string, run func(i
 func ListParameterInfo(algorithmId string) ([]SpParameterInfo, error) {
 	entry, exists := spRegistry[algorithmId]
 	if !exists {
-		return nil, fmt.Errorf("Superpixel algorithm with id %s is not registered", algorithmId)
+		return nil, &UnknownSpAlgorithmError{algorithmId: algorithmId}
 	}
 	return entry.Parameters, nil
 }
@@ -78,7 +72,7 @@ func GetParameterInfo(algorithmId string, paramName string) (SpParameterInfo, er
 	// Ensure algorithm exists
 	entry, exists := spRegistry[algorithmId]
 	if !exists {
-		return SpParameterInfo{}, fmt.Errorf("Superpixel algorithm with id %s is not registered", algorithmId)
+		return SpParameterInfo{}, &UnknownSpAlgorithmError{algorithmId: algorithmId}
 	}
 
 	// Ensure parameter exists
@@ -93,7 +87,7 @@ func GetParameterInfo(algorithmId string, paramName string) (SpParameterInfo, er
 func GetDefaultParameterValues(id string) (params map[string]float64, err error) {
 	entry, exists := spRegistry[id]
 	if !exists {
-		return nil, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)
+		return nil, &UnknownSpAlgorithmError{algorithmId: id}
 	}
 	params = make(map[string]float64)
 	for _, param := range entry.Parameters {
@@ -114,7 +108,7 @@ func ListAlgorithms() []string {
 func GetAlgorithmInfo(id string) (title string, description string, parameters []SpParameterInfo, err error) {
 	entry, exists := spRegistry[id]
 	if !exists {
-		return "", "", nil, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)
+		return "", "", nil, &UnknownSpAlgorithmError{algorithmId: id}
 	}
 	return entry.Title, entry.Description, entry.Parameters, nil
 }
@@ -122,7 +116,7 @@ func GetAlgorithmInfo(id string) (title string, description string, parameters [
 func Run(id string, img image.Image, params map[string]float64) (result SpResult, err error) {
 	entry, exists := spRegistry[id]
 	if !exists {
-		return SpResult{}, fmt.Errorf("Superpixel algorithm with id %s is not registered", id)
+		return SpResult{}, &UnknownSpAlgorithmError{algorithmId: id}
 	}
 	result, err = entry.Run(img, params)
 	return result, err

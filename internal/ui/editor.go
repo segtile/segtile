@@ -54,7 +54,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 	// Persist config if user just let go of slider.
 	if (shrinkGrowWasDragging && !appState.ShrinkGrowAmount.Dragging()) || (smoothWasDragging && !appState.SmoothAmount.Dragging()) {
-		if err := app_config.Save(appState.Settings); err != nil {
+		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 	}
@@ -68,7 +68,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 
 		// Persist updated parameters to config.
-		if err := app_config.Save(appState.Settings); err != nil {
+		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 
@@ -77,7 +77,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	// Persist the auto flood fill setting whenever it is toggled.
 	if appState.EnableAutoFloodFill.Update(gtx) {
 		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
-		if err := app_config.Save(appState.Settings); err != nil {
+		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 	}

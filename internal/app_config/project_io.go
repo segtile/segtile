@@ -1,33 +1,30 @@
 package app_config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/goccy/go-yaml"
-	"github.com/ncruces/zenity"
+	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
-const ConfigFileName = "settings.yaml"
+const DefaultConfigFileName = "settings.yaml"
 const defaultSpAlgorithmId = "snic"
-
-// ProjectLoadingResult carries the outcome of a background project-load dialog.
-type ProjectLoadingResult struct {
-	Settings *ProjectSettings
-	Err      error
-}
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	OutputDirectory     string             `yaml:"-"` // The output directory is not persisted in the yaml settings file, it is derived from the location of the settings file itself.
+	SettingsFile        string             `yaml:"-"` // The path to the settings file itself, not persisted in the yaml.
 	InputDirectory      string             `yaml:"input_directory"`
 	Superpixel          SuperpixelSettings `yaml:"superpixel"`
 	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
 	ShrinkGrowAmount    float32            `yaml:"shrink_grow_amount"`
 	SmoothAmount        float32            `yaml:"smooth_amount"`
+	Err                 error              `yaml:"-"` // The error is also not persisted to disk.
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
@@ -78,70 +75,124 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 	return nil
 }
 
-// Load reads and unmarshals a config file from the given path.
-func Load(path string) (*ProjectSettings, error) {
+// LoadProjectSettings reads and unmarshals a config file from the given path.
+// This can be either a direct path to a settings yaml file or the path to a directory,
+// in which case it will look for a settings yaml file within that directory.
+func LoadProjectSettings(settingsPath string) *ProjectSettings {
 
-	// Read the file
-	data, err := os.ReadFile(filepath.Clean(path))
+	// Check if the given path exists and whether it is a file or directory
+	stat, err := os.Stat(settingsPath)
 	if err != nil {
-		return nil, err
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
+	}
+
+	// If the path is a directory, append the default config file name
+	if stat.IsDir() {
+		settingsPath = filepath.Join(settingsPath, DefaultConfigFileName)
+	}
+
+	// Then try reading the settings
+	data, err := os.ReadFile(filepath.Clean(settingsPath))
+	if err != nil {
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
 	}
 
 	// Parse yaml
 	var settings ProjectSettings
 	if err := yaml.Unmarshal(data, &settings); err != nil {
-		return nil, err
+		return &ProjectSettings{Err: &SettingsFileYamlParseError{err: err}}
 	}
 
-	// Set the output directory based on the location of the settings file
-	settings.OutputDirectory = filepath.Dir(path)
+	// Store the settings file path
+	settings.SettingsFile = settingsPath
+
+	// Test if the input directory exists
+	if _, err := os.Stat(settings.InputDirectory); err != nil {
+
+		// If it can not be read, try treating it as a relative path from the directory of the settings file
+		settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
+
+		if _, err = os.Stat(settings.InputDirectory); err != nil {
+
+			// If this also fails, return an error indicating that the input directory could not be found.
+			return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
+		}
+
+	}
+
+	// Test if the input directory contains any images
+	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	if err != nil {
+		return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
+	}
+	if len(imageFiles) == 0 {
+		return &ProjectSettings{Err: &SettingsNoImagesInInputDirectoryError{path: settings.InputDirectory}}
+	}
 
 	if err := settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
-		return nil, err
+		return &ProjectSettings{Err: err}
 	}
 
-	return &settings, nil
+	return &settings
 }
 
-// Save marshals cfg and writes it to outputDir/settings.yaml,
+// SaveProjectSettings marshals cfg and writes it to the settings file
 // creating the directory if it does not exist.
-func Save(settings *ProjectSettings) error {
-	if settings.OutputDirectory == "" {
-		return os.ErrInvalid
+func SaveProjectSettings(settings *ProjectSettings) error {
+
+	if settings.SettingsFile == "" {
+		return &SettingsSaveError{path: "", err: fmt.Errorf("settings file path is not set")}
 	}
+
 	data, err := yaml.Marshal(settings)
 	if err != nil {
-		return err
+		return &SettingsSaveError{path: settings.SettingsFile, err: err}
 	}
-	if err := os.MkdirAll(settings.OutputDirectory, 0750); err != nil {
-		return err
+
+	if err := os.MkdirAll(filepath.Dir(settings.SettingsFile), 0750); err != nil {
+		return &SettingsSaveError{path: settings.SettingsFile, err: err}
 	}
-	return os.WriteFile(filepath.Join(settings.OutputDirectory, ConfigFileName), data, 0600)
+
+	if err := os.WriteFile(settings.SettingsFile, data, 0600); err != nil {
+		return &SettingsSaveError{path: settings.SettingsFile, err: err}
+	}
+
+	return nil
 }
 
-// NewProjectSettings creates a new ProjectSettings with the given directories and superpixel
-// settings, saves it to disk and returns the result.
+// NewProjectSettings creates a new ProjectSettings with the given directories and superpixel settings, saves it to disk and returns the result.
 func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
+		SettingsFile:     filepath.Join(outputDir, DefaultConfigFileName),
 		InputDirectory:   inputDir,
-		OutputDirectory:  outputDir,
 		Superpixel:       spSettings,
-		ShrinkGrowAmount: 0, // neutral (no shrink/grow)
+		ShrinkGrowAmount: 0,
 	}
-	if err := Save(cfg); err != nil {
+	if err := SaveProjectSettings(cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-// ApplyProjectLoadingResult processes a result returned by a background dialog goroutine.
-func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoadingResult) {
+// ApplyProjectSettings processes a result returned by a background dialog goroutine.
+func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
+
 	appState.CurrentlyLoadingProject = false
-	if loadingResult.Err == zenity.ErrCanceled || loadingResult.Settings == nil {
+
+	if settings == nil {
+		// User canceled the operation
 		return
 	}
-	if loadingResult.Err != nil {
-		log.Printf("Failed to open project: %v", loadingResult.Err)
+
+	if settings.Err != nil {
+		log.Printf("Failed to open project: %v", settings.Err)
+		if appState.Settings == nil {
+			// No project was loaded before, so surface the error on the create/open project screen.
+			appState.Settings = settings
+		} else {
+			// A project is already loaded; keep it and just notify about the failed attempt.
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, settings.Err.Error(), 5*time.Second)
+		}
 		return
 	}
 
@@ -152,18 +203,26 @@ func (appState *AppState) ApplyProjectLoadingResult(loadingResult ProjectLoading
 	}
 
 	// Apply the new settings
-	appState.Settings = loadingResult.Settings
-	appState.EnableAutoFloodFill.Value = loadingResult.Settings.EnableAutoFloodFill
-	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadingResult.Settings.ShrinkGrowAmount)
-	appState.SmoothAmount.Value = loadingResult.Settings.SmoothAmount
+	appState.Settings = settings
+	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
+	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)
+	appState.SmoothAmount.Value = settings.SmoothAmount
 
 	// Rebuild editors
 	appState.RebuildEditors()
 
 	// List all image files in the input directory
-	imageFiles, err := io_utils.ListFiles(loadingResult.Settings.InputDirectory)
-	if err != nil || len(imageFiles) == 0 {
-		log.Printf("Could not list input directory %q: %v", loadingResult.Settings.InputDirectory, err)
+	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	if err != nil {
+		log.Printf("Could not list input directory %q: %v", settings.InputDirectory, err)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
+		return
+	}
+
+	if len(imageFiles) == 0 {
+		err := fmt.Errorf("No image files found in input directory %q", settings.InputDirectory)
+		log.Printf("%v", err)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
 		return
 	}
 

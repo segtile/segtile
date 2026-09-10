@@ -22,7 +22,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	}
 
 	// Determine if a project is loaded
-	projectLoaded := appState.Settings != nil
+	projectLoaded := appState.Settings != nil && appState.Settings.Err == nil
 
 	// We set up a clipping area that covers the entire window.
 	// This ensures that all drawing operations are confined to the window bounds, preventing any rendering outside the visible area.
@@ -118,6 +118,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								if appState.CurrentlyLoadingProject {
 									promptText = "Loading project…"
 								}
+								gtx.Constraints.Min = gtx.Constraints.Max
 								layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -140,8 +141,12 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 											}
 											gtx.Constraints.Min.X = gtx.Dp(220)
 											return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
-										}),
-									)
+										}), layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											gtx.Constraints.Max.X = gtx.Dp(480)
+											gtx.Constraints.Min.X = 0
+											return drawProjectLoadError(gtx, appState)
+										}))
 								})
 							} else if appState.ActiveImage != nil {
 								if appState.FitToWindow {
