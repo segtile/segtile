@@ -45,3 +45,9 @@ func MinMax(img *image.Gray16) (minVal, maxVal uint16) {
 	}
 	return minVal, maxVal
 }
+
+// UnsafeGray16At returns the 16-bit grayscale value at the specified coordinates without bounds checking.
+func UnsafeGray16At(img *image.Gray16, x, y int) uint16 {
+	offset := img.PixOffset(x, y)
+	return uint16(img.Pix[offset])<<8 | uint16(img.Pix[offset+1])
+}
