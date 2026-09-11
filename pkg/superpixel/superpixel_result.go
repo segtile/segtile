@@ -154,73 +154,9 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	height := bounds.Dy()
 
 	// Step 1: find every connected component in the label map.
-	// componentId maps each pixel to its component id. -1 means unvisited.
-	componentId := make([]int32, width*height)
-	for i := range componentId {
-		componentId[i] = -1
-	}
-
-	// Each component has a label and a size, indexed by component id.
-	componentLabel := make([]uint16, 0, 256)
-	componentSize := make([]int, 0, 256)
-	queue := make([]int, 0, 256)
-
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			startIndex := y*width + x
-			if componentId[startIndex] >= 0 {
-				continue
-			}
-
-			label := superpixel_utils.UnsafeGray16At(this.LabelMap, x, y)
-			currentComponentId := int32(len(componentLabel))
-			componentId[startIndex] = currentComponentId
-
-			queue = queue[:0]
-			queue = append(queue, startIndex)
-			size := 0
-
-			for head := 0; head < len(queue); head++ {
-				currentIndex := queue[head]
-				size++
-
-				currentX := currentIndex % width
-				currentY := currentIndex / width
-
-				if currentX > 0 {
-					neighborIndex := currentIndex - 1
-					if componentId[neighborIndex] < 0 && superpixel_utils.UnsafeGray16At(this.LabelMap, currentX-1, currentY) == label {
-						componentId[neighborIndex] = currentComponentId
-						queue = append(queue, neighborIndex)
-					}
-				}
-				if currentX+1 < width {
-					neighborIndex := currentIndex + 1
-					if componentId[neighborIndex] < 0 && superpixel_utils.UnsafeGray16At(this.LabelMap, currentX+1, currentY) == label {
-						componentId[neighborIndex] = currentComponentId
-						queue = append(queue, neighborIndex)
-					}
-				}
-				if currentY > 0 {
-					neighborIndex := currentIndex - width
-					if componentId[neighborIndex] < 0 && superpixel_utils.UnsafeGray16At(this.LabelMap, currentX, currentY-1) == label {
-						componentId[neighborIndex] = currentComponentId
-						queue = append(queue, neighborIndex)
-					}
-				}
-				if currentY+1 < height {
-					neighborIndex := currentIndex + width
-					if componentId[neighborIndex] < 0 && superpixel_utils.UnsafeGray16At(this.LabelMap, currentX, currentY+1) == label {
-						componentId[neighborIndex] = currentComponentId
-						queue = append(queue, neighborIndex)
-					}
-				}
-			}
-
-			componentLabel = append(componentLabel, label)
-			componentSize = append(componentSize, size)
-		}
-	}
+	// componentId maps each pixel to its component id; componentLabel and componentSize
+	// hold the label and pixel count of each component.
+	componentId, componentLabel, componentSize := superpixel_utils.FindConnectedComponents(this.LabelMap)
 	numComponents := len(componentLabel)
 
 	// Step 2: build a component-level relationship graph, weighted by shared border length.

@@ -51,3 +51,9 @@ func UnsafeGray16At(img *image.Gray16, x, y int) uint16 {
 	offset := img.PixOffset(x, y)
 	return uint16(img.Pix[offset])<<8 | uint16(img.Pix[offset+1])
 }
+
+func UnsafeSetGray16(img *image.Gray16, x, y int, value uint16) {
+	offset := img.PixOffset(x, y)
+	img.Pix[offset] = uint8(value >> 8)
+	img.Pix[offset+1] = uint8(value & 0xFF)
+}
