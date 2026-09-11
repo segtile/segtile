@@ -117,7 +117,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		}
 	}
 
-	result := superpixel.NewSpResult(resultLabelMap, 0, true)
+	result := superpixel.NewSpResult(resultLabelMap, 0)
 	return result, nil
 }
 

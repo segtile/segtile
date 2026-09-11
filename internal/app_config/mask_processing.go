@@ -14,9 +14,9 @@ const shrinkGrowMaxFactor = 0.10
 const smoothMaxFactor = 0.05
 
 const (
-	ManualFixNone uint16 = iota
-	ManualFixAdd
-	ManualFixRemove
+	ManualFixNone   uint16 = 0
+	ManualFixAdd    uint16 = 1
+	ManualFixRemove uint16 = 2
 )
 
 // ApplyManualFixMask combines the base mask (from superpixel selection) and the manual fix mask (from user brush strokes).

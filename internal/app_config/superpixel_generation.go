@@ -12,7 +12,7 @@ import (
 
 func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToast bool) error {
 
-	log.Println("Recalculating superpixels...")
+	log.Println("Starting to calculate superpixels...")
 	start := time.Now().UnixMicro()
 
 	// Snapshot the current selection as a mask before the labels change
@@ -30,10 +30,15 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 		return err
 	}
 
+	core := time.Now().UnixMicro()
+	log.Printf("Finished core processing after %.1f ms\n", float64(core-start)/1000)
+
 	newResult.EnforceConnectivity()
 	newResult.EnforceContiguousIndexing()
 
 	appState.ActiveSp = newResult
+	postprocessed := time.Now().UnixMicro()
+	log.Printf("Finished post-processing after %.1f ms\n", float64(postprocessed-start)/1000)
 
 	// Restore the selection by matching old mask pixels to new superpixels,
 	// or reset to an empty selection when there was no previous result.
@@ -46,13 +51,12 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 	// Rebuild the yellow selection outline (processed) and orange on-disk outline is left untouched
 	appState.ReprocessSelection()
 
-	// Log
-	end := time.Now().UnixMicro()
-	log.Printf("Finished calculating superpixels in %.1f milliseconds\n", float64(end-start)/1000)
+	selectionRestored := time.Now().UnixMicro()
+	log.Printf("Finished restoring selection after %.1f ms\n", float64(selectionRestored-start)/1000)
 
 	if showToast {
 		// Add a toast
-		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Rebuilt superpixels (%.1f ms)", float64(end-start)/1000), 500*time.Millisecond)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Rebuilt superpixels (%.1f ms)", float64(selectionRestored-start)/1000), 500*time.Millisecond)
 	}
 	return nil
 

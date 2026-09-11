@@ -93,7 +93,7 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 
 func TestMakeSpResult_RemapsRandomLabels(t *testing.T) {
 	original := generatePseudoRandomGray16(t, 32, 32)
-	originalResult := NewSpResult(original, 0, false)
+	originalResult := NewSpResult(original, 0)
 	originalResult.EnforceContiguousIndexing()
 
 	// At this point, originalResult.LabelMap should have labels ranging from 0 to 1023 for this 32x32 image.
@@ -123,8 +123,10 @@ func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
 	continuous := loadGray16Testdata(t, "testdata/grid_4x4_continuous.png")
 	discontinuous := loadGray16Testdata(t, "testdata/grid_4x4_discontinuous.png")
 
-	continuousResult := NewSpResult(continuous, 0, true)
-	discontinuousResult := NewSpResult(discontinuous, 0, true)
+	continuousResult := NewSpResult(continuous, 0)
+	discontinuousResult := NewSpResult(discontinuous, 0)
+	continuousResult.EnforceContiguousIndexing()
+	discontinuousResult.EnforceContiguousIndexing()
 
 	if continuousResult.SpCount != discontinuousResult.SpCount {
 		t.Fatalf("SpCount mismatch: continuous=%d discontinuous=%d",
@@ -149,7 +151,7 @@ func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
 
 func TestSetActualSpCount(t *testing.T) {
 	img := loadGray16Testdata(t, "testdata/bad_labelmap_32colors.png")
-	spResult := NewSpResult(img, 0, false)
+	spResult := NewSpResult(img, 0)
 	spResult.SetActualSpCount()
 	if spResult.SpCount != 32 {
 		t.Errorf("Expected SpCount to be 32 but got %d", spResult.SpCount)
@@ -158,7 +160,7 @@ func TestSetActualSpCount(t *testing.T) {
 
 func BenchmarkEnforceConnectivity(b *testing.B) {
 	img := loadGray16Testdata(b, "testdata/bad_labelmap_32colors.png")
-	spResult := NewSpResult(img, 0, false)
+	spResult := NewSpResult(img, 0)
 	spResult.SetActualSpCount()
 	b.ResetTimer()
 	for b.Loop() {

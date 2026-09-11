@@ -252,5 +252,5 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 		}
 	}
 
-	return superpixel.NewSpResult(resultLabelMap, 0, true), nil
+	return superpixel.NewSpResult(resultLabelMap, 0), nil
 }
