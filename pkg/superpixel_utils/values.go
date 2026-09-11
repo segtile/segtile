@@ -13,6 +13,17 @@ func HasNonZeroPixels(img *image.Gray16) bool {
 	return false
 }
 
+func HasPixelWithValue(img *image.Gray16, value uint16) bool {
+	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+			if UnsafeGray16At(img, x, y) == value {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func IsBinaryMask(img *image.Gray16) bool {
 	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
 		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {

@@ -172,7 +172,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 								if appState.RenderSelectionOutlines {
 									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
-									if !appState.SelectionMade() {
+									if appState.AwaitingMaskDecision {
 										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
 									}
 								}

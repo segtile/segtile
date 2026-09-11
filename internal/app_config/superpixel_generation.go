@@ -35,6 +35,7 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 
 	newResult.EnforceConnectivity()
 	newResult.EnforceContiguousIndexing()
+	newResult.SetActualSpCount()
 
 	appState.ActiveSp = newResult
 	postprocessed := time.Now().UnixMicro()

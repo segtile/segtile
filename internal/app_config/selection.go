@@ -10,8 +10,19 @@ import (
 )
 
 func (appState *AppState) SelectionMade() bool {
-	mask := appState.EffectiveSelectionMask()
-	return mask != nil && superpixel_utils.HasNonZeroPixels(mask)
+
+	for x := appState.ActiveSp.LabelMap.Bounds().Min.X; x < appState.ActiveSp.LabelMap.Bounds().Max.X; x++ {
+		for y := appState.ActiveSp.LabelMap.Bounds().Min.Y; y < appState.ActiveSp.LabelMap.Bounds().Max.Y; y++ {
+			spSelected := appState.SelectionIndex[superpixel_utils.UnsafeGray16At(appState.ActiveSp.LabelMap, x, y)]
+			notCancelled := superpixel_utils.UnsafeGray16At(appState.ManualFixMask, x, y) != ManualFixRemove
+			manuallyAdded := superpixel_utils.UnsafeGray16At(appState.ManualFixMask, x, y) == ManualFixAdd
+			if (spSelected && notCancelled) || manuallyAdded {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (appState *AppState) EffectiveSelectionMask() *image.Gray16 {
