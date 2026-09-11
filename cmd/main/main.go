@@ -16,15 +16,16 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
 
+	"net/http"
 	_ "net/http/pprof"
 )
 
 func main() {
 
 	// Start profiling
-	/*go func() {
+	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()*/
+	}()
 
 	go func() {
 

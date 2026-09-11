@@ -153,46 +153,17 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	width := bounds.Dx()
 	height := bounds.Dy()
 
-	// Step 1: find every connected component in the label map.
-	// componentId maps each pixel to its component id; componentLabel and componentSize
-	// hold the label and pixel count of each component.
-	componentId, componentLabel, componentSize := superpixel_utils.FindConnectedComponents(this.LabelMap)
+	// Step 1: Connected components in label map
+	componentIdMap, componentLabel, componentSize := superpixel_utils.FindConnectedComponents(this.LabelMap)
 	numComponents := len(componentLabel)
 
-	// Step 2: build a component-level relationship graph, weighted by shared border length.
-	// Aggregate undirected edges once, then store them in compact adjacency arrays.
-	edgeWeights := make(map[uint64]int, numComponents*2)
-	for y := 0; y < height; y++ {
-		rowStart := y * width
-		for x := 0; x < width; x++ {
-			id := componentId[rowStart+x]
-			if x+1 < width {
-				neighborId := componentId[rowStart+x+1]
-				if id != neighborId {
-					a, b := id, neighborId
-					if a > b {
-						a, b = b, a
-					}
-					edgeWeights[uint64(a)<<32|uint64(uint32(b))]++
-				}
-			}
-			if y+1 < height {
-				neighborId := componentId[rowStart+x+width]
-				if id != neighborId {
-					a, b := id, neighborId
-					if a > b {
-						a, b = b, a
-					}
-					edgeWeights[uint64(a)<<32|uint64(uint32(b))]++
-				}
-			}
-		}
-	}
+	// Step 2: Relationships between connected components
+	componentBorders := superpixel_utils.LabelMapNeighborhoodsWeighted(componentIdMap, numComponents+1)
 
+	// Store the relationships in compact adjacency arrays, indexed by unshifted component id.
 	adjacencyDegree := make([]int, numComponents)
-	for edge := range edgeWeights {
-		adjacencyDegree[int(edge>>32)]++
-		adjacencyDegree[int(uint32(edge))]++
+	for id := 0; id < numComponents; id++ {
+		adjacencyDegree[id] = len(componentBorders[id+1])
 	}
 	adjacencyOffset := make([]int, numComponents+1)
 	for id := 0; id < numComponents; id++ {
@@ -200,21 +171,13 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	}
 	adjacencyNeighbor := make([]int32, adjacencyOffset[numComponents])
 	adjacencyWeight := make([]int, adjacencyOffset[numComponents])
-	adjacencyCursor := make([]int, numComponents)
-	copy(adjacencyCursor, adjacencyOffset[:numComponents])
-	for edge, weight := range edgeWeights {
-		a := int32(edge >> 32)
-		b := int32(uint32(edge))
-
-		position := adjacencyCursor[a]
-		adjacencyNeighbor[position] = b
-		adjacencyWeight[position] = weight
-		adjacencyCursor[a]++
-
-		position = adjacencyCursor[b]
-		adjacencyNeighbor[position] = a
-		adjacencyWeight[position] = weight
-		adjacencyCursor[b]++
+	for id := 0; id < numComponents; id++ {
+		position := adjacencyOffset[id]
+		for _, border := range componentBorders[id+1] {
+			adjacencyNeighbor[position] = int32(border.Label - 1)
+			adjacencyWeight[position] = border.SharedBorderLength
+			position++
+		}
 	}
 
 	// Step 3: the largest component of each label survives with that label; every other
@@ -293,17 +256,14 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	// Step 5: put the resolved labels back to the label map.
 	changed = false
 	for y := 0; y < height; y++ {
-		rowStart := y * width
 		for x := 0; x < width; x++ {
-			id := componentId[rowStart+x]
+			id := superpixel_utils.UnsafeGray16At(componentIdMap, x, y) - 1
 			newLabel := finalLabel[id]
 			if newLabel == componentLabel[id] {
 				continue
 			}
 			changed = true
-			offset := y*this.LabelMap.Stride + x*2
-			this.LabelMap.Pix[offset] = byte(newLabel >> 8)
-			this.LabelMap.Pix[offset+1] = byte(newLabel)
+			superpixel_utils.UnsafeSetGray16(this.LabelMap, x, y, uint16(newLabel))
 		}
 	}
 

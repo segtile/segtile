@@ -4,33 +4,63 @@ import (
 	"image"
 )
 
+// LabelMapNeighborhoodsWeighted computes, for each label in a label map, which other labels
+// share a border with it and how long that shared border is (in pixels).
+func LabelMapNeighborhoodsWeighted(labelMap *image.Gray16, labelCount int) [][]LabelBorder {
+
+	bounds := labelMap.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Measure the shared border length between each pair of neighboring labels.
+	// Only right and bottom neighbors are checked, so every undirected pair is counted exactly once.
+	borderLengths := make([]map[uint16]int, labelCount)
+	for label := range borderLengths {
+		borderLengths[label] = make(map[uint16]int)
+	}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			currentLabel := UnsafeGray16At(labelMap, x, y)
+			if x+1 < width {
+				if neighborLabel := UnsafeGray16At(labelMap, x+1, y); neighborLabel != currentLabel {
+					borderLengths[currentLabel][neighborLabel]++
+					borderLengths[neighborLabel][currentLabel]++
+				}
+			}
+			if y+1 < height {
+				if neighborLabel := UnsafeGray16At(labelMap, x, y+1); neighborLabel != currentLabel {
+					borderLengths[currentLabel][neighborLabel]++
+					borderLengths[neighborLabel][currentLabel]++
+				}
+			}
+		}
+	}
+
+	// Flatten the per-label maps into border slices.
+	borders := make([][]LabelBorder, labelCount)
+	for label, lengths := range borderLengths {
+		borders[label] = make([]LabelBorder, 0, len(lengths))
+		for neighborLabel, length := range lengths {
+			borders[label] = append(borders[label], LabelBorder{Label: neighborLabel, SharedBorderLength: length})
+		}
+	}
+	return borders
+}
+
+// LabelBorder describes one neighboring label and the length of the border shared with it.
+type LabelBorder struct {
+	Label              uint16
+	SharedBorderLength int
+}
+
 // Computes for each superpixel which other superpixels are its neighbors (i.e. share a border with it)
 func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
 
-	bounds := labelMap.Bounds()
+	borders := LabelMapNeighborhoodsWeighted(labelMap, spCount)
 	neighbors := make([][]uint16, spCount)
-	seen := make([]map[uint16]struct{}, spCount)
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			currentLabel := labelMap.Gray16At(x, y).Y
-			/*if currentLabel == 0 {
-				continue
-			}*/
-			if seen[currentLabel] == nil {
-				seen[currentLabel] = make(map[uint16]struct{})
-			}
-
-			// Check 4-neighborhoods
-			for _, nb := range PixelNeighbours(image.Point{X: x, Y: y}, bounds, false, false) {
-				neighborLabel := labelMap.Gray16At(nb.X, nb.Y).Y
-				if /*neighborLabel != 0  &&*/ neighborLabel != currentLabel {
-					if _, exists := seen[currentLabel][neighborLabel]; !exists {
-						seen[currentLabel][neighborLabel] = struct{}{}
-						neighbors[currentLabel] = append(neighbors[currentLabel], neighborLabel)
-					}
-				}
-			}
+	for label, labelBorders := range borders {
+		for _, border := range labelBorders {
+			neighbors[label] = append(neighbors[label], border.Label)
 		}
 	}
 	return neighbors
