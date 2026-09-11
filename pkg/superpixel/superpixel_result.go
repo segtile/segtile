@@ -155,10 +155,11 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 
 	// Step 1: find every connected component in the label map.
 
-	// componentId maps each pixel (indexed [y][x]) to its
-	// component id. -1 means unvisited.
+	// componentId maps each pixel (indexed [y][x]) to its component id. -1 means unvisited.
 	componentId := make([][]int, height)
 	visited := make([][]bool, height)
+
+	// Loop over all components and initialize the componentId and visited arrays.
 	for y := range componentId {
 		componentId[y] = make([]int, width)
 		visited[y] = make([]bool, width)

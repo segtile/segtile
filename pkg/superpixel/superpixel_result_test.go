@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func loadGray16Testdata(t *testing.T, path string) *image.Gray16 {
+func loadGray16Testdata(t testing.TB, path string) *image.Gray16 {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
@@ -27,6 +27,18 @@ func loadGray16Testdata(t *testing.T, path string) *image.Gray16 {
 		t.Fatalf("%s is not a 16-bit grayscale PNG (got %T)", path, src)
 	}
 	return gray16
+}
+
+func saveGray16Testdata(path string, img *image.Gray16) {
+	f, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	if err := png.Encode(f, img); err != nil {
+		panic(err)
+	}
 }
 
 // generatePseudoRandomGray16 generates a pseudo-random 16-bit grayscale image of the specified width and height.
@@ -133,4 +145,25 @@ func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSetActualSpCount(t *testing.T) {
+	img := loadGray16Testdata(t, "testdata/bad_labelmap_32colors.png")
+	spResult := NewSpResult(img, 0, false)
+	spResult.SetActualSpCount()
+	if spResult.SpCount != 32 {
+		t.Errorf("Expected SpCount to be 32 but got %d", spResult.SpCount)
+	}
+}
+
+func BenchmarkEnforceConnectivity(b *testing.B) {
+	img := loadGray16Testdata(b, "testdata/bad_labelmap_32colors.png")
+	spResult := NewSpResult(img, 0, false)
+	spResult.SetActualSpCount()
+	b.ResetTimer()
+	for b.Loop() {
+		spResult.LabelMap = img
+		spResult.EnforceConnectivity()
+	}
+
 }
