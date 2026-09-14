@@ -41,6 +41,10 @@ type AppState struct {
 	ManualFixMask        *image.Gray16
 	ManualFixBrushRadius int
 
+	// ManualFixPending marks that brush stamps were added to ManualFixMask since the last
+	// ReprocessSelection, so the (expensive) mask rebuild runs once per frame instead of per event.
+	ManualFixPending bool
+
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
 	// user has not yet chosen to start from scratch or edit it.
 	AwaitingMaskDecision bool
@@ -108,6 +112,15 @@ type UiState struct {
 	ManualFixMode          bool
 	KeyboardTag            bool
 	InitialFocusDone       bool
+
+	// Hover outline cache: remembers what the current HoverPathSpec was built from so
+	// RefreshHoverPreview can skip the rebuild when nothing relevant changed.
+	HoverCached      bool
+	HoverCacheLabel  uint16
+	HoverCacheManual bool
+	HoverCacheX      int
+	HoverCacheY      int
+	HoverCacheRadius int
 
 	// Other UI state
 	EnableAutoFloodFill     widget.Bool

@@ -49,6 +49,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		if pe.Kind == pointer.Leave || pe.Kind == pointer.Cancel {
 			appState.InImageBounds = false
 			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverCached = false
 			appState.Window.Invalidate()
 			continue
 		}
@@ -86,7 +87,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			// Move event
-			if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
+			if (pe.Kind == pointer.Move || pe.Kind == pointer.Drag) && appState.ManualFixMode {
 				appState.RefreshHoverPreview()
 			}
 

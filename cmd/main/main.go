@@ -91,6 +91,9 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 			// New context for this frame
 			gtx := app.NewContext(&ops, e)
 
+			// Rebuild the selection mask at most once per frame if brush strokes are pending
+			appState.FlushPendingManualFixes()
+
 			// Handle interactions
 			ui.HandlePointer(appState, gtx)
 			ui.HandleEditors(appState, gtx)

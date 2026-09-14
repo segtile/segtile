@@ -297,10 +297,23 @@ func (this *SpResult) SelectionToMask(selection []bool) *image.Gray16 {
 	spBounds := this.LabelMap.Bounds()
 	mask := image.NewGray16(spBounds)
 
-	for x := spBounds.Min.X; x < spBounds.Max.X; x++ {
-		for y := spBounds.Min.Y; y < spBounds.Max.Y; y++ {
-			if selection[this.LabelMap.Gray16At(x, y).Y] {
-				mask.SetGray16(x, y, color.Gray16{Y: 65535})
+	srcPix := this.LabelMap.Pix
+	srcStride := this.LabelMap.Stride
+	dstPix := mask.Pix
+	dstStride := mask.Stride
+	width := spBounds.Dx()
+	height := spBounds.Dy()
+
+	for y := 0; y < height; y++ {
+		srcRow := y * srcStride
+		dstRow := y * dstStride
+		for x := 0; x < width; x++ {
+			srcOff := srcRow + x*2
+			label := uint16(srcPix[srcOff])<<8 | uint16(srcPix[srcOff+1])
+			if selection[label] {
+				dstOff := dstRow + x*2
+				dstPix[dstOff] = 0xFF
+				dstPix[dstOff+1] = 0xFF
 			}
 		}
 	}

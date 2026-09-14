@@ -120,6 +120,9 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 // SaveCurrentMask writes the current selection (after Shrink/Grow + Smooth) as a Gray16 PNG to the output directory.
 func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
+	// Apply any pending brush strokes so the saved mask reflects the latest input.
+	appState.FlushPendingManualFixes()
+
 	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
 
 		// Prefer the already-computed processed mask; fall back to the raw selection defensively.

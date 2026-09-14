@@ -2,6 +2,7 @@ package rendering
 
 import (
 	"image"
+	"sync"
 
 	"gioui.org/f32"
 	"gioui.org/op"
@@ -31,6 +32,22 @@ func CalculateCircleOutline(centerX int, centerY int, radius int) (pathSpec clip
 	return clip.Ellipse(bounds).Path(ops)
 }
 
+// buildOutlinePath turns border segments into a clip.PathSpec.
+func buildOutlinePath(vertical, horizontal [][2]f32.Point) clip.PathSpec {
+	ops := new(op.Ops)
+	var p clip.Path
+	p.Begin(ops)
+	for _, seg := range vertical {
+		p.MoveTo(seg[0])
+		p.LineTo(seg[1])
+	}
+	for _, seg := range horizontal {
+		p.MoveTo(seg[0])
+		p.LineTo(seg[1])
+	}
+	return p.End()
+}
+
 func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool) (pathSpec clip.PathSpec) {
 
 	//log.Println("Updating selection outline ...")
@@ -41,12 +58,16 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 	pix := labelMap.Pix
 	stride := labelMap.Stride
 
-	borderChannel := make(chan [][2]f32.Point, 2)
+	// Read labels directly from the raw Pix buffer (big-endian uint16) to avoid per-pixel
+	// bounds checking and interface dispatch overhead of Gray16At.
+
+	var vertical, horizontal [][2]f32.Point
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		// Check horizontally adjacent pairs: collect vertical border segments, merging consecutive runs.
-		// We read labels directly from the raw Pix buffer (big-endian uint16) to avoid per-pixel
-		// bounds checking and interface dispatch overhead of Gray16At.
 		borders := make([][2]f32.Point, 0, width)
 		for x := 0; x < width-1; x++ {
 			runStart := -1
@@ -59,14 +80,12 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 					if runStart < 0 {
 						runStart = y
 					}
-				} else {
-					if runStart >= 0 {
-						borders = append(borders, [2]f32.Point{
-							{X: float32(x + 1), Y: float32(runStart)},
-							{X: float32(x + 1), Y: float32(y)},
-						})
-						runStart = -1
-					}
+				} else if runStart >= 0 {
+					borders = append(borders, [2]f32.Point{
+						{X: float32(x + 1), Y: float32(runStart)},
+						{X: float32(x + 1), Y: float32(y)},
+					})
+					runStart = -1
 				}
 			}
 			if runStart >= 0 {
@@ -76,10 +95,11 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 				})
 			}
 		}
-		borderChannel <- borders
+		vertical = borders
 	}()
 
 	go func() {
+		defer wg.Done()
 		// Check vertically adjacent pairs: collect horizontal border segments, merging consecutive runs.
 		borders := make([][2]f32.Point, 0, height)
 		for y := 0; y < height-1; y++ {
@@ -95,14 +115,12 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 					if runStart < 0 {
 						runStart = x
 					}
-				} else {
-					if runStart >= 0 {
-						borders = append(borders, [2]f32.Point{
-							{X: float32(runStart), Y: float32(y + 1)},
-							{X: float32(x), Y: float32(y + 1)},
-						})
-						runStart = -1
-					}
+				} else if runStart >= 0 {
+					borders = append(borders, [2]f32.Point{
+						{X: float32(runStart), Y: float32(y + 1)},
+						{X: float32(x), Y: float32(y + 1)},
+					})
+					runStart = -1
 				}
 			}
 			if runStart >= 0 {
@@ -112,27 +130,14 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 				})
 			}
 		}
-		borderChannel <- borders
+		horizontal = borders
 	}()
 
-	b1 := <-borderChannel
-	b2 := <-borderChannel
-	borders := make([][2]f32.Point, 0, len(b1)+len(b2))
-	borders = append(borders, b1...)
-	borders = append(borders, b2...)
-
-	// Build the path spec for drawing the outline
-	selectionPathOps := new(op.Ops)
-	var p clip.Path
-	p.Begin(selectionPathOps)
-	for _, seg := range borders {
-		p.MoveTo(seg[0])
-		p.LineTo(seg[1])
-	}
+	wg.Wait()
 
 	//end := time.Now().UnixMicro()
 	//log.Printf("Selection outline updated in %d ms\n", (end-start)/1000)
-	return p.End()
+	return buildOutlinePath(vertical, horizontal)
 
 }
 
@@ -145,9 +150,12 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 	pix := mask.Pix
 	stride := mask.Stride
 
-	borderChannel := make(chan [][2]f32.Point, 2)
+	var vertical, horizontal [][2]f32.Point
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		// Vertical border segments between horizontally adjacent pixels.
 		borders := make([][2]f32.Point, 0, width)
 		for x := 0; x < width-1; x++ {
@@ -161,14 +169,12 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 					if runStart < 0 {
 						runStart = y
 					}
-				} else {
-					if runStart >= 0 {
-						borders = append(borders, [2]f32.Point{
-							{X: float32(x + 1), Y: float32(runStart)},
-							{X: float32(x + 1), Y: float32(y)},
-						})
-						runStart = -1
-					}
+				} else if runStart >= 0 {
+					borders = append(borders, [2]f32.Point{
+						{X: float32(x + 1), Y: float32(runStart)},
+						{X: float32(x + 1), Y: float32(y)},
+					})
+					runStart = -1
 				}
 			}
 			if runStart >= 0 {
@@ -178,10 +184,11 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 				})
 			}
 		}
-		borderChannel <- borders
+		vertical = borders
 	}()
 
 	go func() {
+		defer wg.Done()
 		// Horizontal border segments between vertically adjacent pixels.
 		borders := make([][2]f32.Point, 0, height)
 		for y := 0; y < height-1; y++ {
@@ -197,14 +204,12 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 					if runStart < 0 {
 						runStart = x
 					}
-				} else {
-					if runStart >= 0 {
-						borders = append(borders, [2]f32.Point{
-							{X: float32(runStart), Y: float32(y + 1)},
-							{X: float32(x), Y: float32(y + 1)},
-						})
-						runStart = -1
-					}
+				} else if runStart >= 0 {
+					borders = append(borders, [2]f32.Point{
+						{X: float32(runStart), Y: float32(y + 1)},
+						{X: float32(x), Y: float32(y + 1)},
+					})
+					runStart = -1
 				}
 			}
 			if runStart >= 0 {
@@ -214,21 +219,10 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 				})
 			}
 		}
-		borderChannel <- borders
+		horizontal = borders
 	}()
 
-	b1 := <-borderChannel
-	b2 := <-borderChannel
-	borders := make([][2]f32.Point, 0, len(b1)+len(b2))
-	borders = append(borders, b1...)
-	borders = append(borders, b2...)
+	wg.Wait()
 
-	maskPathOps := new(op.Ops)
-	var p clip.Path
-	p.Begin(maskPathOps)
-	for _, seg := range borders {
-		p.MoveTo(seg[0])
-		p.LineTo(seg[1])
-	}
-	return p.End()
+	return buildOutlinePath(vertical, horizontal)
 }

@@ -3,7 +3,6 @@ package app_config
 import (
 	"image"
 	"image/color"
-	"image/draw"
 
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
@@ -34,18 +33,39 @@ func ApplyManualFixMask(baseMask *image.Gray16, manualFixMask *image.Gray16) *im
 	}
 
 	result := image.NewGray16(bounds)
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Copy the base mask into result via direct Pix access (row-by-row to respect strides).
 	if baseMask != nil {
-		draw.Draw(result, bounds, baseMask, bounds.Min, draw.Src)
+		srcStride := baseMask.Stride
+		dstStride := result.Stride
+		rowBytes := width * 2
+		for y := 0; y < height; y++ {
+			srcOff := (bounds.Min.Y+y-baseMask.Bounds().Min.Y)*srcStride + (bounds.Min.X-baseMask.Bounds().Min.X)*2
+			dstOff := y * dstStride
+			copy(result.Pix[dstOff:dstOff+rowBytes], baseMask.Pix[srcOff:srcOff+rowBytes])
+		}
 	}
 
 	if manualFixMask != nil {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			for x := bounds.Min.X; x < bounds.Max.X; x++ {
-				switch manualFixMask.Gray16At(x, y).Y {
-				case ManualFixAdd:
-					result.SetGray16(x, y, color.Gray16{Y: 65535})
-				case ManualFixRemove:
-					result.SetGray16(x, y, color.Gray16{})
+		fixPix := manualFixMask.Pix
+		fixStride := manualFixMask.Stride
+		resPix := result.Pix
+		resStride := result.Stride
+		// Manual fix values are small (0/1/2), so the high byte is always 0 and only the low byte matters.
+		for y := 0; y < height; y++ {
+			fixRow := y * fixStride
+			resRow := y * resStride
+			for x := 0; x < width; x++ {
+				off := x * 2
+				switch fixPix[fixRow+off+1] {
+				case byte(ManualFixAdd):
+					resPix[resRow+off] = 0xFF
+					resPix[resRow+off+1] = 0xFF
+				case byte(ManualFixRemove):
+					resPix[resRow+off] = 0
+					resPix[resRow+off+1] = 0
 				}
 			}
 		}
@@ -98,10 +118,23 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, radius int, add bool) {
 		}
 	}
 
-	appState.ReprocessSelection()
+	// Defer the expensive mask rebuild so multiple brush stamps within one frame only trigger
+	// a single ReprocessSelection at the start of the next frame.
+	appState.ManualFixPending = true
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}
+}
+
+// FlushPendingManualFixes rebuilds the processed selection once if any brush stamps are pending.
+// Call once per frame, before building the UI. Returns true if a rebuild happened.
+func (appState *AppState) FlushPendingManualFixes() bool {
+	if !appState.ManualFixPending {
+		return false
+	}
+	appState.ManualFixPending = false
+	appState.ReprocessSelection()
+	return true
 }
 
 func SliderToSignedShrinkGrow(sliderValue float32) float32 {

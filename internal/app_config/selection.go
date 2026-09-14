@@ -73,15 +73,35 @@ func (appState *AppState) SetManualFixMode(enabled bool) {
 
 func (appState *AppState) RefreshHoverPreview() {
 	if !appState.InImageBounds || appState.ActiveSp.LabelMap == nil {
-		appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+		if appState.HoverCached {
+			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverCached = false
+		}
 		return
 	}
 
 	if appState.ManualFixMode {
-		appState.HoverPathSpec = rendering.CalculateCircleOutline(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius)
+		x := int(appState.LastHoverImagePosition.X)
+		y := int(appState.LastHoverImagePosition.Y)
+		radius := appState.ManualFixBrushRadius
+		if appState.HoverCached && appState.HoverCacheManual && appState.HoverCacheX == x && appState.HoverCacheY == y && appState.HoverCacheRadius == radius {
+			return
+		}
+		appState.HoverPathSpec = rendering.CalculateCircleOutline(x, y, radius)
+		appState.HoverCached = true
+		appState.HoverCacheManual = true
+		appState.HoverCacheX = x
+		appState.HoverCacheY = y
+		appState.HoverCacheRadius = radius
 		return
 	}
 
 	label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
+	if appState.HoverCached && !appState.HoverCacheManual && appState.HoverCacheLabel == label {
+		return
+	}
 	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(appState.ActiveSp.LabelMap, label)
+	appState.HoverCached = true
+	appState.HoverCacheManual = false
+	appState.HoverCacheLabel = label
 }

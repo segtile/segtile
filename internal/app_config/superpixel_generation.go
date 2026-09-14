@@ -38,6 +38,8 @@ func (appState *AppState) RecalculateSuperpixels(preserveSelection bool, showToa
 	newResult.SetActualSpCount()
 
 	appState.ActiveSp = newResult
+	// The label map changed, so any cached hover outline is now invalid.
+	appState.HoverCached = false
 	postprocessed := time.Now().UnixMicro()
 	log.Printf("Finished post-processing after %.1f ms\n", float64(postprocessed-start)/1000)
 
