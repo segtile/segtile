@@ -131,7 +131,7 @@ func (appState *AppState) ApplyOptimizationResult(result superpixel_optimizer.Sp
 		for paramName, newValue := range result.Parameters {
 			log.Printf("Set parameter %s to %v", paramName, newValue)
 		}
-		if err := appState.RecalculateSuperpixels(true, true); err != nil {
+		if err := appState.RecalculateSuperpixels(true); err != nil {
 			log.Printf("Failed to recalculate superpixels: %v", err)
 		}
 	}

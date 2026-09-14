@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"image/color"
 	"time"
 
 	"gioui.org/io/key"
@@ -10,7 +9,6 @@ import (
 	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
@@ -94,9 +92,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			// Paint event
 			if appState.InImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
 				if pe.Buttons&pointer.ButtonPrimary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius, true)
+					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), true)
 				} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius, false)
+					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), false)
 				}
 				continue
 			}
@@ -147,6 +145,16 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			appState.RefreshHoverPreview()
 		}
 
+		// Whenever the pointer is released, apply any pending auto flood fill and reprocess the selection.
+		if pe.Kind == pointer.Release {
+			if appState.AutoFloodFillSelection() {
+				appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
+			}
+			appState.ReprocessSelection()
+			appState.Window.Invalidate()
+			continue
+		}
+
 		//  Handle primary/secondary click for de-/selection
 
 		if appState.InImageBounds {
@@ -159,34 +167,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 				inputMade = true
 				if pe.Modifiers.Contain(key.ModShift) {
 					// If shift is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.SelectionIndex)
+					appState.FloodFillSelectFromPoint(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y))
 				} else {
 					// Perform a normal selection of a single superpixel
-					appState.SelectionIndex[label] = true
-
-					// Remove all manual corrections for the (newly) selected SP.
-					lb := appState.ActiveSp.LabelMap.Bounds()
-					for y := lb.Min.Y; y < lb.Max.Y; y++ {
-						for x := lb.Min.X; x < lb.Max.X; x++ {
-							if appState.ActiveSp.LabelMap.Gray16At(x, y).Y == label {
-								appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
-							}
-						}
-					}
+					appState.SetSpSelected(label, true)
 
 				}
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-				appState.SelectionIndex[label] = false
-
-				// Remove all manual corrections for the (newly) selected SP.
-				lb := appState.ActiveSp.LabelMap.Bounds()
-				for y := lb.Min.Y; y < lb.Max.Y; y++ {
-					for x := lb.Min.X; x < lb.Max.X; x++ {
-						if appState.ActiveSp.LabelMap.Gray16At(x, y).Y == label {
-							appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
-						}
-					}
-				}
+				appState.SetSpSelected(label, false)
 
 				inputMade = true
 			}
@@ -198,15 +186,6 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.ActiveImageExistingMask = nil
 					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 					appState.Window.Invalidate()
-				}
-
-				// Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
-				if appState.EnableAutoFloodFill.Value {
-					var changed bool
-					appState.SelectionIndex, changed = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
-					if changed {
-						appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
-					}
 				}
 
 				appState.ReprocessSelection()

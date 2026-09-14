@@ -263,7 +263,7 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 				continue
 			}
 			changed = true
-			superpixel_utils.UnsafeSetGray16(this.LabelMap, x, y, uint16(newLabel))
+			superpixel_utils.UnsafeSetGray16At(this.LabelMap, x, y, uint16(newLabel))
 		}
 	}
 

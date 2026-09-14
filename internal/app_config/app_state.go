@@ -35,15 +35,14 @@ type AppState struct {
 	ActiveSp                superpixel.SpResult
 
 	// Selection
-	SelectionIndex []bool
+	SelectionMask *image.Gray16
 
 	// Manual Selection Fixes
-	ManualFixMask        *image.Gray16
 	ManualFixBrushRadius int
 
-	// ManualFixPending marks that brush stamps were added to ManualFixMask since the last
+	// SelectionMaskDirty marks that brush strokes were applied to SelectionMask since the last
 	// ReprocessSelection, so the (expensive) mask rebuild runs once per frame instead of per event.
-	ManualFixPending bool
+	SelectionMaskDirty bool
 
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
 	// user has not yet chosen to start from scratch or edit it.
@@ -123,10 +122,11 @@ type UiState struct {
 	HoverCacheRadius int
 
 	// Other UI state
-	EnableAutoFloodFill     widget.Bool
-	SpAlgorithmMenuOpen     bool
-	RenderSelectionOutlines bool
-	SmoothSelectionOutlines bool
+	EnableAutoFloodFill       widget.Bool
+	UpdateSelectionOnSpChange widget.Bool
+	SpAlgorithmMenuOpen       bool
+	RenderSelectionOutlines   bool
+	SmoothSelectionOutlines   bool
 
 	// View transform
 	ViewScale, ViewOffsetX, ViewOffsetY float32

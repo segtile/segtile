@@ -74,12 +74,10 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		appState.SaveCurrentMask(false, false)
 	}
 
-	// Update the current image and run the superpixel algorithm
+	// Update the current image, start with a fresh, empty selection and run the superpixel algorithm.
 	appState.ActiveImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	// Reset manual fixes before recalculating superpixels, since that recalculation
-	// reprocesses the selection using whatever ManualFixMask is currently set.
-	appState.ResetManualFixes()
-	err := appState.RecalculateSuperpixels(false, false)
+	appState.SelectionMask = image.NewGray16(appState.ActiveImage.Bounds())
+	err := appState.RecalculateSuperpixels(false)
 	if err != nil {
 		return err
 	}
@@ -125,15 +123,12 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
 
-		// Prefer the already-computed processed mask; fall back to the raw selection defensively.
-		mask := appState.ProcessedSelectionMask
-		if mask == nil {
-			mask = appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
-		}
+		// Ensure that a processed selection mask is available
+		appState.ReprocessSelection()
 
 		// Save as image
 		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
-		err := io_utils.SaveImage(outPath, mask)
+		err := io_utils.SaveImage(outPath, appState.ProcessedSelectionMask)
 
 		if err != nil {
 			log.Printf("Failed to save mask to %s: %v", outPath, err)
@@ -143,7 +138,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 			if recalculateOutline {
 				// The saved mask is now the on-disk state too.
-				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(mask)
+				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(appState.ProcessedSelectionMask)
 			}
 
 			// Add toast

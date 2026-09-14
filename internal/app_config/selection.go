@@ -1,7 +1,6 @@
 package app_config
 
 import (
-	"image"
 	"time"
 
 	"github.com/reiver/go-giotoast"
@@ -10,56 +9,81 @@ import (
 )
 
 func (appState *AppState) SelectionMade() bool {
-
-	for x := appState.ActiveSp.LabelMap.Bounds().Min.X; x < appState.ActiveSp.LabelMap.Bounds().Max.X; x++ {
-		for y := appState.ActiveSp.LabelMap.Bounds().Min.Y; y < appState.ActiveSp.LabelMap.Bounds().Max.Y; y++ {
-			spSelected := appState.SelectionIndex[superpixel_utils.UnsafeGray16At(appState.ActiveSp.LabelMap, x, y)]
-			notCancelled := superpixel_utils.UnsafeGray16At(appState.ManualFixMask, x, y) != ManualFixRemove
-			manuallyAdded := superpixel_utils.UnsafeGray16At(appState.ManualFixMask, x, y) == ManualFixAdd
-			if (spSelected && notCancelled) || manuallyAdded {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func (appState *AppState) EffectiveSelectionMask() *image.Gray16 {
-	var baseMask *image.Gray16
-	if appState.ActiveSp.LabelMap != nil {
-		baseMask = image.NewGray16(appState.ActiveSp.LabelMap.Bounds())
-		if len(appState.SelectionIndex) > 0 {
-			baseMask = appState.ActiveSp.SelectionToMask(appState.SelectionIndex)
-		}
-	}
-
-	combined := ApplyManualFixMask(baseMask, appState.ManualFixMask)
-	if combined == nil {
-		return nil
-	}
-	return combined
-}
-
-func (appState *AppState) ResetManualFixes() {
-	if appState.ActiveImage == nil {
-		appState.ManualFixMask = nil
-		return
-	}
-
-	appState.ManualFixMask = image.NewGray16(appState.ActiveImage.Bounds())
+	return appState.SelectionMask != nil && superpixel_utils.HasNonZeroPixels(appState.SelectionMask)
 }
 
 func (appState *AppState) ClearSelection(showToast bool) {
-	for i := range appState.SelectionIndex {
-		appState.SelectionIndex[i] = false
+	if appState.SelectionMask == nil {
+		return
 	}
-	appState.ResetManualFixes()
+	superpixel_utils.ResetImage(appState.SelectionMask)
 	appState.ReprocessSelection()
 	appState.Window.Invalidate()
 	if showToast {
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
 	}
+}
+
+// SetSpSelected selects or deselects a single superpixel by painting all of its pixels
+// into the selection mask. Returns true if any pixel was changed.
+func (appState *AppState) SetSpSelected(label uint16, selected bool) bool {
+	return appState.setSpLabelsSelected([]uint16{label}, selected)
+}
+
+// setSpLabelsSelected paints every pixel of the given superpixel labels in the selection mask,
+// overwriting any manual brush strokes inside them. The caller is responsible for reprocessing
+// the selection and invalidating the window.
+func (appState *AppState) setSpLabelsSelected(labels []uint16, selected bool) bool {
+
+	if appState.ActiveSp.LabelMap == nil || appState.SelectionMask == nil || len(labels) == 0 {
+		return false
+	}
+
+	lookup := make([]bool, appState.ActiveSp.SpCount)
+	for _, label := range labels {
+		if int(label) < len(lookup) {
+			lookup[label] = true
+		}
+	}
+
+	// Label map and selection mask share the same bounds (both derive from the active image),
+	// so a single direct pass over the Pix buffers works for both reading and writing.
+	bounds := appState.SelectionMask.Bounds()
+	changed := false
+
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			if lookup[superpixel_utils.UnsafeGray16At(appState.ActiveSp.LabelMap, x, y)] {
+				if selected {
+					superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, 65535)
+				} else {
+					superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, 0)
+				}
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
+// FloodFillSelectFromPoint selects the entire connected region of unselected pixels
+// containing the point (x, y). Works directly on the selection mask, so brush strokes
+// are respected pixel-accurately. Returns true if any pixel was changed.
+func (appState *AppState) FloodFillSelectFromPoint(x, y int) bool {
+	if appState.SelectionMask == nil {
+		return false
+	}
+	return superpixel_utils.FloodFillMaskFromPoint(appState.SelectionMask, x, y)
+}
+
+// AutoFloodFillSelection selects all pixels that are fully enclosed by the current selection
+// (i.e. not connected to the image border via unselected pixels). Works directly on the
+// selection mask. Returns true if any pixel was changed.
+func (appState *AppState) AutoFloodFillSelection() bool {
+	if appState.SelectionMask == nil {
+		return false
+	}
+	return superpixel_utils.FillEnclosedMaskRegions(appState.SelectionMask)
 }
 
 func (appState *AppState) SetManualFixMode(enabled bool) {

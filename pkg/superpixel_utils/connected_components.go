@@ -31,7 +31,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 			// Start a new connected component from this pixel
 			value := UnsafeGray16At(img, x, y)
 			currentComponentId := uint16(len(componentValue)) + 1
-			UnsafeSetGray16(componentIdMap, x, y, currentComponentId)
+			UnsafeSetGray16At(componentIdMap, x, y, currentComponentId)
 
 			startIndex := y*width + x
 			queue = queue[:0]
@@ -49,7 +49,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 				if currentX > 0 {
 					neighborIndex := currentIndex - 1
 					if UnsafeGray16At(componentIdMap, currentX-1, currentY) == 0 && UnsafeGray16At(img, currentX-1, currentY) == value {
-						UnsafeSetGray16(componentIdMap, currentX-1, currentY, currentComponentId)
+						UnsafeSetGray16At(componentIdMap, currentX-1, currentY, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
@@ -57,7 +57,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 				if currentX+1 < width {
 					neighborIndex := currentIndex + 1
 					if UnsafeGray16At(componentIdMap, currentX+1, currentY) == 0 && UnsafeGray16At(img, currentX+1, currentY) == value {
-						UnsafeSetGray16(componentIdMap, currentX+1, currentY, currentComponentId)
+						UnsafeSetGray16At(componentIdMap, currentX+1, currentY, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
@@ -65,7 +65,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 				if currentY > 0 {
 					neighborIndex := currentIndex - width
 					if UnsafeGray16At(componentIdMap, currentX, currentY-1) == 0 && UnsafeGray16At(img, currentX, currentY-1) == value {
-						UnsafeSetGray16(componentIdMap, currentX, currentY-1, currentComponentId)
+						UnsafeSetGray16At(componentIdMap, currentX, currentY-1, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
@@ -73,7 +73,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 				if currentY+1 < height {
 					neighborIndex := currentIndex + width
 					if UnsafeGray16At(componentIdMap, currentX, currentY+1) == 0 && UnsafeGray16At(img, currentX, currentY+1) == value {
-						UnsafeSetGray16(componentIdMap, currentX, currentY+1, currentComponentId)
+						UnsafeSetGray16At(componentIdMap, currentX, currentY+1, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}

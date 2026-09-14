@@ -97,7 +97,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Recalculate the superpixels for the current image
 	if appState.ActiveImage != nil {
-		appState.RecalculateSuperpixels(true, true)
+		appState.RecalculateSuperpixels(true)
 	}
 
 	return nil

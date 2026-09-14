@@ -7,11 +7,14 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 func CalculateSelectionOutlineFromIndex(labelMap *image.Gray16, selectionIndex uint16) (pathSpec clip.PathSpec) {
 	selection := make([]bool, 65536)
 	selection[selectionIndex] = true
+
+	// TODO: This is the only reason the CalculateSelectionOutlineFromSlice function really exists, there is probably a better architecture for this.
 	return CalculateSelectionOutlineFromSlice(labelMap, selection)
 }
 
@@ -55,11 +58,8 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 
 	width := labelMap.Bounds().Dx()
 	height := labelMap.Bounds().Dy()
-	pix := labelMap.Pix
-	stride := labelMap.Stride
-
-	// Read labels directly from the raw Pix buffer (big-endian uint16) to avoid per-pixel
-	// bounds checking and interface dispatch overhead of Gray16At.
+	// pix := labelMap.Pix
+	// stride := labelMap.Stride
 
 	var vertical, horizontal [][2]f32.Point
 	var wg sync.WaitGroup
@@ -67,30 +67,37 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 
 	go func() {
 		defer wg.Done()
-		// Check horizontally adjacent pairs: collect vertical border segments, merging consecutive runs.
+
+		// Check horizontally adjacent pairs: collect vertical border segments, merging consecutive runs
 		borders := make([][2]f32.Point, 0, width)
-		for x := 0; x < width-1; x++ {
-			runStart := -1
-			base := x * 2
-			for y := 0; y < height; y++ {
-				i := y*stride + base
-				la := uint16(pix[i])<<8 | uint16(pix[i+1])
-				lb := uint16(pix[i+2])<<8 | uint16(pix[i+3])
-				if selection[la] != selection[lb] {
-					if runStart < 0 {
-						runStart = y
+		runStarts := make([]int, width-1)
+		for x := range runStarts {
+			runStarts[x] = -1
+		}
+		for y := 0; y < height; y++ {
+
+			for x := 0; x < width-1; x++ {
+
+				labelA := superpixel_utils.UnsafeGray16At(labelMap, x, y)
+				labelB := superpixel_utils.UnsafeGray16At(labelMap, x+1, y)
+
+				if selection[labelA] != selection[labelB] {
+					if runStarts[x] < 0 {
+						runStarts[x] = y
 					}
-				} else if runStart >= 0 {
+				} else if runStarts[x] >= 0 {
 					borders = append(borders, [2]f32.Point{
-						{X: float32(x + 1), Y: float32(runStart)},
+						{X: float32(x + 1), Y: float32(runStarts[x])},
 						{X: float32(x + 1), Y: float32(y)},
 					})
-					runStart = -1
+					runStarts[x] = -1
 				}
 			}
-			if runStart >= 0 {
+		}
+		for x := 0; x < width-1; x++ {
+			if runStarts[x] >= 0 {
 				borders = append(borders, [2]f32.Point{
-					{X: float32(x + 1), Y: float32(runStart)},
+					{X: float32(x + 1), Y: float32(runStarts[x])},
 					{X: float32(x + 1), Y: float32(height)},
 				})
 			}
@@ -104,14 +111,10 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 		borders := make([][2]f32.Point, 0, height)
 		for y := 0; y < height-1; y++ {
 			runStart := -1
-			rowBase := y * stride
-			nextRowBase := rowBase + stride
 			for x := 0; x < width; x++ {
-				i := rowBase + x*2
-				j := nextRowBase + x*2
-				la := uint16(pix[i])<<8 | uint16(pix[i+1])
-				lb := uint16(pix[j])<<8 | uint16(pix[j+1])
-				if selection[la] != selection[lb] {
+				labelA := superpixel_utils.UnsafeGray16At(labelMap, x, y)
+				labelB := superpixel_utils.UnsafeGray16At(labelMap, x, y+1)
+				if selection[labelA] != selection[labelB] {
 					if runStart < 0 {
 						runStart = x
 					}
@@ -147,8 +150,6 @@ func CalculateSelectionOutlineFromSlice(labelMap *image.Gray16, selection []bool
 func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 	width := mask.Bounds().Dx()
 	height := mask.Bounds().Dy()
-	pix := mask.Pix
-	stride := mask.Stride
 
 	var vertical, horizontal [][2]f32.Point
 	var wg sync.WaitGroup
@@ -157,29 +158,33 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 	go func() {
 		defer wg.Done()
 		// Vertical border segments between horizontally adjacent pixels.
+		// Row-major scan (cache-friendly); run starts are tracked per column gap.
 		borders := make([][2]f32.Point, 0, width)
-		for x := 0; x < width-1; x++ {
-			runStart := -1
-			base := x * 2
-			for y := 0; y < height; y++ {
-				i := y*stride + base
-				la := pix[i] != 0 || pix[i+1] != 0
-				lb := pix[i+2] != 0 || pix[i+3] != 0
-				if la != lb {
-					if runStart < 0 {
-						runStart = y
+		runStarts := make([]int, width-1)
+		for x := range runStarts {
+			runStarts[x] = -1
+		}
+		for y := 0; y < height; y++ {
+			for x := 0; x < width-1; x++ {
+				labelA := superpixel_utils.UnsafeGray16At(mask, x, y)
+				labelB := superpixel_utils.UnsafeGray16At(mask, x+1, y)
+				if labelA != labelB {
+					if runStarts[x] < 0 {
+						runStarts[x] = y
 					}
-				} else if runStart >= 0 {
+				} else if runStarts[x] >= 0 {
 					borders = append(borders, [2]f32.Point{
-						{X: float32(x + 1), Y: float32(runStart)},
+						{X: float32(x + 1), Y: float32(runStarts[x])},
 						{X: float32(x + 1), Y: float32(y)},
 					})
-					runStart = -1
+					runStarts[x] = -1
 				}
 			}
-			if runStart >= 0 {
+		}
+		for x := 0; x < width-1; x++ {
+			if runStarts[x] >= 0 {
 				borders = append(borders, [2]f32.Point{
-					{X: float32(x + 1), Y: float32(runStart)},
+					{X: float32(x + 1), Y: float32(runStarts[x])},
 					{X: float32(x + 1), Y: float32(height)},
 				})
 			}
@@ -193,14 +198,10 @@ func CalculateOutlineFromMask(mask *image.Gray16) clip.PathSpec {
 		borders := make([][2]f32.Point, 0, height)
 		for y := 0; y < height-1; y++ {
 			runStart := -1
-			rowBase := y * stride
-			nextRowBase := rowBase + stride
 			for x := 0; x < width; x++ {
-				i := rowBase + x*2
-				j := nextRowBase + x*2
-				la := pix[i] != 0 || pix[i+1] != 0
-				lb := pix[j] != 0 || pix[j+1] != 0
-				if la != lb {
+				labelA := superpixel_utils.UnsafeGray16At(mask, x, y)
+				labelB := superpixel_utils.UnsafeGray16At(mask, x, y+1)
+				if labelA != labelB {
 					if runStart < 0 {
 						runStart = x
 					}
