@@ -160,11 +160,11 @@ func TestSetActualSpCount(t *testing.T) {
 
 func BenchmarkEnforceConnectivity(b *testing.B) {
 	img := loadGray16Testdata(b, "testdata/bad_labelmap_32colors.png")
-	spResult := NewSpResult(img, 0, false)
-	spResult.SetActualSpCount()
+	originalResult := NewSpResult(img, 0, false)
+	originalResult.SetActualSpCount()
 	b.ResetTimer()
 	for b.Loop() {
-		spResult.LabelMap = img
+		spResult := originalResult.Clone()
 		spResult.EnforceConnectivity()
 	}
 
