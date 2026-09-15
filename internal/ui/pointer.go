@@ -51,6 +51,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
 			appState.HoverCached = false
 			appState.StrokeAnchorValid = false
+			appState.LastPaintedSpLabel = -1
 			appState.Window.Invalidate()
 			continue
 		}
