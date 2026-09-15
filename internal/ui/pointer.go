@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"math"
 	"time"
 
+	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -48,6 +50,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			appState.InImageBounds = false
 			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
 			appState.HoverCached = false
+			appState.StrokeAnchorValid = false
 			appState.Window.Invalidate()
 			continue
 		}
@@ -91,10 +94,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 			// Paint event
 			if appState.InImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
-				if pe.Buttons&pointer.ButtonPrimary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), true)
-				} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), false)
+				if pe.Buttons&(pointer.ButtonPrimary|pointer.ButtonSecondary) != 0 {
+					add := pe.Buttons&pointer.ButtonPrimary != 0
+					bounds := appState.ActiveImage.Bounds()
+					forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
+						appState.ApplyManualFixAt(x, y, add)
+					})
+					appState.StrokeAnchor = appState.LastHoverImagePosition
+					appState.StrokeAnchorValid = true
 				}
 				continue
 			}
@@ -154,6 +161,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			// A fresh press must re-evaluate the superpixel under the cursor.
 			appState.LastSelectedSpLabel = -1
 			appState.LastDeselectedSpLabel = -1
+			appState.StrokeAnchorValid = false
 			appState.Window.Invalidate()
 			continue
 		}
@@ -161,26 +169,51 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		//  Handle primary/secondary click for de-/selection
 
 		if appState.InImageBounds {
-			// Sample the current superpixel label at the pointer position
-			label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
+			bounds := appState.ActiveImage.Bounds()
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			inputMade := false
+			buttonPressed := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 {
+				buttonPressed = true
 				if pe.Modifiers.Contain(key.ModShift) {
 					// If shift is held, perform a flood fill selection
 					inputMade = appState.FloodFillSelectFromPoint(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y))
-				} else if int(label) != appState.LastSelectedSpLabel {
-					// Only paint when the cursor moved into a different superpixel;
-					// a held drag inside the same one needs no full-image rescan.
-					inputMade = appState.SetSpSelected(label, true)
-					appState.LastSelectedSpLabel = int(label)
+				} else {
+					// Select every superpixel along the stroke. When the cursor jumped
+					// since the last frame (slow hardware), bridge the gap with
+					// interpolated in-between points so no superpixels are skipped.
+					forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
+						// Sample the current superpixel label at this stroke point
+						label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
+						// Only paint when the cursor moved into a different superpixel;
+						// a held drag inside the same one needs no full-image rescan.
+						if int(label) != appState.LastSelectedSpLabel {
+							if appState.SetSpSelected(label, true) {
+								inputMade = true
+							}
+							appState.LastSelectedSpLabel = int(label)
+						}
+					})
 				}
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-				if int(label) != appState.LastDeselectedSpLabel {
-					inputMade = appState.SetSpSelected(label, false)
-					appState.LastDeselectedSpLabel = int(label)
-				}
+				buttonPressed = true
+				// Same stroke interpolation for deselection.
+				forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
+					label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
+					if int(label) != appState.LastDeselectedSpLabel {
+						if appState.SetSpSelected(label, false) {
+							inputMade = true
+						}
+						appState.LastDeselectedSpLabel = int(label)
+					}
+				})
+			}
+
+			// Anchor the stroke at the current position for the next pointer event.
+			if buttonPressed {
+				appState.StrokeAnchor = appState.LastHoverImagePosition
+				appState.StrokeAnchorValid = true
 			}
 
 			if inputMade {
@@ -196,5 +229,36 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 				appState.Window.Invalidate()
 			}
 		}
+	}
+}
+
+// strokeFrom returns the image-space point that the current stroke should be
+// interpolated from: the position where the stroke last applied paint during a
+// drag, or the pointer position itself for a fresh press (a single point).
+func strokeFrom(appState *app_config.AppState, pe pointer.Event) f32.Point {
+	if pe.Kind == pointer.Drag && appState.StrokeAnchorValid {
+		return appState.StrokeAnchor
+	}
+	return appState.LastHoverImagePosition
+}
+
+// forEachStrokePoint calls fn for every integer image-space point on the line
+// from "from" to "to" (excluding "from", including "to"), spaced at most one
+// pixel apart.
+func forEachStrokePoint(from, to f32.Point, width, height int, fn func(x, y int)) {
+	dx := to.X - from.X
+	dy := to.Y - from.Y
+	steps := int(math.Ceil(math.Sqrt(float64(dx*dx + dy*dy))))
+	if steps < 1 {
+		steps = 1
+	}
+	for i := 1; i <= steps; i++ {
+		t := float32(i) / float32(steps)
+		x := int(from.X + dx*t)
+		y := int(from.Y + dy*t)
+		if x < 0 || y < 0 || x >= width || y >= height {
+			continue
+		}
+		fn(x, y)
 	}
 }

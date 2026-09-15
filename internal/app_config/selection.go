@@ -1,6 +1,7 @@
 package app_config
 
 import (
+	"image"
 	"time"
 
 	"github.com/reiver/go-giotoast"
@@ -130,14 +131,13 @@ func (appState *AppState) RefreshHoverPreview() {
 		x := int(appState.LastHoverImagePosition.X)
 		y := int(appState.LastHoverImagePosition.Y)
 		radius := appState.ManualFixBrushRadius
-		if appState.HoverCached && appState.HoverCacheManual && appState.HoverCacheX == x && appState.HoverCacheY == y && appState.HoverCacheRadius == radius {
+		if appState.HoverCached && appState.HoverCacheManual && appState.HoverCachePos == image.Pt(x, y) && appState.HoverCacheRadius == radius {
 			return
 		}
 		appState.HoverPathSpec = rendering.CalculateCircleOutline(x, y, radius)
 		appState.HoverCached = true
 		appState.HoverCacheManual = true
-		appState.HoverCacheX = x
-		appState.HoverCacheY = y
+		appState.HoverCachePos = image.Pt(x, y)
 		appState.HoverCacheRadius = radius
 		return
 	}

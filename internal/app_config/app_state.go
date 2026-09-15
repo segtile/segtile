@@ -114,13 +114,16 @@ type UiState struct {
 	KeyboardTag            bool
 	InitialFocusDone       bool
 
+	// Stroke interpolation
+	StrokeAnchor      f32.Point
+	StrokeAnchorValid bool
+
 	// Hover outline cache: remembers what the current HoverPathSpec was built from so
 	// RefreshHoverPreview can skip the rebuild when nothing relevant changed.
 	HoverCached      bool
 	HoverCacheLabel  uint16
 	HoverCacheManual bool
-	HoverCacheX      int
-	HoverCacheY      int
+	HoverCachePos    image.Point
 	HoverCacheRadius int
 
 	// Other UI state
