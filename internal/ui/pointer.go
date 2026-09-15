@@ -155,8 +155,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 
 		// Whenever the pointer is released, apply any pending auto flood fill and reprocess the selection.
 		if pe.Kind == pointer.Release {
-			if appState.AutoFloodFillSelection() {
-				appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
+			if appState.EnableAutoFloodFill.Value {
+				changed := appState.AutoFloodFillSelection()
+				if changed {
+					appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
+				}
 			}
 			appState.ReprocessSelectionIfChanged()
 			// A fresh press must re-evaluate the superpixel under the cursor.
