@@ -130,7 +130,13 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 		// Save as image
 		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
-		err := io_utils.SaveImage(outPath, appState.ProcessedSelectionMask)
+
+		mask := appState.ProcessedSelectionMask
+		if mask == nil {
+			mask = image.NewGray16(appState.ActiveImage.Bounds())
+		}
+
+		err := io_utils.SaveImage(outPath, mask)
 
 		if err != nil {
 			log.Printf("Failed to save mask to %s: %v", outPath, err)
@@ -140,7 +146,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 			if recalculateOutline {
 				// The saved mask is now the on-disk state too.
-				appState.ExistingMaskPathSpec = rendering.CalculateOutline(appState.ProcessedSelectionMask, 0)
+				appState.ExistingMaskPathSpec = rendering.CalculateOutline(mask, 0)
 			}
 
 			// Add toast
