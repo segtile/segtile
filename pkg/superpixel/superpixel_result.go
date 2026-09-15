@@ -21,18 +21,18 @@ type SpResult struct {
 
 // NewSpResult creates a new SpResult with the given label map and superpixel count.
 // If optimize is true, it will enforce connectivity and contiguous indexing on the label map and recalculate SpCount.
-func NewSpResult(labelMap *image.Gray16, spCount int) SpResult {
+func NewSpResult(labelMap *image.Gray16, spCount int, optimize bool) SpResult {
 	result := SpResult{
 		LabelMap:                   labelMap,
 		SpCount:                    spCount,
 		connectivityEnforced:       false,
 		contiguousIndexingEnforced: false,
 	}
-	// if optimize {
-	// 	result.EnforceConnectivity()
-	// 	result.EnforceContiguousIndexing()
-	// 	result.SetActualSpCount() // Recalculate SpCount after enforcing connectivity and contiguous indexing
-	// }
+	if optimize {
+		result.EnforceConnectivity()
+		result.EnforceContiguousIndexing()
+		result.SetActualSpCount() // Recalculate SpCount after enforcing connectivity and contiguous indexing
+	}
 	return result
 }
 
@@ -131,6 +131,8 @@ func (this *SpResult) EnforceContiguousIndexing() (changed bool) {
 	}
 
 	this.contiguousIndexingEnforced = true
+
+	this.SetActualSpCount()
 
 	return spCount != int(highestLabel)+1
 }
@@ -266,6 +268,7 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 			superpixel_utils.UnsafeSetGray16At(this.LabelMap, x, y, uint16(newLabel))
 		}
 	}
+	this.SetActualSpCount()
 
 	this.connectivityEnforced = true
 	this.contiguousIndexingEnforced = false
