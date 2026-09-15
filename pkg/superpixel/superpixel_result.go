@@ -61,6 +61,19 @@ func (this *SpResult) ContiguousIndexingEnforced() bool {
 	return this.contiguousIndexingEnforced
 }
 
+func (this *SpResult) SpBoundingBoxes() map[uint16]superpixel_utils.BoundingBox {
+	boundingBoxes := make(map[uint16]superpixel_utils.BoundingBox)
+
+	bounds := this.LabelMap.Bounds()
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			boundingBoxes[superpixel_utils.UnsafeGray16At(this.LabelMap, x, y)].AddPoint(x, y)
+		}
+	}
+
+	return boundingBoxes
+}
+
 func (this *SpResult) analyzeLabelMap() (lowestLabel uint16, highestLabel uint16, labelUsed map[uint16]bool) {
 
 	labelUsed = make(map[uint16]bool)
