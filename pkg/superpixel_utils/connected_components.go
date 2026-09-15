@@ -11,7 +11,6 @@ import (
 func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, componentValue []uint16, componentSize []int) {
 	bounds := img.Bounds()
 	width := bounds.Dx()
-	height := bounds.Dy()
 
 	// Zero-initialized: 0 means unvisited, stored ids are shifted by +1.
 	componentIdMap = image.NewGray16(bounds)
@@ -20,8 +19,8 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 	componentSize = []int{}
 	queue := []int{}
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 
 			// Skip pixels that already belong to a component
 			if UnsafeGray16At(componentIdMap, x, y) != 0 {
@@ -33,7 +32,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 			currentComponentId := uint16(len(componentValue)) + 1
 			UnsafeSetGray16At(componentIdMap, x, y, currentComponentId)
 
-			startIndex := y*width + x
+			startIndex := (y-bounds.Min.Y)*width + (x - bounds.Min.X)
 			queue = queue[:0]
 			queue = append(queue, startIndex)
 			size := 0
@@ -42,11 +41,11 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 				currentIndex := queue[head]
 				size++
 
-				currentX := currentIndex % width
-				currentY := currentIndex / width
+				currentX := (currentIndex % width) + bounds.Min.X
+				currentY := (currentIndex / width) + bounds.Min.Y
 
 				// Left neighbor
-				if currentX > 0 {
+				if currentX > bounds.Min.X {
 					neighborIndex := currentIndex - 1
 					if UnsafeGray16At(componentIdMap, currentX-1, currentY) == 0 && UnsafeGray16At(img, currentX-1, currentY) == value {
 						UnsafeSetGray16At(componentIdMap, currentX-1, currentY, currentComponentId)
@@ -54,7 +53,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 					}
 				}
 				// Right neighbor
-				if currentX+1 < width {
+				if currentX+1 < bounds.Max.X {
 					neighborIndex := currentIndex + 1
 					if UnsafeGray16At(componentIdMap, currentX+1, currentY) == 0 && UnsafeGray16At(img, currentX+1, currentY) == value {
 						UnsafeSetGray16At(componentIdMap, currentX+1, currentY, currentComponentId)
@@ -62,7 +61,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 					}
 				}
 				// Top neighbor
-				if currentY > 0 {
+				if currentY > bounds.Min.Y {
 					neighborIndex := currentIndex - width
 					if UnsafeGray16At(componentIdMap, currentX, currentY-1) == 0 && UnsafeGray16At(img, currentX, currentY-1) == value {
 						UnsafeSetGray16At(componentIdMap, currentX, currentY-1, currentComponentId)
@@ -70,7 +69,7 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 					}
 				}
 				// Bottom neighbor
-				if currentY+1 < height {
+				if currentY+1 < bounds.Max.Y {
 					neighborIndex := currentIndex + width
 					if UnsafeGray16At(componentIdMap, currentX, currentY+1) == 0 && UnsafeGray16At(img, currentX, currentY+1) == value {
 						UnsafeSetGray16At(componentIdMap, currentX, currentY+1, currentComponentId)
