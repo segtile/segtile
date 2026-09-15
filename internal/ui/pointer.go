@@ -59,8 +59,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		gtx.Execute(key.FocusCmd{Tag: &appState.KeyboardTag})
 
 		// From the raw position of the pointer, calculate the position in image space
-		appState.LastHoverImagePosition.X = (pe.Position.X - appState.ViewOffsetX) / appState.ViewScale
-		appState.LastHoverImagePosition.Y = (pe.Position.Y - appState.ViewOffsetY) / appState.ViewScale
+		appState.LastHoverImagePosition.X = (pe.Position.X - appState.ViewOffset.X) / appState.ViewScale
+		appState.LastHoverImagePosition.Y = (pe.Position.Y - appState.ViewOffset.Y) / appState.ViewScale
 
 		// Check if the position is within the bounds of the image
 		appState.InImageBounds = appState.ActiveSp.LabelMap != nil && appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 && int(appState.LastHoverImagePosition.X) < appState.ActiveImage.Bounds().Dx() && int(appState.LastHoverImagePosition.Y) < appState.ActiveImage.Bounds().Dy()
@@ -120,8 +120,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			} else {
 				zoomFactor = 1.1
 			}
-			appState.ViewOffsetX = pe.Position.X - (pe.Position.X-appState.ViewOffsetX)*zoomFactor
-			appState.ViewOffsetY = pe.Position.Y - (pe.Position.Y-appState.ViewOffsetY)*zoomFactor
+			appState.ViewOffset.X = pe.Position.X - (pe.Position.X-appState.ViewOffset.X)*zoomFactor
+			appState.ViewOffset.Y = pe.Position.Y - (pe.Position.Y-appState.ViewOffset.Y)*zoomFactor
 			appState.ViewScale *= zoomFactor
 			appState.FitToWindow = false
 			appState.Window.Invalidate()
@@ -136,8 +136,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		}
 		if appState.IsPanning {
 			if pe.Kind == pointer.Drag {
-				appState.ViewOffsetX += pe.Position.X - appState.LastPanPosition.X
-				appState.ViewOffsetY += pe.Position.Y - appState.LastPanPosition.Y
+				appState.ViewOffset.X += pe.Position.X - appState.LastPanPosition.X
+				appState.ViewOffset.Y += pe.Position.Y - appState.LastPanPosition.Y
 				appState.LastPanPosition = pe.Position
 				appState.FitToWindow = false
 				appState.Window.Invalidate()
@@ -159,8 +159,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 			appState.ReprocessSelectionIfChanged()
 			// A fresh press must re-evaluate the superpixel under the cursor.
-			appState.LastSelectedSpLabel = -1
-			appState.LastDeselectedSpLabel = -1
+			appState.LastPaintedSpLabel = -1
 			appState.StrokeAnchorValid = false
 			appState.Window.Invalidate()
 			continue
@@ -188,11 +187,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 						label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
 						// Only paint when the cursor moved into a different superpixel;
 						// a held drag inside the same one needs no full-image rescan.
-						if int(label) != appState.LastSelectedSpLabel {
+						if int(label) != appState.LastPaintedSpLabel {
 							if appState.SetSpSelected(label, true) {
 								inputMade = true
 							}
-							appState.LastSelectedSpLabel = int(label)
+							appState.LastPaintedSpLabel = int(label)
 						}
 					})
 				}
@@ -201,11 +200,11 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 				// Same stroke interpolation for deselection.
 				forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
 					label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
-					if int(label) != appState.LastDeselectedSpLabel {
+					if int(label) != appState.LastPaintedSpLabel {
 						if appState.SetSpSelected(label, false) {
 							inputMade = true
 						}
-						appState.LastDeselectedSpLabel = int(label)
+						appState.LastPaintedSpLabel = int(label)
 					}
 				})
 			}

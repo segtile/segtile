@@ -161,7 +161,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 									appState.FitToWindow = false
 								}
 
-								transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.ViewScale, appState.ViewScale)).Offset(f32.Pt(appState.ViewOffsetX, appState.ViewOffsetY))
+								transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.ViewScale, appState.ViewScale)).Offset(appState.ViewOffset)
 
 								stack := op.Affine(transformation).Push(gtx.Ops)
 								appState.ImgBaseOp.Add(gtx.Ops)

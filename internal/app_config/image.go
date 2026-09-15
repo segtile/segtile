@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"gioui.org/f32"
 	"gioui.org/op/paint"
 	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/io_utils"
@@ -87,8 +88,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	appState.ProcessedSelectionMask = nil
 	appState.AwaitingMaskDecision = false
-	appState.LastSelectedSpLabel = -1
-	appState.LastDeselectedSpLabel = -1
+	appState.LastPaintedSpLabel = -1
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
@@ -174,7 +174,6 @@ func (appState *AppState) FitImageToWindow(canvasSize image.Point) {
 	if scaleY < appState.ViewScale {
 		appState.ViewScale = scaleY
 	}
-	appState.ViewOffsetX = (canvasWidth - imageWidth*appState.ViewScale) / 2
-	appState.ViewOffsetY = (canvasHeight - imageHeight*appState.ViewScale) / 2
+	appState.ViewOffset = f32.Pt((canvasWidth-imageWidth*appState.ViewScale)/2, (canvasHeight-imageHeight*appState.ViewScale)/2)
 
 }

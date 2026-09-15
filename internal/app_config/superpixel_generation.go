@@ -48,8 +48,7 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 	}
 
 	// The label map changed, so any tracked superpixel labels are stale.
-	appState.LastSelectedSpLabel = -1
-	appState.LastDeselectedSpLabel = -1
+	appState.LastPaintedSpLabel = -1
 
 	// Rebuild the selection outlines
 	appState.ReprocessSelection()
