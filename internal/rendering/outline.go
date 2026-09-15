@@ -44,6 +44,10 @@ func CalculateOutline(mask *image.Gray16, targetValue uint16) clip.PathSpec {
 	width := mask.Bounds().Dx()
 	height := mask.Bounds().Dy()
 
+	if width <= 0 || height <= 0 {
+		return GetEmptySelectionOutline()
+	}
+
 	var vertical, horizontal []outlineSegment
 	var wg sync.WaitGroup
 	wg.Add(2)
