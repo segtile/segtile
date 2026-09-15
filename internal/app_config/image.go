@@ -95,7 +95,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
 		if superpixel_utils.HasNonZeroPixels(loadedMask) {
 			appState.ActiveImageExistingMask = loadedMask
-			appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(loadedMask)
+			appState.ExistingMaskPathSpec = rendering.CalculateOutline(loadedMask, 0)
 			appState.AwaitingMaskDecision = true
 		}
 	}
@@ -140,7 +140,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 			if recalculateOutline {
 				// The saved mask is now the on-disk state too.
-				appState.ExistingMaskPathSpec = rendering.CalculateOutlineFromMask(appState.ProcessedSelectionMask)
+				appState.ExistingMaskPathSpec = rendering.CalculateOutline(appState.ProcessedSelectionMask, 0)
 			}
 
 			// Add toast

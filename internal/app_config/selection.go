@@ -146,7 +146,7 @@ func (appState *AppState) RefreshHoverPreview() {
 	if appState.HoverCached && !appState.HoverCacheManual && appState.HoverCacheLabel == label {
 		return
 	}
-	appState.HoverPathSpec = rendering.CalculateSelectionOutlineFromIndex(appState.ActiveSp.LabelMap, label)
+	appState.HoverPathSpec = rendering.CalculateOutline(appState.ActiveSp.LabelMap, label)
 	appState.HoverCached = true
 	appState.HoverCacheManual = false
 	appState.HoverCacheLabel = label

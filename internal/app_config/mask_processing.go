@@ -93,7 +93,7 @@ func (appState *AppState) ReprocessSelection() {
 
 	if !appState.SmoothSelectionOutlines {
 		appState.ProcessedSelectionMask = appState.SelectionMask
-		appState.SelectionPathSpec = rendering.CalculateOutlineFromMask(appState.ProcessedSelectionMask)
+		appState.SelectionPathSpec = rendering.CalculateOutline(appState.ProcessedSelectionMask, 0)
 		return
 	}
 
@@ -105,7 +105,7 @@ func (appState *AppState) ReprocessSelection() {
 	processed = superpixel_utils.SmoothMask(processed, smoothRadius)
 
 	appState.ProcessedSelectionMask = processed
-	appState.SelectionPathSpec = rendering.CalculateOutlineFromMask(processed)
+	appState.SelectionPathSpec = rendering.CalculateOutline(processed, 0)
 	appState.SelectionMaskDirty = false
 }
 
