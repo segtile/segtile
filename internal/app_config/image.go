@@ -87,6 +87,8 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	appState.ProcessedSelectionMask = nil
 	appState.AwaitingMaskDecision = false
+	appState.LastSelectedSpLabel = -1
+	appState.LastDeselectedSpLabel = -1
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {

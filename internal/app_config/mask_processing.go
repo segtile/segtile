@@ -3,6 +3,8 @@ package app_config
 import (
 	"image/color"
 
+	"gioui.org/op/clip"
+
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -71,7 +73,10 @@ func SignedShrinkGrowToSlider(signedAmount float32) float32 {
 	return (signedAmount + 1) / 2
 }
 
-// ReprocessSelection rebuilds ProcessedSelectionMask and the selection outlines
+// ReprocessSelection rebuilds ProcessedSelectionMask and the selection outlines.
+// Callers that know the inputs changed (mask mutated, smoothing parameters
+// adjusted, superpixels rebuilt) call this directly; callers on high-frequency
+// input paths that merely suspect a change should use ReprocessSelectionIfChanged.
 func (appState *AppState) ReprocessSelection() {
 
 	if appState.ActiveSp.LabelMap == nil {
@@ -101,4 +106,12 @@ func (appState *AppState) ReprocessSelection() {
 
 	appState.ProcessedSelectionMask = processed
 	appState.SelectionPathSpec = rendering.CalculateOutlineFromMask(processed)
+	appState.SelectionMaskDirty = false
+}
+
+func (appState *AppState) ReprocessSelectionIfChanged() {
+	if !appState.SelectionMaskDirty && appState.SelectionPathSpec != (clip.PathSpec{}) {
+		return
+	}
+	appState.ReprocessSelection()
 }

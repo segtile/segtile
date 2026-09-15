@@ -243,6 +243,7 @@ func (appState *AppState) RecreateExistingMaskFromDisk() {
 		} else {
 			// Adopt the on-disk mask as the active selection without any superpixel approximation.
 			appState.SelectionMask = io_utils.ToGray16(io_utils.CopyImage(appState.ActiveImageExistingMask))
+			appState.SelectionMaskDirty = true
 			appState.ReprocessSelection()
 		}
 	}

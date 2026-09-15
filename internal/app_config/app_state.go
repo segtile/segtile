@@ -40,9 +40,11 @@ type AppState struct {
 	// Manual Selection Fixes
 	ManualFixBrushRadius int
 
-	// SelectionMaskDirty marks that brush strokes were applied to SelectionMask since the last
-	// ReprocessSelection, so the (expensive) mask rebuild runs once per frame instead of per event.
+	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
 	SelectionMaskDirty bool
+
+	LastSelectedSpLabel   int
+	LastDeselectedSpLabel int
 
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
 	// user has not yet chosen to start from scratch or edit it.
@@ -166,7 +168,9 @@ func NewAppState() *AppState {
 			SuperpixelSectionOpen:   true,
 			MiscSectionOpen:         true,
 		},
-		ManualFixBrushRadius: 16,
+		ManualFixBrushRadius:  16,
+		LastSelectedSpLabel:   -1,
+		LastDeselectedSpLabel: -1,
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan *ProjectSettings, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),

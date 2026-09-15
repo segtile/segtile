@@ -17,6 +17,7 @@ func (appState *AppState) ClearSelection(showToast bool) {
 		return
 	}
 	superpixel_utils.ResetImage(appState.SelectionMask)
+	appState.SelectionMaskDirty = true
 	appState.ReprocessSelection()
 	appState.Window.Invalidate()
 	if showToast {
@@ -27,7 +28,11 @@ func (appState *AppState) ClearSelection(showToast bool) {
 // SetSpSelected selects or deselects a single superpixel by painting all of its pixels
 // into the selection mask. Returns true if any pixel was changed.
 func (appState *AppState) SetSpSelected(label uint16, selected bool) bool {
-	return appState.setSpLabelsSelected([]uint16{label}, selected)
+	changed := appState.setSpLabelsSelected([]uint16{label}, selected)
+	if changed {
+		appState.SelectionMaskDirty = true
+	}
+	return changed
 }
 
 // setSpLabelsSelected paints every pixel of the given superpixel labels in the selection mask,
@@ -51,17 +56,26 @@ func (appState *AppState) setSpLabelsSelected(labels []uint16, selected bool) bo
 	bounds := appState.SelectionMask.Bounds()
 	changed := false
 
+	// Only mark the mask dirty (and report a change) when a pixel value actually
+	// flips. This keeps a held pointer drag inside an already-selected superpixel
+	// from retriggering the expensive outline rebuild on every Drag event.
+	target := uint16(65535)
+	if !selected {
+		target = uint16(0)
+	}
+	//maskPix := appState.SelectionMask.Pix
+	//maskStride := appState.SelectionMask.Stride
+	labelMap := appState.ActiveSp.LabelMap
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			if lookup[superpixel_utils.UnsafeGray16At(appState.ActiveSp.LabelMap, x, y)] {
-				if selected {
-					superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, 65535)
-				} else {
-					superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, 0)
-				}
+			if lookup[superpixel_utils.UnsafeGray16At(labelMap, x, y)] {
+				superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, target)
 				changed = true
 			}
 		}
+	}
+	if changed {
+		appState.SelectionMaskDirty = true
 	}
 	return changed
 }
@@ -73,7 +87,11 @@ func (appState *AppState) FloodFillSelectFromPoint(x, y int) bool {
 	if appState.SelectionMask == nil {
 		return false
 	}
-	return superpixel_utils.FloodFillMaskFromPoint(appState.SelectionMask, x, y)
+	changed := superpixel_utils.FloodFillMaskFromPoint(appState.SelectionMask, x, y)
+	if changed {
+		appState.SelectionMaskDirty = true
+	}
+	return changed
 }
 
 // AutoFloodFillSelection selects all pixels that are fully enclosed by the current selection
@@ -83,7 +101,11 @@ func (appState *AppState) AutoFloodFillSelection() bool {
 	if appState.SelectionMask == nil {
 		return false
 	}
-	return superpixel_utils.FillEnclosedMaskRegions(appState.SelectionMask)
+	changed := superpixel_utils.FillEnclosedMaskRegions(appState.SelectionMask)
+	if changed {
+		appState.SelectionMaskDirty = true
+	}
+	return changed
 }
 
 func (appState *AppState) SetManualFixMode(enabled bool) {

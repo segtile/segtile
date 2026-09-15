@@ -150,7 +150,10 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			if appState.AutoFloodFillSelection() {
 				appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
 			}
-			appState.ReprocessSelection()
+			appState.ReprocessSelectionIfChanged()
+			// A fresh press must re-evaluate the superpixel under the cursor.
+			appState.LastSelectedSpLabel = -1
+			appState.LastDeselectedSpLabel = -1
 			appState.Window.Invalidate()
 			continue
 		}
@@ -164,19 +167,20 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			inputMade := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 {
-				inputMade = true
 				if pe.Modifiers.Contain(key.ModShift) {
 					// If shift is held, perform a flood fill selection
-					appState.FloodFillSelectFromPoint(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y))
-				} else {
-					// Perform a normal selection of a single superpixel
-					appState.SetSpSelected(label, true)
-
+					inputMade = appState.FloodFillSelectFromPoint(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y))
+				} else if int(label) != appState.LastSelectedSpLabel {
+					// Only paint when the cursor moved into a different superpixel;
+					// a held drag inside the same one needs no full-image rescan.
+					inputMade = appState.SetSpSelected(label, true)
+					appState.LastSelectedSpLabel = int(label)
 				}
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-				appState.SetSpSelected(label, false)
-
-				inputMade = true
+				if int(label) != appState.LastDeselectedSpLabel {
+					inputMade = appState.SetSpSelected(label, false)
+					appState.LastDeselectedSpLabel = int(label)
+				}
 			}
 
 			if inputMade {
@@ -188,7 +192,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.Window.Invalidate()
 				}
 
-				appState.ReprocessSelection()
+				appState.ReprocessSelectionIfChanged()
 				appState.Window.Invalidate()
 			}
 		}
