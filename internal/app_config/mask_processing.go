@@ -88,12 +88,14 @@ func (appState *AppState) ReprocessSelection() {
 	if appState.SelectionMask == nil || !superpixel_utils.HasNonZeroPixels(appState.SelectionMask) {
 		appState.ProcessedSelectionMask = nil
 		appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
+		appState.SelectionMaskDirty = false
 		return
 	}
 
 	if !appState.SmoothSelectionOutlines {
 		appState.ProcessedSelectionMask = appState.SelectionMask
 		appState.SelectionPathSpec = rendering.CalculateOutline(appState.ProcessedSelectionMask, 0)
+		appState.SelectionMaskDirty = false
 		return
 	}
 
