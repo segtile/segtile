@@ -69,7 +69,7 @@ func (appState *AppState) setSpLabelsSelected(labels []uint16, selected bool) bo
 	labelMap := appState.ActiveSp.LabelMap
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			if lookup[superpixel_utils.UnsafeGray16At(labelMap, x, y)] {
+			if lookup[superpixel_utils.UnsafeGray16At(labelMap, x, y)] && superpixel_utils.UnsafeGray16At(appState.SelectionMask, x, y) != target {
 				superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, target)
 				changed = true
 			}
