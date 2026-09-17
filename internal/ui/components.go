@@ -438,13 +438,14 @@ func drawStroke(
 	pathSpec clip.PathSpec,
 	strokeColor color.NRGBA,
 	strokeWidth float32,
+	haloColor color.NRGBA,
 	haloWidth float32) {
 
 	if haloWidth > 0 {
 		// Halo/Outline
 		*stack = op.Affine(transformation).Push(gtx.Ops)
 		paint.FillShape(gtx.Ops,
-			color.NRGBA{R: 0, G: 0, B: 0, A: 200},
+			haloColor,
 			clip.Stroke{
 				Path:  pathSpec,
 				Width: (strokeWidth + haloWidth) / viewScale,

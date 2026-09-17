@@ -168,12 +168,12 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								paint.PaintOp{}.Add(gtx.Ops)
 								stack.Pop()
 
-								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, 0)
+								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, appState.Theme.HoverHaloColor, appState.Theme.HoverHaloWidth)
 
 								if appState.RenderSelectionOutlines {
-									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
+									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.SelectionHaloColor, appState.Theme.SelectionHaloWidth)
 									if appState.AwaitingMaskDecision {
-										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
+										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, appState.Theme.ExistingMaskHaloColor, appState.Theme.ExistingMaskHaloWidth)
 									}
 								}
 							}
