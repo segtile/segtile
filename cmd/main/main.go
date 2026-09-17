@@ -15,9 +15,17 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
+
+	"net/http"
+	_ "net/http/pprof"
 )
 
 func main() {
+
+	// Start profiling
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	go func() {
 
@@ -82,6 +90,9 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 
 			// New context for this frame
 			gtx := app.NewContext(&ops, e)
+
+			// Rebuild the selection mask at most once per frame if brush strokes are pending
+			appState.FlushPendingManualFixes()
 
 			// Handle interactions
 			ui.HandlePointer(appState, gtx)

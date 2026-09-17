@@ -35,9 +35,8 @@ func drawProjectLoadError(gtx layout.Context, appState *app_config.AppState) lay
 	return label.Layout(gtx)
 }
 
-// drawExistingMaskCard renders a sidebar card asking the user to either start a fresh
-// selection (by clicking in the image) or approximate the on-disk mask as an editable
-// selection with the current superpixel settings.
+// drawExistingMaskWarning renders a sidebar card asking the user to either start a fresh
+// selection (by clicking in the image) or load the on-disk mask as the active selection.
 func drawExistingMaskWarning(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
 
 	if !appState.AwaitingMaskDecision {
@@ -47,14 +46,14 @@ func drawExistingMaskWarning(gtx layout.Context, appState *app_config.AppState) 
 	return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				label := material.Body2(&appState.Theme.GioTheme, "An existing annotation was found for this image. Make a new annotation to overwrite it or recreate it using the current settings to make further edits.")
+				label := material.Body2(&appState.Theme.GioTheme, "An existing annotation was found for this image. Make a new annotation to overwrite it or load it as the active selection to make further edits.")
 				label.Color = appState.Theme.GioTheme.Palette.Fg
 				return label.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				HandleUiButtonClick(appState, gtx, &appState.EditExistingMaskButton)
-				return drawBigButton(gtx, &appState.EditExistingMaskButton, appState.Theme, "Recreate", 14)
+				return drawBigButton(gtx, &appState.EditExistingMaskButton, appState.Theme, "Load & Edit", 14)
 			}),
 		)
 	})
@@ -177,7 +176,7 @@ func drawSidebarSection(gtx layout.Context, appState *app_config.AppState, title
 }
 
 func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Images", appState.ImagesSectionOpen, &appState.ImagesSectionButton, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Images", appState.ImagesSection.Open, &appState.ImagesSection.Button, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 
 			// Image name and counter
@@ -210,14 +209,14 @@ func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout
 }
 
 func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Superpixel", appState.SuperpixelSectionOpen, &appState.SuperpixelSectionButton, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Superpixel", appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.Settings == nil {
 			return layout.Dimensions{}
 		}
 		HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
 		if appState.SpAlgorithmMenuOpen {
-			for i := range appState.SpAlgorithmMenuButtons {
-				HandleUiButtonClick(appState, gtx, &appState.SpAlgorithmMenuButtons[i])
+			for i := range appState.SpAlgorithmMenuEntries {
+				HandleUiButtonClick(appState, gtx, &appState.SpAlgorithmMenuEntries[i].Button)
 			}
 		}
 
@@ -250,14 +249,15 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 							return layout.Dimensions{}
 						}
 
-						children := make([]layout.FlexChild, 0, len(appState.SpAlgorithmMenuAlgorithmIds))
-						for i := range appState.SpAlgorithmMenuAlgorithmIds {
+						children := make([]layout.FlexChild, 0, len(appState.SpAlgorithmMenuEntries))
+						for i := range appState.SpAlgorithmMenuEntries {
 
-							button := &appState.SpAlgorithmMenuButtons[i]
+							button := &appState.SpAlgorithmMenuEntries[i].Button
+							title := appState.SpAlgorithmMenuEntries[i].Title
 
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								HandleUiButtonClick(appState, gtx, button)
-								return component.MenuItem(&appState.Theme.GioTheme, button, appState.SpAlgoritmMenuTitles[i]).Layout(gtx)
+								return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
 							}))
 						}
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -275,9 +275,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 
 			// Individual parameter editors
 			for i := range appState.SuperpixelParameterEditors {
-				title := appState.SuperpixelParameterEditorTitles[i]
-				editor := &appState.SuperpixelParameterEditors[i]
-				checkbox := &appState.OptimizeParameterCheckboxes[i]
+				title := appState.SuperpixelParameterEditors[i].Title
+				editor := &appState.SuperpixelParameterEditors[i].Editor
+				checkbox := &appState.SuperpixelParameterEditors[i].OptimizeCheckbox
 				children = append(children,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
@@ -320,10 +320,13 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 }
 
 func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSectionOpen, &appState.MiscSectionButton, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.CheckBox(&appState.Theme.GioTheme, &appState.UpdateSelectionOnSpChange, "Snap selection when SP change").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Shrink / Grow").Layout(gtx)

@@ -1,9 +1,9 @@
 package app_config
 
 import (
-	"image"
 	"image/color"
-	"image/draw"
+
+	"gioui.org/op/clip"
 
 	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
@@ -13,79 +13,23 @@ import (
 const shrinkGrowMaxFactor = 0.10
 const smoothMaxFactor = 0.05
 
-const (
-	ManualFixNone uint16 = iota
-	ManualFixAdd
-	ManualFixRemove
-)
-
-// ApplyManualFixMask combines the base mask (from superpixel selection) and the manual fix mask (from user brush strokes).
-func ApplyManualFixMask(baseMask *image.Gray16, manualFixMask *image.Gray16) *image.Gray16 {
-
-	var bounds image.Rectangle
-
-	switch {
-	case baseMask != nil:
-		bounds = baseMask.Bounds()
-	case manualFixMask != nil:
-		bounds = manualFixMask.Bounds()
-	default:
-		return image.NewGray16(image.Rect(0, 0, 0, 0))
-	}
-
-	result := image.NewGray16(bounds)
-	if baseMask != nil {
-		draw.Draw(result, bounds, baseMask, bounds.Min, draw.Src)
-	}
-
-	if manualFixMask != nil {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			for x := bounds.Min.X; x < bounds.Max.X; x++ {
-				switch manualFixMask.Gray16At(x, y).Y {
-				case ManualFixAdd:
-					result.SetGray16(x, y, color.Gray16{Y: 65535})
-				case ManualFixRemove:
-					result.SetGray16(x, y, color.Gray16{})
-				}
-			}
-		}
-	}
-
-	return result
-}
-
-func (appState *AppState) ApplyManualFixAt(x int, y int, radius int, add bool) {
+func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 
 	// Early return if there is no image
 	if appState.ActiveImage == nil {
 		return
 	}
 
-	// Create a new manual fix mask if the current one is missing or has the wrong size
-	if appState.ManualFixMask == nil || appState.ManualFixMask.Bounds() != appState.ActiveImage.Bounds() {
-		appState.ManualFixMask = image.NewGray16(appState.ActiveImage.Bounds())
-	}
-
 	// Cap radius and precompute squared radius
-	if radius < 1 {
-		radius = 1
+	if appState.ManualFixBrushRadius < 1 {
+		appState.ManualFixBrushRadius = 1
 	}
-	radius2 := radius * radius
-
-	// Set manual fix mode
-	manualFixValue := ManualFixRemove
-	if add {
-		manualFixValue = ManualFixAdd
-	}
-
-	if appState.ManualFixMask == nil {
-		return
-	}
+	radius2 := appState.ManualFixBrushRadius * appState.ManualFixBrushRadius
 
 	// Precompute the target area for the circular brush
 	targetBbox := superpixel_utils.BoundingBox{}
-	targetBbox.AddPoint(x-radius, y-radius)
-	targetBbox.AddPoint(x+radius, y+radius)
+	targetBbox.AddPoint(x-appState.ManualFixBrushRadius, y-appState.ManualFixBrushRadius)
+	targetBbox.AddPoint(x+appState.ManualFixBrushRadius, y+appState.ManualFixBrushRadius)
 	targetBounds := targetBbox.Bounds()
 
 	for py := targetBounds.Min.Y; py < targetBounds.Max.Y; py++ {
@@ -93,15 +37,32 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, radius int, add bool) {
 			dx := px - x
 			dy := py - y
 			if dx*dx+dy*dy <= radius2 {
-				appState.ManualFixMask.SetGray16(px, py, color.Gray16{Y: manualFixValue})
+				if add {
+					appState.SelectionMask.SetGray16(px, py, color.Gray16{Y: 65535})
+				} else {
+					appState.SelectionMask.SetGray16(px, py, color.Gray16{Y: 0})
+				}
 			}
 		}
 	}
 
-	appState.ReprocessSelection()
+	// Defer the expensive mask rebuild so multiple brush stamps within one frame only trigger
+	// a single ReprocessSelection at the start of the next frame.
+	appState.SelectionMaskDirty = true
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}
+}
+
+// FlushPendingManualFixes rebuilds the processed selection once if any brush stamps are pending.
+// Call once per frame, before building the UI. Returns true if a rebuild happened.
+func (appState *AppState) FlushPendingManualFixes() bool {
+	if !appState.SelectionMaskDirty {
+		return false
+	}
+	appState.SelectionMaskDirty = false
+	appState.ReprocessSelection()
+	return true
 }
 
 func SliderToSignedShrinkGrow(sliderValue float32) float32 {
@@ -112,7 +73,10 @@ func SignedShrinkGrowToSlider(signedAmount float32) float32 {
 	return (signedAmount + 1) / 2
 }
 
-// ReprocessSelection rebuilds ProcessedSelectionMask and the yellow selection outline
+// ReprocessSelection rebuilds ProcessedSelectionMask and the selection outlines.
+// Callers that know the inputs changed (mask mutated, smoothing parameters
+// adjusted, superpixels rebuilt) call this directly; callers on high-frequency
+// input paths that merely suspect a change should use ReprocessSelectionIfChanged.
 func (appState *AppState) ReprocessSelection() {
 
 	if appState.ActiveSp.LabelMap == nil {
@@ -121,27 +85,35 @@ func (appState *AppState) ReprocessSelection() {
 		return
 	}
 
-	fixedMask := appState.EffectiveSelectionMask()
-
-	if fixedMask == nil || !superpixel_utils.HasNonZeroPixels(fixedMask) {
+	if appState.SelectionMask == nil || !superpixel_utils.HasNonZeroPixels(appState.SelectionMask) {
 		appState.ProcessedSelectionMask = nil
 		appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
+		appState.SelectionMaskDirty = false
 		return
 	}
 
 	if !appState.SmoothSelectionOutlines {
-		appState.ProcessedSelectionMask = fixedMask
-		appState.SelectionPathSpec = rendering.CalculateOutlineFromMask(appState.ProcessedSelectionMask)
+		appState.ProcessedSelectionMask = appState.SelectionMask
+		appState.SelectionPathSpec = rendering.CalculateOutline(appState.ProcessedSelectionMask, 0)
+		appState.SelectionMaskDirty = false
 		return
 	}
 
-	width := float32(fixedMask.Bounds().Dx())
+	width := float32(appState.SelectionMask.Bounds().Dx())
 	shrinkGrowRadius := int(SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value) * width * shrinkGrowMaxFactor)
 	smoothRadius := int(appState.SmoothAmount.Value * width * smoothMaxFactor)
 
-	processed := superpixel_utils.GrowShrink(fixedMask, shrinkGrowRadius)
+	processed := superpixel_utils.GrowShrink(appState.SelectionMask, shrinkGrowRadius)
 	processed = superpixel_utils.SmoothMask(processed, smoothRadius)
 
 	appState.ProcessedSelectionMask = processed
-	appState.SelectionPathSpec = rendering.CalculateOutlineFromMask(processed)
+	appState.SelectionPathSpec = rendering.CalculateOutline(processed, 0)
+	appState.SelectionMaskDirty = false
+}
+
+func (appState *AppState) ReprocessSelectionIfChanged() {
+	if !appState.SelectionMaskDirty && appState.SelectionPathSpec != (clip.PathSpec{}) {
+		return
+	}
+	appState.ReprocessSelection()
 }

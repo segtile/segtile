@@ -1,0 +1,1 @@
+go test ./pkg/superpixel/... -run=^$ -bench '.*' -benchtime=50x -benchmem

@@ -61,6 +61,19 @@ func (this *SpResult) ContiguousIndexingEnforced() bool {
 	return this.contiguousIndexingEnforced
 }
 
+func (this *SpResult) SpBoundingBoxes() map[uint16]superpixel_utils.BoundingBox {
+	boundingBoxes := make(map[uint16]superpixel_utils.BoundingBox)
+
+	bounds := this.LabelMap.Bounds()
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			boundingBoxes[superpixel_utils.UnsafeGray16At(this.LabelMap, x, y)].AddPoint(x, y)
+		}
+	}
+
+	return boundingBoxes
+}
+
 func (this *SpResult) analyzeLabelMap() (lowestLabel uint16, highestLabel uint16, labelUsed map[uint16]bool) {
 
 	labelUsed = make(map[uint16]bool)
@@ -132,6 +145,8 @@ func (this *SpResult) EnforceContiguousIndexing() (changed bool) {
 
 	this.contiguousIndexingEnforced = true
 
+	this.SetActualSpCount()
+
 	return spCount != int(highestLabel)+1
 }
 
@@ -153,83 +168,51 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	width := bounds.Dx()
 	height := bounds.Dy()
 
-	// Step 1: find every connected component in the label map.
-
-	// componentId maps each pixel (indexed [y][x]) to its
-	// component id. -1 means unvisited.
-	componentId := make([][]int, height)
-	visited := make([][]bool, height)
-	for y := range componentId {
-		componentId[y] = make([]int, width)
-		visited[y] = make([]bool, width)
-		for x := range componentId[y] {
-			componentId[y][x] = -1
-		}
-	}
-
-	// Each component has a label, size, and list of pixel coordinates, indexed by component id.
-	var componentLabel []uint16
-	var componentSize []int
-	var componentPixels [][]image.Point
-
-	// Loop over every pixel in the label map, and for each unvisited pixel, flood fill to find all pixels of the new component it starts.
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			if visited[y][x] {
-				continue
-			}
-
-			start := image.Point{X: x, Y: y}
-			label := this.LabelMap.Gray16At(start.X, start.Y).Y
-			currentComponentId := len(componentLabel)
-			visited[y][x] = true
-
-			pixels := superpixel_utils.MaskedFloodFill(start, this.LabelMap, &visited)
-			for _, p := range pixels {
-				componentId[p.Y][p.X] = currentComponentId
-			}
-
-			componentLabel = append(componentLabel, label)
-			componentSize = append(componentSize, len(pixels))
-			componentPixels = append(componentPixels, pixels)
-		}
-	}
+	// Step 1: Connected components in label map
+	componentIdMap, componentLabel, componentSize := superpixel_utils.FindConnectedComponents(this.LabelMap)
 	numComponents := len(componentLabel)
 
-	// Step 2: build a component-level relationship graph, weighted by shared border length.
-	neighborBorder := make([]map[int]int, numComponents)
-	for i := range neighborBorder {
-		neighborBorder[i] = make(map[int]int)
+	// Step 2: Relationships between connected components
+	componentBorders := superpixel_utils.LabelMapNeighborhoodsWeighted(componentIdMap, numComponents+1)
+
+	// Store the relationships in compact adjacency arrays, indexed by unshifted component id.
+	adjacencyDegree := make([]int, numComponents)
+	for id := 0; id < numComponents; id++ {
+		adjacencyDegree[id] = len(componentBorders[id+1])
 	}
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			id := componentId[y][x]
-			for _, nb := range superpixel_utils.PixelNeighbours(image.Point{X: x, Y: y}, bounds, false, false) {
-				if nid := componentId[nb.Y][nb.X]; nid != id {
-					neighborBorder[id][nid]++
-				}
-			}
+	adjacencyOffset := make([]int, numComponents+1)
+	for id := 0; id < numComponents; id++ {
+		adjacencyOffset[id+1] = adjacencyOffset[id] + adjacencyDegree[id]
+	}
+	adjacencyNeighbor := make([]int32, adjacencyOffset[numComponents])
+	adjacencyWeight := make([]int, adjacencyOffset[numComponents])
+	for id := 0; id < numComponents; id++ {
+		position := adjacencyOffset[id]
+		for _, border := range componentBorders[id+1] {
+			adjacencyNeighbor[position] = int32(border.Label - 1)
+			adjacencyWeight[position] = border.SharedBorderLength
+			position++
 		}
 	}
 
 	// Step 3: the largest component of each label survives with that label; every other
 	// component sharing the label is a loser that must be merged elsewhere.
-	winnerOfLabel := make(map[uint16]int, numComponents)
+	winnerOfLabel := make(map[uint16]int32, numComponents)
 	for id := 0; id < numComponents; id++ {
-		lbl := componentLabel[id]
-		if cur, ok := winnerOfLabel[lbl]; !ok || componentSize[id] > componentSize[cur] {
-			winnerOfLabel[lbl] = id
+		label := componentLabel[id]
+		if currentWinner, ok := winnerOfLabel[label]; !ok || componentSize[id] > componentSize[currentWinner] {
+			winnerOfLabel[label] = int32(id)
 		}
 	}
 	finalLabel := make([]uint16, numComponents)
 	finalized := make([]bool, numComponents)
-	pending := make([]int, 0, numComponents)
+	pending := make([]int32, 0, numComponents)
 	for id := 0; id < numComponents; id++ {
-		if winnerOfLabel[componentLabel[id]] == id {
+		if winnerOfLabel[componentLabel[id]] == int32(id) {
 			finalLabel[id] = componentLabel[id]
 			finalized[id] = true
 		} else {
-			pending = append(pending, id)
+			pending = append(pending, int32(id))
 		}
 	}
 
@@ -237,18 +220,20 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 	// one into whichever finalized neighbor shares the longest border (ties broken by the
 	// lowest label, for determinism). Once a component is finalized it is never revisited.
 	for len(pending) > 0 {
-		stillPending := pending[:0:0]
+		stillPending := pending[:0]
 		progressed := false
 		for _, id := range pending {
 			bestWeight := -1
-			bestTarget := -1
-			for nid, weight := range neighborBorder[id] {
-				if !finalized[nid] {
+			bestTarget := int32(-1)
+			for position := adjacencyOffset[id]; position < adjacencyOffset[id+1]; position++ {
+				neighborId := adjacencyNeighbor[position]
+				if !finalized[neighborId] {
 					continue
 				}
-				if weight > bestWeight || (weight == bestWeight && bestTarget != -1 && finalLabel[nid] < finalLabel[bestTarget]) {
+				weight := adjacencyWeight[position]
+				if weight > bestWeight || (weight == bestWeight && bestTarget != -1 && finalLabel[neighborId] < finalLabel[bestTarget]) {
 					bestWeight = weight
-					bestTarget = nid
+					bestTarget = neighborId
 				}
 			}
 			if bestTarget == -1 {
@@ -271,7 +256,7 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 			}
 			finalLabel[largest] = componentLabel[largest]
 			finalized[largest] = true
-			remaining := stillPending[:0:0]
+			remaining := stillPending[:0]
 			for _, id := range stillPending {
 				if id != largest {
 					remaining = append(remaining, id)
@@ -283,17 +268,20 @@ func (this *SpResult) EnforceConnectivity() (changed bool) {
 		pending = stillPending
 	}
 
-	// Step 5: put  the resolved labels back to the label map.
+	// Step 5: put the resolved labels back to the label map.
 	changed = false
-	for id := 0; id < numComponents; id++ {
-		if finalLabel[id] == componentLabel[id] {
-			continue
-		}
-		changed = true
-		for _, p := range componentPixels[id] {
-			this.LabelMap.SetGray16(p.X, p.Y, color.Gray16{Y: finalLabel[id]})
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			id := superpixel_utils.UnsafeGray16At(componentIdMap, x, y) - 1
+			newLabel := finalLabel[id]
+			if newLabel == componentLabel[id] {
+				continue
+			}
+			changed = true
+			superpixel_utils.UnsafeSetGray16At(this.LabelMap, x, y, uint16(newLabel))
 		}
 	}
+	this.SetActualSpCount()
 
 	this.connectivityEnforced = true
 	this.contiguousIndexingEnforced = false
@@ -325,10 +313,23 @@ func (this *SpResult) SelectionToMask(selection []bool) *image.Gray16 {
 	spBounds := this.LabelMap.Bounds()
 	mask := image.NewGray16(spBounds)
 
-	for x := spBounds.Min.X; x < spBounds.Max.X; x++ {
-		for y := spBounds.Min.Y; y < spBounds.Max.Y; y++ {
-			if selection[this.LabelMap.Gray16At(x, y).Y] {
-				mask.SetGray16(x, y, color.Gray16{Y: 65535})
+	srcPix := this.LabelMap.Pix
+	srcStride := this.LabelMap.Stride
+	dstPix := mask.Pix
+	dstStride := mask.Stride
+	width := spBounds.Dx()
+	height := spBounds.Dy()
+
+	for y := 0; y < height; y++ {
+		srcRow := y * srcStride
+		dstRow := y * dstStride
+		for x := 0; x < width; x++ {
+			srcOff := srcRow + x*2
+			label := uint16(srcPix[srcOff])<<8 | uint16(srcPix[srcOff+1])
+			if selection[label] {
+				dstOff := dstRow + x*2
+				dstPix[dstOff] = 0xFF
+				dstPix[dstOff+1] = 0xFF
 			}
 		}
 	}

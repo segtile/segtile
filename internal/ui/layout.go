@@ -22,7 +22,8 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	}
 
 	// Determine if a project is loaded
-	projectLoaded := appState.Settings != nil && appState.Settings.Err == nil
+	hasActiveProject := appState.Settings != nil && appState.Settings.Err == nil
+	isLoadingProject := appState.LoadingState.CurrentlyLoadingProject
 
 	// We set up a clipping area that covers the entire window.
 	// This ensures that all drawing operations are confined to the window bounds, preventing any rendering outside the visible area.
@@ -43,7 +44,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 				// Top menu bar
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					// Do not render menu bar if no project is loaded
-					if !projectLoaded {
+					if !hasActiveProject {
 						return layout.Dimensions{}
 					}
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -70,7 +71,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
 							// Do not render sidebar if no project is loaded
-							if !projectLoaded {
+							if !hasActiveProject {
 								return layout.Dimensions{}
 							}
 
@@ -113,40 +114,46 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								appState.InitialFocusDone = true
 							}
 
-							if !projectLoaded {
-								promptText := "Create a new project or open an existing one."
-								if appState.CurrentlyLoadingProject {
-									promptText = "Loading project…"
-								}
+							if !hasActiveProject {
+
 								gtx.Constraints.Min = gtx.Constraints.Max
 								layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											lbl := material.Body1(&appState.Theme.GioTheme, promptText)
-											lbl.Color = appState.Theme.GioTheme.ContrastFg
-											return lbl.Layout(gtx)
-										}),
-										layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											if appState.NewProjectButton.Clicked(gtx) {
-												triggerNewProject(appState)
-											}
-											gtx.Constraints.Min.X = gtx.Dp(220)
-											return drawBigButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
-										}),
-										layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											if appState.OpenProjectButton.Clicked(gtx) {
-												triggerOpenProject(appState)
-											}
-											gtx.Constraints.Min.X = gtx.Dp(220)
-											return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
-										}), layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											gtx.Constraints.Max.X = gtx.Dp(480)
-											gtx.Constraints.Min.X = 0
-											return drawProjectLoadError(gtx, appState)
-										}))
+									if isLoadingProject {
+										return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												lbl := material.Body1(&appState.Theme.GioTheme, "Loading project…")
+												lbl.Color = appState.Theme.GioTheme.ContrastFg
+												return lbl.Layout(gtx)
+											}))
+									} else {
+										return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												lbl := material.Body1(&appState.Theme.GioTheme, "Create a new project or open an existing one.")
+												lbl.Color = appState.Theme.GioTheme.ContrastFg
+												return lbl.Layout(gtx)
+											}),
+											layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												if appState.NewProjectButton.Clicked(gtx) {
+													triggerNewProject(appState)
+												}
+												gtx.Constraints.Min.X = gtx.Dp(220)
+												return drawBigButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
+											}),
+											layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												if appState.OpenProjectButton.Clicked(gtx) {
+													triggerOpenProject(appState)
+												}
+												gtx.Constraints.Min.X = gtx.Dp(220)
+												return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
+											}), layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												gtx.Constraints.Max.X = gtx.Dp(480)
+												gtx.Constraints.Min.X = 0
+												return drawProjectLoadError(gtx, appState)
+											}))
+									}
 								})
 							} else if appState.ActiveImage != nil {
 								if appState.FitToWindow {
@@ -154,7 +161,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 									appState.FitToWindow = false
 								}
 
-								transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.ViewScale, appState.ViewScale)).Offset(f32.Pt(appState.ViewOffsetX, appState.ViewOffsetY))
+								transformation := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(appState.ViewScale, appState.ViewScale)).Offset(appState.ViewOffset)
 
 								stack := op.Affine(transformation).Push(gtx.Ops)
 								appState.ImgBaseOp.Add(gtx.Ops)
@@ -165,7 +172,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 
 								if appState.RenderSelectionOutlines {
 									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.StrokeHaloWidth)
-									if !appState.SelectionMade() {
+									if appState.AwaitingMaskDecision {
 										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, 0)
 									}
 								}

@@ -35,11 +35,13 @@ type AppState struct {
 	ActiveSp                superpixel.SpResult
 
 	// Selection
-	SelectionIndex []bool
+	SelectionMask *image.Gray16
 
-	// Manual Selection Fixes
-	ManualFixMask        *image.Gray16
-	ManualFixBrushRadius int
+	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
+	SelectionMaskDirty bool
+
+	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
+	LastPaintedSpLabel int
 
 	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
 	// user has not yet chosen to start from scratch or edit it.
@@ -58,18 +60,12 @@ type UiState struct {
 	Theme *app_theme.AppTheme
 
 	// Sidebar sections
-	ImagesSectionButton     widget.Clickable
-	ImagesSectionOpen       bool
-	SuperpixelSectionButton widget.Clickable
-	SuperpixelSectionOpen   bool
-	MiscSectionButton       widget.Clickable
-	MiscSectionOpen         bool
+	ImagesSection     SidebarSection
+	SuperpixelSection SidebarSection
+	MiscSection       SidebarSection
 
 	// Superpixel Editors
-	SuperpixelParameterEditors      []widget.Editor
-	SuperpixelParameterEditorIds    []string
-	SuperpixelParameterEditorTitles []string
-	OptimizeParameterCheckboxes     []widget.Bool
+	SuperpixelParameterEditors []SuperpixelParameterEditor
 
 	// Selection post-processing
 	ShrinkGrowAmount      widget.Float
@@ -95,10 +91,8 @@ type UiState struct {
 	SaveButton        widget.Clickable
 
 	// Superpixel algorithm controls
-	ChangeSpAlgorithmButton     widget.Clickable
-	SpAlgorithmMenuButtons      []widget.Clickable
-	SpAlgorithmMenuAlgorithmIds []string
-	SpAlgoritmMenuTitles        []string
+	ChangeSpAlgorithmButton widget.Clickable
+	SpAlgorithmMenuEntries  []SpAlgorithmMenuEntry
 
 	// Hover state
 	IsPanning              bool
@@ -109,15 +103,53 @@ type UiState struct {
 	KeyboardTag            bool
 	InitialFocusDone       bool
 
+	// Stroke interpolation
+	StrokeAnchor      f32.Point
+	StrokeAnchorValid bool
+
+	// Hover outline cache: remembers what the current HoverPathSpec was built from so
+	// RefreshHoverPreview can skip the rebuild when nothing relevant changed.
+	HoverCached      bool
+	HoverCacheLabel  uint16
+	HoverCacheManual bool
+	HoverCachePos    image.Point
+	HoverCacheRadius int
+
+	// Manual Selection Fixes
+	ManualFixBrushRadius int
+
 	// Other UI state
-	EnableAutoFloodFill     widget.Bool
-	SpAlgorithmMenuOpen     bool
-	RenderSelectionOutlines bool
-	SmoothSelectionOutlines bool
+	EnableAutoFloodFill       widget.Bool
+	UpdateSelectionOnSpChange widget.Bool
+	SpAlgorithmMenuOpen       bool
+	RenderSelectionOutlines   bool
+	SmoothSelectionOutlines   bool
 
 	// View transform
-	ViewScale, ViewOffsetX, ViewOffsetY float32
-	FitToWindow                         bool
+	ViewScale   float32
+	ViewOffset  f32.Point
+	FitToWindow bool
+}
+
+// SidebarSection groups a collapsible sidebar section's toggle button and open state.
+type SidebarSection struct {
+	Button widget.Clickable
+	Open   bool
+}
+
+// SpAlgorithmMenuEntry is one entry in the superpixel algorithm selection menu.
+type SpAlgorithmMenuEntry struct {
+	Button      widget.Clickable
+	AlgorithmId string
+	Title       string
+}
+
+// SuperpixelParameterEditor groups the UI state for one superpixel algorithm parameter.
+type SuperpixelParameterEditor struct {
+	Editor           widget.Editor
+	Id               string
+	Title            string
+	OptimizeCheckbox widget.Bool
 }
 
 // CacheState holds cached rendering data (rebuilt when selection or image transform changes, not every frame)
@@ -149,11 +181,12 @@ func NewAppState() *AppState {
 			SmoothSelectionOutlines: true,
 			Theme:                   app_theme.Theme,
 			FitToWindow:             true,
-			ImagesSectionOpen:       true,
-			SuperpixelSectionOpen:   true,
-			MiscSectionOpen:         true,
+			ImagesSection:           SidebarSection{Open: true},
+			SuperpixelSection:       SidebarSection{Open: true},
+			MiscSection:             SidebarSection{Open: true},
+			ManualFixBrushRadius:    16,
 		},
-		ManualFixBrushRadius: 16,
+		LastPaintedSpLabel: -1,
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan *ProjectSettings, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),
@@ -164,15 +197,14 @@ func NewAppState() *AppState {
 	// This only needs to happen once per application lifetime.
 	for _, id := range superpixel.ListAlgorithms() {
 
-		button := new(widget.Clickable)
-		appState.SpAlgorithmMenuButtons = append(appState.SpAlgorithmMenuButtons, *button)
-		appState.SpAlgorithmMenuAlgorithmIds = append(appState.SpAlgorithmMenuAlgorithmIds, id)
-
 		title, _, _, err := superpixel.GetAlgorithmInfo(id)
 		if err != nil {
 			title = fmt.Sprintf("Untitled (%s)", id)
 		}
-		appState.SpAlgoritmMenuTitles = append(appState.SpAlgoritmMenuTitles, title)
+		appState.SpAlgorithmMenuEntries = append(appState.SpAlgorithmMenuEntries, SpAlgorithmMenuEntry{
+			AlgorithmId: id,
+			Title:       title,
+		})
 	}
 
 	appState.RebuildEditors()

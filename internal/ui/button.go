@@ -18,18 +18,18 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
-	if button == &appState.ImagesSectionButton {
-		appState.ImagesSectionOpen = !appState.ImagesSectionOpen
+	if button == &appState.ImagesSection.Button {
+		appState.ImagesSection.Open = !appState.ImagesSection.Open
 		return
 	}
 
-	if button == &appState.SuperpixelSectionButton {
-		appState.SuperpixelSectionOpen = !appState.SuperpixelSectionOpen
+	if button == &appState.SuperpixelSection.Button {
+		appState.SuperpixelSection.Open = !appState.SuperpixelSection.Open
 		return
 	}
 
-	if button == &appState.MiscSectionButton {
-		appState.MiscSectionOpen = !appState.MiscSectionOpen
+	if button == &appState.MiscSection.Button {
+		appState.MiscSection.Open = !appState.MiscSection.Open
 		return
 	}
 
@@ -118,13 +118,13 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
-	for i := range appState.SpAlgorithmMenuButtons {
+	for i := range appState.SpAlgorithmMenuEntries {
 
-		if button != &appState.SpAlgorithmMenuButtons[i] {
+		if button != &appState.SpAlgorithmMenuEntries[i].Button {
 			continue
 		}
 
-		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuAlgorithmIds[i])
+		err := appState.SetSpAlgorithm(appState.SpAlgorithmMenuEntries[i].AlgorithmId)
 		if err != nil {
 			log.Printf("Failed to change superpixel algorithm: %v", err)
 			return

@@ -2,17 +2,23 @@ package superpixel_utils
 
 import (
 	"image"
-	"image/color"
 )
 
 // cloneMask returns a new Gray16 image with the same pixel values as mask.
 func cloneMask(mask *image.Gray16) *image.Gray16 {
 	bounds := mask.Bounds()
 	clone := image.NewGray16(bounds)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clone.SetGray16(x, y, mask.Gray16At(x, y))
-		}
+	// Fast path: same stride means Pix is a contiguous block we can copy directly.
+	if mask.Stride == clone.Stride && len(mask.Pix) == len(clone.Pix) {
+		copy(clone.Pix, mask.Pix)
+		return clone
+	}
+	// General path: copy row by row to respect differing strides / bounds origins.
+	w := bounds.Dx() * 2
+	for y := 0; y < bounds.Dy(); y++ {
+		src := mask.Pix[y*mask.Stride : y*mask.Stride+w]
+		dst := clone.Pix[y*clone.Stride : y*clone.Stride+w]
+		copy(dst, src)
 	}
 	return clone
 }
@@ -68,14 +74,18 @@ func GrowShrink(mask *image.Gray16, radius int) *image.Gray16 {
 
 	bounds := mask.Bounds()
 	w := bounds.Dx()
+	h := bounds.Dy()
 	dist := distanceToBoundary(mask)
 	result := image.NewGray16(bounds)
 
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			idx := (y-bounds.Min.Y)*w + (x - bounds.Min.X)
-			isForeground := mask.Gray16At(x, y).Y != 0
-			d := dist[idx]
+	srcStride := mask.Stride
+	dstStride := result.Stride
+	for y := 0; y < h; y++ {
+		srcRow := y * srcStride
+		dstRow := y * dstStride
+		for x := 0; x < w; x++ {
+			isForeground := mask.Pix[srcRow+x*2] != 0 || mask.Pix[srcRow+x*2+1] != 0
+			d := dist[y*w+x]
 
 			var keep bool
 			if radius > 0 {
@@ -87,7 +97,8 @@ func GrowShrink(mask *image.Gray16, radius int) *image.Gray16 {
 			}
 
 			if keep {
-				result.SetGray16(x, y, color.Gray16{Y: 65535})
+				result.Pix[dstRow+x*2] = 0xFF
+				result.Pix[dstRow+x*2+1] = 0xFF
 			}
 		}
 	}
@@ -105,21 +116,24 @@ func SmoothMask(mask *image.Gray16, radius int) *image.Gray16 {
 	bounds := mask.Bounds()
 	w := bounds.Dx()
 	h := bounds.Dy()
-	stride := w + 1
+	satStride := w + 1
 
 	// Summed-area table over the binary mask (values 0/1) so any window sum is O(1).
-	sat := make([]int64, stride*(h+1))
+	srcStride := mask.Stride
+	sat := make([]int64, satStride*(h+1))
 	for y := 0; y < h; y++ {
+		srcRow := y * srcStride
 		for x := 0; x < w; x++ {
 			var v int64
-			if mask.Gray16At(bounds.Min.X+x, bounds.Min.Y+y).Y != 0 {
+			if mask.Pix[srcRow+x*2] != 0 || mask.Pix[srcRow+x*2+1] != 0 {
 				v = 1
 			}
-			sat[(y+1)*stride+(x+1)] = v + sat[y*stride+(x+1)] + sat[(y+1)*stride+x] - sat[y*stride+x]
+			sat[(y+1)*satStride+(x+1)] = v + sat[y*satStride+(x+1)] + sat[(y+1)*satStride+x] - sat[y*satStride+x]
 		}
 	}
 
 	result := image.NewGray16(bounds)
+	dstStride := result.Stride
 	for y := 0; y < h; y++ {
 		y0, y1 := y-radius, y+radius
 		if y0 < 0 {
@@ -128,6 +142,7 @@ func SmoothMask(mask *image.Gray16, radius int) *image.Gray16 {
 		if y1 >= h {
 			y1 = h - 1
 		}
+		dstRow := y * dstStride
 		for x := 0; x < w; x++ {
 			x0, x1 := x-radius, x+radius
 			if x0 < 0 {
@@ -138,10 +153,11 @@ func SmoothMask(mask *image.Gray16, radius int) *image.Gray16 {
 			}
 
 			area := int64(x1-x0+1) * int64(y1-y0+1)
-			sum := sat[(y1+1)*stride+(x1+1)] - sat[y0*stride+(x1+1)] - sat[(y1+1)*stride+x0] + sat[y0*stride+x0]
+			sum := sat[(y1+1)*satStride+(x1+1)] - sat[y0*satStride+(x1+1)] - sat[(y1+1)*satStride+x0] + sat[y0*satStride+x0]
 
 			if sum*2 >= area {
-				result.SetGray16(bounds.Min.X+x, bounds.Min.Y+y, color.Gray16{Y: 65535})
+				result.Pix[dstRow+x*2] = 0xFF
+				result.Pix[dstRow+x*2+1] = 0xFF
 			}
 		}
 	}

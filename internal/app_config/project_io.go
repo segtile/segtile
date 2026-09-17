@@ -18,13 +18,14 @@ const defaultSpAlgorithmId = "snic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	SettingsFile        string             `yaml:"-"` // The path to the settings file itself, not persisted in the yaml.
-	InputDirectory      string             `yaml:"input_directory"`
-	Superpixel          SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill bool               `yaml:"auto_flood_fill"`
-	ShrinkGrowAmount    float32            `yaml:"shrink_grow_amount"`
-	SmoothAmount        float32            `yaml:"smooth_amount"`
-	Err                 error              `yaml:"-"` // The error is also not persisted to disk.
+	SettingsFile              string             `yaml:"-"` // The path to the settings file itself, not persisted in the yaml.
+	InputDirectory            string             `yaml:"input_directory"`
+	Superpixel                SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill       bool               `yaml:"auto_flood_fill"`
+	UpdateSelectionOnSpChange bool               `yaml:"update_selection_on_sp_change"`
+	ShrinkGrowAmount          float32            `yaml:"shrink_grow_amount"`
+	SmoothAmount              float32            `yaml:"smooth_amount"`
+	Err                       error              `yaml:"-"` // The error is also not persisted to disk.
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
@@ -205,6 +206,7 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	// Apply the new settings
 	appState.Settings = settings
 	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
+	appState.UpdateSelectionOnSpChange.Value = settings.UpdateSelectionOnSpChange
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)
 	appState.SmoothAmount.Value = settings.SmoothAmount
 
@@ -231,14 +233,19 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	appState.loadImageAtIndex(0)
 }
 
-// RecreateExistingMaskFromDisk resolves the pending existing-mask decision by
-// approximating the on-disk mask as a selection on the current superpixel segmentation,
-// so the user can keep editing it.
+// RecreateExistingMaskFromDisk resolves the pending existing-mask decision by adopting the
+// on-disk mask pixel-identically as the active selection mask, so the user can keep editing it.
 func (appState *AppState) RecreateExistingMaskFromDisk() {
 	appState.AwaitingMaskDecision = false
 	if appState.ActiveImageExistingMask != nil {
-		appState.SelectionIndex = appState.ActiveSp.SelectFromMask(appState.ActiveImageExistingMask, 0.5)
-		appState.ReprocessSelection()
+		if appState.ActiveImage == nil || appState.ActiveImageExistingMask.Bounds() != appState.ActiveImage.Bounds() {
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "The existing mask's dimensions do not match the image.", 3*time.Second)
+		} else {
+			// Adopt the on-disk mask as the active selection without any superpixel approximation.
+			appState.SelectionMask = io_utils.ToGray16(io_utils.CopyImage(appState.ActiveImageExistingMask))
+			appState.SelectionMaskDirty = true
+			appState.ReprocessSelection()
+		}
 	}
 	appState.Window.Invalidate()
 }

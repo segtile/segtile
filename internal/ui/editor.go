@@ -19,8 +19,8 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 	// Handle settings changes.
 	for i := range appState.SuperpixelParameterEditors {
-		param := appState.SuperpixelParameterEditorIds[i]
-		editor := &appState.SuperpixelParameterEditors[i]
+		param := appState.SuperpixelParameterEditors[i].Id
+		editor := &appState.SuperpixelParameterEditors[i].Editor
 		// Drain events and apply the value on Submit
 		for {
 			ev, ok := editor.Update(gtx)
@@ -64,7 +64,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		appState.SyncEditors()
 
 		if appState.ActiveImage != nil {
-			appState.RecalculateSuperpixels(true, true)
+			appState.RecalculateSuperpixels(true)
 		}
 
 		// Persist updated parameters to config.
@@ -77,6 +77,14 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	// Persist the auto flood fill setting whenever it is toggled.
 	if appState.EnableAutoFloodFill.Update(gtx) {
 		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
+		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
+	}
+
+	// Persist the keep-selection setting whenever it is toggled.
+	if appState.UpdateSelectionOnSpChange.Update(gtx) {
+		appState.Settings.UpdateSelectionOnSpChange = appState.UpdateSelectionOnSpChange.Value
 		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}

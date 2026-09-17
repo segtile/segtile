@@ -14,9 +14,6 @@ import (
 func (appState *AppState) RebuildEditors() {
 
 	appState.SuperpixelParameterEditors = nil
-	appState.SuperpixelParameterEditorIds = nil
-	appState.SuperpixelParameterEditorTitles = nil
-	appState.OptimizeParameterCheckboxes = nil
 
 	// No editors if there are no settings
 	if appState.Settings == nil {
@@ -39,11 +36,11 @@ func (appState *AppState) RebuildEditors() {
 		paramValue := appState.Settings.Superpixel.SpAlgorithmParameters[paramInfo.Id]
 		editor := widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
 		editor.SetText(fmt.Sprintf("%g", paramValue))
-		appState.SuperpixelParameterEditors = append(appState.SuperpixelParameterEditors, editor)
-		appState.SuperpixelParameterEditorIds = append(appState.SuperpixelParameterEditorIds, paramInfo.Id)
-		appState.SuperpixelParameterEditorTitles = append(appState.SuperpixelParameterEditorTitles, paramInfo.Title)
-
-		appState.OptimizeParameterCheckboxes = append(appState.OptimizeParameterCheckboxes, widget.Bool{Value: false})
+		appState.SuperpixelParameterEditors = append(appState.SuperpixelParameterEditors, SuperpixelParameterEditor{
+			Editor: editor,
+			Id:     paramInfo.Id,
+			Title:  paramInfo.Title,
+		})
 	}
 }
 
@@ -51,9 +48,9 @@ func (appState *AppState) RebuildEditors() {
 // checked for optimization.
 func (appState *AppState) SelectedOptimizeParameters() []string {
 	var selected []string
-	for i, checkbox := range appState.OptimizeParameterCheckboxes {
-		if checkbox.Value {
-			selected = append(selected, appState.SuperpixelParameterEditorIds[i])
+	for _, entry := range appState.SuperpixelParameterEditors {
+		if entry.OptimizeCheckbox.Value {
+			selected = append(selected, entry.Id)
 		}
 	}
 	return selected
@@ -62,12 +59,13 @@ func (appState *AppState) SelectedOptimizeParameters() []string {
 // SyncEditors updates each superpixel parameter editor's text to reflect
 // the current values in the superpixel implementation.
 func (appState *AppState) SyncEditors() error {
-	for i, paramId := range appState.SuperpixelParameterEditorIds {
+	for i := range appState.SuperpixelParameterEditors {
+		paramId := appState.SuperpixelParameterEditors[i].Id
 		paramValue, ok := appState.Settings.Superpixel.SpAlgorithmParameters[paramId]
 		if !ok {
 			return fmt.Errorf("Value for parameter %s not found", paramId)
 		}
-		appState.SuperpixelParameterEditors[i].SetText(fmt.Sprintf("%g", paramValue))
+		appState.SuperpixelParameterEditors[i].Editor.SetText(fmt.Sprintf("%g", paramValue))
 	}
 
 	return nil
@@ -97,7 +95,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Recalculate the superpixels for the current image
 	if appState.ActiveImage != nil {
-		appState.RecalculateSuperpixels(true, true)
+		appState.RecalculateSuperpixels(true)
 	}
 
 	return nil

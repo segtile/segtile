@@ -1,16 +1,16 @@
 package ui
 
 import (
-	"image/color"
+	"math"
 	"time"
 
+	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
@@ -49,6 +49,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		if pe.Kind == pointer.Leave || pe.Kind == pointer.Cancel {
 			appState.InImageBounds = false
 			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverCached = false
+			appState.StrokeAnchorValid = false
+			appState.LastPaintedSpLabel = -1
 			appState.Window.Invalidate()
 			continue
 		}
@@ -57,8 +60,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		gtx.Execute(key.FocusCmd{Tag: &appState.KeyboardTag})
 
 		// From the raw position of the pointer, calculate the position in image space
-		appState.LastHoverImagePosition.X = (pe.Position.X - appState.ViewOffsetX) / appState.ViewScale
-		appState.LastHoverImagePosition.Y = (pe.Position.Y - appState.ViewOffsetY) / appState.ViewScale
+		appState.LastHoverImagePosition.X = (pe.Position.X - appState.ViewOffset.X) / appState.ViewScale
+		appState.LastHoverImagePosition.Y = (pe.Position.Y - appState.ViewOffset.Y) / appState.ViewScale
 
 		// Check if the position is within the bounds of the image
 		appState.InImageBounds = appState.ActiveSp.LabelMap != nil && appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 && int(appState.LastHoverImagePosition.X) < appState.ActiveImage.Bounds().Dx() && int(appState.LastHoverImagePosition.Y) < appState.ActiveImage.Bounds().Dy()
@@ -86,16 +89,20 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			// Move event
-			if pe.Kind == pointer.Move || pe.Kind == pointer.Drag {
+			if (pe.Kind == pointer.Move || pe.Kind == pointer.Drag) && appState.ManualFixMode {
 				appState.RefreshHoverPreview()
 			}
 
 			// Paint event
 			if appState.InImageBounds && (pe.Kind == pointer.Press || pe.Kind == pointer.Drag) {
-				if pe.Buttons&pointer.ButtonPrimary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius, true)
-				} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-					appState.ApplyManualFixAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.ManualFixBrushRadius, false)
+				if pe.Buttons&(pointer.ButtonPrimary|pointer.ButtonSecondary) != 0 {
+					add := pe.Buttons&pointer.ButtonPrimary != 0
+					bounds := appState.ActiveImage.Bounds()
+					forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
+						appState.ApplyManualFixAt(x, y, add)
+					})
+					appState.StrokeAnchor = appState.LastHoverImagePosition
+					appState.StrokeAnchorValid = true
 				}
 				continue
 			}
@@ -114,8 +121,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			} else {
 				zoomFactor = 1.1
 			}
-			appState.ViewOffsetX = pe.Position.X - (pe.Position.X-appState.ViewOffsetX)*zoomFactor
-			appState.ViewOffsetY = pe.Position.Y - (pe.Position.Y-appState.ViewOffsetY)*zoomFactor
+			appState.ViewOffset.X = pe.Position.X - (pe.Position.X-appState.ViewOffset.X)*zoomFactor
+			appState.ViewOffset.Y = pe.Position.Y - (pe.Position.Y-appState.ViewOffset.Y)*zoomFactor
 			appState.ViewScale *= zoomFactor
 			appState.FitToWindow = false
 			appState.Window.Invalidate()
@@ -130,8 +137,8 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		}
 		if appState.IsPanning {
 			if pe.Kind == pointer.Drag {
-				appState.ViewOffsetX += pe.Position.X - appState.LastPanPosition.X
-				appState.ViewOffsetY += pe.Position.Y - appState.LastPanPosition.Y
+				appState.ViewOffset.X += pe.Position.X - appState.LastPanPosition.X
+				appState.ViewOffset.Y += pe.Position.Y - appState.LastPanPosition.Y
 				appState.LastPanPosition = pe.Position
 				appState.FitToWindow = false
 				appState.Window.Invalidate()
@@ -146,48 +153,70 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			appState.RefreshHoverPreview()
 		}
 
+		// Whenever the pointer is released, apply any pending auto flood fill and reprocess the selection.
+		if pe.Kind == pointer.Release {
+			if appState.EnableAutoFloodFill.Value {
+				changed := appState.AutoFloodFillSelection()
+				if changed {
+					appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
+				}
+			}
+			appState.ReprocessSelectionIfChanged()
+			// A fresh press must re-evaluate the superpixel under the cursor.
+			appState.LastPaintedSpLabel = -1
+			appState.StrokeAnchorValid = false
+			appState.Window.Invalidate()
+			continue
+		}
+
 		//  Handle primary/secondary click for de-/selection
 
 		if appState.InImageBounds {
-			// Sample the current superpixel label at the pointer position
-			label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
+			bounds := appState.ActiveImage.Bounds()
 
 			// Toggle selection based on primary/secondary button and update the selection outline if it changed
 			inputMade := false
+			buttonPressed := false
 			if pe.Buttons&pointer.ButtonPrimary != 0 {
-				inputMade = true
+				buttonPressed = true
 				if pe.Modifiers.Contain(key.ModShift) {
 					// If shift is held, perform a flood fill selection
-					appState.SelectionIndex = superpixel_utils.SuperpixelFloodFillFromPoint(appState.ActiveSp.LabelMap, int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y), appState.SelectionIndex)
+					inputMade = appState.FloodFillSelectFromPoint(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y))
 				} else {
-					// Perform a normal selection of a single superpixel
-					appState.SelectionIndex[label] = true
-
-					// Remove all manual corrections for the (newly) selected SP.
-					lb := appState.ActiveSp.LabelMap.Bounds()
-					for y := lb.Min.Y; y < lb.Max.Y; y++ {
-						for x := lb.Min.X; x < lb.Max.X; x++ {
-							if appState.ActiveSp.LabelMap.Gray16At(x, y).Y == label {
-								appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
+					// Select every superpixel along the stroke. When the cursor jumped
+					// since the last frame (slow hardware), bridge the gap with
+					// interpolated in-between points so no superpixels are skipped.
+					forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
+						// Sample the current superpixel label at this stroke point
+						label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
+						// Only paint when the cursor moved into a different superpixel;
+						// a held drag inside the same one needs no full-image rescan.
+						if int(label) != appState.LastPaintedSpLabel {
+							if appState.SetSpSelected(label, true) {
+								inputMade = true
 							}
+							appState.LastPaintedSpLabel = int(label)
 						}
-					}
-
+					})
 				}
 			} else if pe.Buttons&pointer.ButtonSecondary != 0 {
-				appState.SelectionIndex[label] = false
-
-				// Remove all manual corrections for the (newly) selected SP.
-				lb := appState.ActiveSp.LabelMap.Bounds()
-				for y := lb.Min.Y; y < lb.Max.Y; y++ {
-					for x := lb.Min.X; x < lb.Max.X; x++ {
-						if appState.ActiveSp.LabelMap.Gray16At(x, y).Y == label {
-							appState.ManualFixMask.SetGray16(x, y, color.Gray16{Y: app_config.ManualFixNone})
+				buttonPressed = true
+				// Same stroke interpolation for deselection.
+				forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
+					label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
+					if int(label) != appState.LastPaintedSpLabel {
+						if appState.SetSpSelected(label, false) {
+							inputMade = true
 						}
+						appState.LastPaintedSpLabel = int(label)
 					}
-				}
+				})
+			}
 
-				inputMade = true
+			// Anchor the stroke at the current position for the next pointer event.
+			if buttonPressed {
+				appState.StrokeAnchor = appState.LastHoverImagePosition
+				appState.StrokeAnchorValid = true
 			}
 
 			if inputMade {
@@ -199,18 +228,40 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.Window.Invalidate()
 				}
 
-				// Perform auto flood fill selection to select all superpixels that are enclosed by the current selection
-				if appState.EnableAutoFloodFill.Value {
-					var changed bool
-					appState.SelectionIndex, changed = superpixel_utils.SuperpixelAutoFloodFillSelection(appState.ActiveSp.LabelMap, appState.SelectionIndex)
-					if changed {
-						appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
-					}
-				}
-
-				appState.ReprocessSelection()
+				appState.ReprocessSelectionIfChanged()
 				appState.Window.Invalidate()
 			}
 		}
+	}
+}
+
+// strokeFrom returns the image-space point that the current stroke should be
+// interpolated from: the position where the stroke last applied paint during a
+// drag, or the pointer position itself for a fresh press (a single point).
+func strokeFrom(appState *app_config.AppState, pe pointer.Event) f32.Point {
+	if pe.Kind == pointer.Drag && appState.StrokeAnchorValid {
+		return appState.StrokeAnchor
+	}
+	return appState.LastHoverImagePosition
+}
+
+// forEachStrokePoint calls fn for every integer image-space point on the line
+// from "from" to "to" (excluding "from", including "to"), spaced at most one
+// pixel apart.
+func forEachStrokePoint(from, to f32.Point, width, height int, fn func(x, y int)) {
+	dx := to.X - from.X
+	dy := to.Y - from.Y
+	steps := int(math.Ceil(math.Sqrt(float64(dx*dx + dy*dy))))
+	if steps < 1 {
+		steps = 1
+	}
+	for i := 1; i <= steps; i++ {
+		t := float32(i) / float32(steps)
+		x := int(from.X + dx*t)
+		y := int(from.Y + dy*t)
+		if x < 0 || y < 0 || x >= width || y >= height {
+			continue
+		}
+		fn(x, y)
 	}
 }
