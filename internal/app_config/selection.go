@@ -29,32 +29,12 @@ func (appState *AppState) ClearSelection(showToast bool) {
 // SetSpSelected selects or deselects a single superpixel by painting all of its pixels
 // into the selection mask. Returns true if any pixel was changed.
 func (appState *AppState) SetSpSelected(label uint16, selected bool) bool {
-	changed := appState.setSpLabelsSelected([]uint16{label}, selected)
-	if changed {
-		appState.SelectionMaskDirty = true
-	}
-	return changed
-}
 
-// setSpLabelsSelected paints every pixel of the given superpixel labels in the selection mask,
-// overwriting any manual brush strokes inside them. The caller is responsible for reprocessing
-// the selection and invalidating the window.
-func (appState *AppState) setSpLabelsSelected(labels []uint16, selected bool) bool {
-
-	if appState.ActiveSp.LabelMap == nil || appState.SelectionMask == nil || len(labels) == 0 {
+	if appState.ActiveSp.LabelMap == nil || appState.SelectionMask == nil {
 		return false
 	}
 
-	lookup := make([]bool, appState.ActiveSp.SpCount)
-	for _, label := range labels {
-		if int(label) < len(lookup) {
-			lookup[label] = true
-		}
-	}
-
-	// Label map and selection mask share the same bounds (both derive from the active image),
-	// so a single direct pass over the Pix buffers works for both reading and writing.
-	bounds := appState.SelectionMask.Bounds()
+	bounds := appState.ActiveSp.BoundingBoxes[label].Bounds()
 	changed := false
 
 	// Only mark the mask dirty (and report a change) when a pixel value actually
@@ -64,12 +44,10 @@ func (appState *AppState) setSpLabelsSelected(labels []uint16, selected bool) bo
 	if !selected {
 		target = uint16(0)
 	}
-	//maskPix := appState.SelectionMask.Pix
-	//maskStride := appState.SelectionMask.Stride
-	labelMap := appState.ActiveSp.LabelMap
+
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			if lookup[superpixel_utils.UnsafeGray16At(labelMap, x, y)] && superpixel_utils.UnsafeGray16At(appState.SelectionMask, x, y) != target {
+			if superpixel_utils.UnsafeGray16At(appState.ActiveSp.LabelMap, x, y) == label && superpixel_utils.UnsafeGray16At(appState.SelectionMask, x, y) != target {
 				superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, target)
 				changed = true
 			}

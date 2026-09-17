@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 	"sort"
+	"sync"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -15,6 +16,7 @@ import (
 type SpResult struct {
 	LabelMap                   *image.Gray16
 	SpCount                    int // Number of superpixels. This should be the actual number of SP in the final map.
+	BoundingBoxes              map[uint16]*superpixel_utils.BoundingBox
 	connectivityEnforced       bool
 	contiguousIndexingEnforced bool
 }
@@ -31,7 +33,14 @@ func NewSpResult(labelMap *image.Gray16, spCount int, optimize bool) SpResult {
 	if optimize {
 		result.EnforceConnectivity()
 		result.EnforceContiguousIndexing()
-		result.SetActualSpCount() // Recalculate SpCount after enforcing connectivity and contiguous indexing
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			result.SetActualSpCount()
+		}) // Recalculate SpCount after enforcing connectivity and contiguous indexing
+		wg.Go(func() {
+			result.UpdateSpBoundingBoxes()
+		})
+		wg.Wait()
 	}
 	return result
 }
@@ -61,17 +70,20 @@ func (this *SpResult) ContiguousIndexingEnforced() bool {
 	return this.contiguousIndexingEnforced
 }
 
-func (this *SpResult) SpBoundingBoxes() map[uint16]superpixel_utils.BoundingBox {
-	boundingBoxes := make(map[uint16]superpixel_utils.BoundingBox)
+func (this *SpResult) UpdateSpBoundingBoxes() {
+	this.BoundingBoxes = map[uint16]*superpixel_utils.BoundingBox{}
 
 	bounds := this.LabelMap.Bounds()
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			boundingBoxes[superpixel_utils.UnsafeGray16At(this.LabelMap, x, y)].AddPoint(x, y)
+			label := superpixel_utils.UnsafeGray16At(this.LabelMap, x, y)
+			if _, exists := this.BoundingBoxes[label]; !exists {
+				this.BoundingBoxes[label] = &superpixel_utils.BoundingBox{}
+			}
+			this.BoundingBoxes[label].AddPoint(x, y)
 		}
 	}
 
-	return boundingBoxes
 }
 
 func (this *SpResult) analyzeLabelMap() (lowestLabel uint16, highestLabel uint16, labelUsed map[uint16]bool) {
