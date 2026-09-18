@@ -11,13 +11,18 @@ import (
 type AppTheme struct {
 	GioTheme                 material.Theme
 	HoverOutlineColor        color.NRGBA
+	HoverHaloColor           color.NRGBA
 	SelectionOutlineColor    color.NRGBA
+	SelectionHaloColor       color.NRGBA
 	ExistingMaskOutlineColor color.NRGBA
+	ExistingMaskHaloColor    color.NRGBA
 
 	SelectionStrokeWidth    float32
+	SelectionHaloWidth      float32
 	HoverStrokeWidth        float32
+	HoverHaloWidth          float32
 	ExistingMaskStrokeWidth float32
-	StrokeHaloWidth         float32
+	ExistingMaskHaloWidth   float32
 }
 
 // Menu bar
@@ -44,13 +49,22 @@ var Theme = &AppTheme{
 	GioTheme: gioTheme,
 
 	// Colors for outlines
-	HoverOutlineColor:        color.NRGBA{R: 0, G: 200, B: 255, A: 220},
-	SelectionOutlineColor:    color.NRGBA{R: 255, G: 200, B: 0, A: 240},
+	HoverOutlineColor: color.NRGBA{R: 0, G: 200, B: 255, A: 220},
+	HoverHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
+
+	SelectionOutlineColor: color.NRGBA{R: 255, G: 200, B: 0, A: 255},
+	SelectionHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
+
 	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 160},
+	ExistingMaskHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
 
 	// Stroke widths
-	SelectionStrokeWidth:    0.75,
-	HoverStrokeWidth:        0.75,
+	SelectionStrokeWidth: 1,
+	SelectionHaloWidth:   0.75,
+
+	HoverStrokeWidth: 0.75,
+	HoverHaloWidth:   0.5,
+
 	ExistingMaskStrokeWidth: 1.0,
-	StrokeHaloWidth:         0.75,
+	ExistingMaskHaloWidth:   1,
 }

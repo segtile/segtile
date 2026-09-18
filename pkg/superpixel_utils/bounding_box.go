@@ -10,7 +10,7 @@ type BoundingBox struct {
 	initialized            bool
 }
 
-func (bb BoundingBox) AddPoint(x, y int) {
+func (bb *BoundingBox) AddPoint(x, y int) {
 	if !bb.initialized {
 		bb.minX, bb.minY, bb.maxX, bb.maxY = x, y, x, y
 		bb.initialized = true
