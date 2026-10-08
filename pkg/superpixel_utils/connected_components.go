@@ -6,14 +6,15 @@ import (
 )
 
 // FindConnectedComponents finds all 4-connected components of pixels with equal values.
-// The returned map stores component id + 1 per pixel (0 means unvisited while the search is
-// running); after the call every pixel holds a valid id in 1..componentCount.
-func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, componentValue []uint16, componentSize []int) {
+// The returned row-major map stores component id + 1 per pixel (0 means unvisited while
+// the search is running); after the call every pixel holds a valid id in 1..componentCount.
+func FindConnectedComponents(img *image.Gray16) (componentIdMap []int, componentValue []uint16, componentSize []int) {
 	bounds := img.Bounds()
 	width := bounds.Dx()
+	height := bounds.Dy()
 
 	// Zero-initialized: 0 means unvisited, stored ids are shifted by +1.
-	componentIdMap = image.NewGray16(bounds)
+	componentIdMap = make([]int, width*height)
 
 	componentValue = []uint16{}
 	componentSize = []int{}
@@ -21,18 +22,18 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			startIndex := (y-bounds.Min.Y)*width + (x - bounds.Min.X)
 
 			// Skip pixels that already belong to a component
-			if UnsafeGray16At(componentIdMap, x, y) != 0 {
+			if componentIdMap[startIndex] != 0 {
 				continue
 			}
 
 			// Start a new connected component from this pixel
 			value := UnsafeGray16At(img, x, y)
-			currentComponentId := uint16(len(componentValue)) + 1
-			UnsafeSetGray16At(componentIdMap, x, y, currentComponentId)
+			currentComponentId := len(componentValue) + 1
+			componentIdMap[startIndex] = currentComponentId
 
-			startIndex := (y-bounds.Min.Y)*width + (x - bounds.Min.X)
 			queue = queue[:0]
 			queue = append(queue, startIndex)
 			size := 0
@@ -47,32 +48,32 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap *image.Gray16, c
 				// Left neighbor
 				if currentX > bounds.Min.X {
 					neighborIndex := currentIndex - 1
-					if UnsafeGray16At(componentIdMap, currentX-1, currentY) == 0 && UnsafeGray16At(img, currentX-1, currentY) == value {
-						UnsafeSetGray16At(componentIdMap, currentX-1, currentY, currentComponentId)
+					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX-1, currentY) == value {
+						componentIdMap[neighborIndex] = currentComponentId
 						queue = append(queue, neighborIndex)
 					}
 				}
 				// Right neighbor
 				if currentX+1 < bounds.Max.X {
 					neighborIndex := currentIndex + 1
-					if UnsafeGray16At(componentIdMap, currentX+1, currentY) == 0 && UnsafeGray16At(img, currentX+1, currentY) == value {
-						UnsafeSetGray16At(componentIdMap, currentX+1, currentY, currentComponentId)
+					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX+1, currentY) == value {
+						componentIdMap[neighborIndex] = currentComponentId
 						queue = append(queue, neighborIndex)
 					}
 				}
 				// Top neighbor
 				if currentY > bounds.Min.Y {
 					neighborIndex := currentIndex - width
-					if UnsafeGray16At(componentIdMap, currentX, currentY-1) == 0 && UnsafeGray16At(img, currentX, currentY-1) == value {
-						UnsafeSetGray16At(componentIdMap, currentX, currentY-1, currentComponentId)
+					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX, currentY-1) == value {
+						componentIdMap[neighborIndex] = currentComponentId
 						queue = append(queue, neighborIndex)
 					}
 				}
 				// Bottom neighbor
 				if currentY+1 < bounds.Max.Y {
 					neighborIndex := currentIndex + width
-					if UnsafeGray16At(componentIdMap, currentX, currentY+1) == 0 && UnsafeGray16At(img, currentX, currentY+1) == value {
-						UnsafeSetGray16At(componentIdMap, currentX, currentY+1, currentComponentId)
+					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX, currentY+1) == value {
+						componentIdMap[neighborIndex] = currentComponentId
 						queue = append(queue, neighborIndex)
 					}
 				}
@@ -108,7 +109,8 @@ func FindIslands(mask *image.Gray16) (islandMap *image.Gray16, islandCount uint1
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			componentId := UnsafeGray16At(componentIdMap, x, y) - 1
+			componentIndex := (y-bounds.Min.Y)*bounds.Dx() + (x - bounds.Min.X)
+			componentId := componentIdMap[componentIndex] - 1
 			if islandLabel := islandLabels[componentId]; islandLabel > 0 {
 				islandMap.SetGray16(x, y, color.Gray16{Y: islandLabel})
 			}

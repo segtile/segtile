@@ -91,6 +91,23 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 	}
 }
 
+func TestEnforceConnectivity_MoreThan65535Components(t *testing.T) {
+	const width, height = 512, 512
+	labelMap := image.NewGray16(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y += 2 {
+		for x := 0; x < width; x += 2 {
+			labelMap.SetGray16(x, y, color.Gray16{Y: 1})
+		}
+	}
+
+	result := NewSpResult(labelMap, 0, false)
+	result.EnforceConnectivity()
+
+	if result.SpCount != 2 {
+		t.Fatalf("expected 2 superpixel labels after connectivity enforcement, got %d", result.SpCount)
+	}
+}
+
 func TestMakeSpResult_RemapsRandomLabels(t *testing.T) {
 	original := generatePseudoRandomGray16(t, 32, 32)
 	originalResult := NewSpResult(original, 0, false)

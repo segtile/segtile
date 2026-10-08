@@ -7,26 +7,53 @@ import (
 // LabelMapNeighborhoodsWeighted computes, for each label in a label map, which other labels
 // share a border with it and how long that shared border is (in pixels).
 func LabelMapNeighborhoodsWeighted(labelMap *image.Gray16, labelCount int) [][]LabelBorder {
-
 	bounds := labelMap.Bounds()
+	intBorders := labelNeighborhoodsWeighted(bounds, labelCount, func(x, y int) int {
+		return int(UnsafeGray16At(labelMap, x, y))
+	})
+	borders := make([][]LabelBorder, labelCount)
+	for label, neighbors := range intBorders {
+		borders[label] = make([]LabelBorder, 0, len(neighbors))
+		for _, neighbor := range neighbors {
+			borders[label] = append(borders[label], LabelBorder{
+				Label:              uint16(neighbor.Label),
+				SharedBorderLength: neighbor.SharedBorderLength,
+			})
+		}
+	}
+	return borders
+}
 
+// LabelMapNeighborhoodsWeightedInt computes weighted neighborhoods for a row-major integer label map.
+func LabelMapNeighborhoodsWeightedInt(labelMap []int, bounds image.Rectangle, labelCount int) [][]IntLabelBorder {
+	return labelNeighborhoodsWeighted(bounds, labelCount, func(x, y int) int {
+		return labelMap[(y-bounds.Min.Y)*bounds.Dx()+x-bounds.Min.X]
+	})
+}
+
+type IntLabelBorder struct {
+	Label              int
+	SharedBorderLength int
+}
+
+func labelNeighborhoodsWeighted(bounds image.Rectangle, labelCount int, labelAt func(x, y int) int) [][]IntLabelBorder {
 	// Measure the shared border length between each pair of neighboring labels.
 	// Only right and bottom neighbors are checked, so every undirected pair is counted exactly once.
-	borderLengths := make([]map[uint16]int, labelCount)
+	borderLengths := make([]map[int]int, labelCount)
 	for label := range borderLengths {
-		borderLengths[label] = make(map[uint16]int)
+		borderLengths[label] = make(map[int]int)
 	}
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			currentLabel := UnsafeGray16At(labelMap, x, y)
+			currentLabel := labelAt(x, y)
 			if x+1 < bounds.Max.X {
-				if neighborLabel := UnsafeGray16At(labelMap, x+1, y); neighborLabel != currentLabel {
+				if neighborLabel := labelAt(x+1, y); neighborLabel != currentLabel {
 					borderLengths[currentLabel][neighborLabel]++
 					borderLengths[neighborLabel][currentLabel]++
 				}
 			}
 			if y+1 < bounds.Max.Y {
-				if neighborLabel := UnsafeGray16At(labelMap, x, y+1); neighborLabel != currentLabel {
+				if neighborLabel := labelAt(x, y+1); neighborLabel != currentLabel {
 					borderLengths[currentLabel][neighborLabel]++
 					borderLengths[neighborLabel][currentLabel]++
 				}
@@ -35,11 +62,11 @@ func LabelMapNeighborhoodsWeighted(labelMap *image.Gray16, labelCount int) [][]L
 	}
 
 	// Flatten the per-label maps into border slices.
-	borders := make([][]LabelBorder, labelCount)
+	borders := make([][]IntLabelBorder, labelCount)
 	for label, lengths := range borderLengths {
-		borders[label] = make([]LabelBorder, 0, len(lengths))
+		borders[label] = make([]IntLabelBorder, 0, len(lengths))
 		for neighborLabel, length := range lengths {
-			borders[label] = append(borders[label], LabelBorder{Label: neighborLabel, SharedBorderLength: length})
+			borders[label] = append(borders[label], IntLabelBorder{Label: neighborLabel, SharedBorderLength: length})
 		}
 	}
 	return borders
