@@ -21,7 +21,8 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
+
+	//_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/achievable_segmentation_accuracy"
