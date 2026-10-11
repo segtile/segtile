@@ -64,7 +64,10 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 		appState.LastHoverImagePosition.Y = (pe.Position.Y - appState.ViewOffset.Y) / appState.ViewScale
 
 		// Check if the position is within the bounds of the image
-		appState.InImageBounds = appState.ActiveSp.LabelMap != nil && appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 && int(appState.LastHoverImagePosition.X) < appState.ActiveImage.Bounds().Dx() && int(appState.LastHoverImagePosition.Y) < appState.ActiveImage.Bounds().Dy()
+		appState.InImageBounds = appState.ActiveSp.LabelMap != nil &&
+			appState.LastHoverImagePosition.X >= 0 && appState.LastHoverImagePosition.Y >= 0 &&
+			appState.LastHoverImagePosition.X < float32(appState.ActiveSp.LabelMap.Width) &&
+			appState.LastHoverImagePosition.Y < float32(appState.ActiveSp.LabelMap.Height)
 
 		// Handle manual fix mode
 		if appState.ManualFixMode && appState.ActiveImage != nil {

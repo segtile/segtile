@@ -3,8 +3,10 @@ package app_config
 import (
 	"errors"
 	"image"
+	"math"
 	"testing"
 
+	"gioui.org/f32"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
@@ -27,6 +29,37 @@ func TestApplyManualFixAt_ClipsBrushToImageBounds(t *testing.T) {
 	}
 	if selected != 6 {
 		t.Fatalf("selected pixels = %d, want 6", selected)
+	}
+}
+
+func TestRefreshHoverPreviewRejectsOutOfBoundsCoordinates(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pos  f32.Point
+	}{
+		{name: "positive overflow", pos: f32.Pt(1e30, 1e30)},
+		{name: "NaN", pos: f32.Pt(float32(math.NaN()), 0)},
+		{name: "infinity", pos: f32.Pt(float32(math.Inf(1)), 0)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := &AppState{
+				ActiveSp: superpixel.SpResult{LabelMap: superpixel_map.NewLabelMap(2, 2)},
+				UiState: UiState{
+					InImageBounds: true,
+					HoverCached:   true,
+				},
+			}
+			state.LastHoverImagePosition = tc.pos
+
+			state.RefreshHoverPreview()
+
+			if state.InImageBounds {
+				t.Fatal("expected invalid hover position to be marked out of bounds")
+			}
+			if state.HoverCached {
+				t.Fatal("expected invalid hover position to invalidate the cached outline")
+			}
+		})
 	}
 }
 

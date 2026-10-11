@@ -105,9 +105,19 @@ func (appState *AppState) RefreshHoverPreview() {
 		return
 	}
 
+	labelMap := appState.ActiveSp.LabelMap
+	hoverX, hoverY := appState.LastHoverImagePosition.X, appState.LastHoverImagePosition.Y
+	if !(hoverX >= 0 && hoverY >= 0 && hoverX < float32(labelMap.Width) && hoverY < float32(labelMap.Height)) {
+		appState.InImageBounds = false
+		if appState.HoverCached {
+			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverCached = false
+		}
+		return
+	}
+	x, y := int(hoverX), int(hoverY)
+
 	if appState.ManualFixMode {
-		x := int(appState.LastHoverImagePosition.X)
-		y := int(appState.LastHoverImagePosition.Y)
 		radius := appState.ManualFixBrushRadius
 		if appState.HoverCached && appState.HoverCacheManual && appState.HoverCachePos == image.Pt(x, y) && appState.HoverCacheRadius == radius {
 			return
@@ -120,7 +130,7 @@ func (appState *AppState) RefreshHoverPreview() {
 		return
 	}
 
-	label := appState.ActiveSp.LabelMap.ValueAt(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y))
+	label := labelMap.ValueAt(x, y)
 	if appState.HoverCached && !appState.HoverCacheManual && appState.HoverCacheLabel == label {
 		return
 	}
