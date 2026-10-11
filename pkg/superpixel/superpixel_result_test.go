@@ -71,6 +71,7 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 	disconnected := loadTestData(t, "testdata/grid_4x4_disconnected.png")
 
 	connectedResult := SpResult{LabelMap: connected}
+	connectedResult.Optimize()
 	disconnectedResult := SpResult{LabelMap: disconnected}
 
 	disconnectedResult.Optimize()

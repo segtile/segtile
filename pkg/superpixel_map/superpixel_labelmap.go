@@ -1,6 +1,7 @@
 package superpixel_map
 
 import "image"
+import "image/color"
 
 type LabelMap struct {
 
@@ -27,10 +28,8 @@ func NewLabelMapFromImage(img image.Image) *LabelMap {
 	labelMap := NewLabelMap(width, height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			grayColor := img.At(x, y)
-			r, g, b, _ := grayColor.RGBA()
-			// Convert to 16-bit grayscale value
-			gray16 := uint32((r + g + b) / 3 >> 8)
+			grayColor := color.Gray16Model.Convert(img.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray16)
+			gray16 := uint32(grayColor.Y)
 			labelMap.SetLabelAt(x, y, gray16)
 		}
 	}

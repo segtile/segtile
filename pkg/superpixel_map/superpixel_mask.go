@@ -26,7 +26,7 @@ func NewMaskFromImage(img image.Image) *Mask {
 	mask := NewMask(width, height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			grayColor := color.GrayModel.Convert(img.At(x, y)).(color.Gray)
+			grayColor := color.Gray16Model.Convert(img.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray16)
 			mask.SetMaskAt(x, y, grayColor.Y > 0)
 		}
 	}

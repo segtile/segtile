@@ -14,7 +14,7 @@ const smoothMaxFactor = 0.05
 func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 
 	// Early return if there is no image
-	if appState.ActiveImage == nil {
+	if appState.ActiveImage == nil || appState.SelectionMask == nil {
 		return
 	}
 
@@ -28,7 +28,7 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	targetBbox := superpixel_utils.BoundingBox{}
 	targetBbox.AddPoint(x-appState.ManualFixBrushRadius, y-appState.ManualFixBrushRadius)
 	targetBbox.AddPoint(x+appState.ManualFixBrushRadius, y+appState.ManualFixBrushRadius)
-	targetBounds := targetBbox.Bounds()
+	targetBounds := targetBbox.Bounds().Intersect(appState.SelectionMask.Bounds())
 
 	for py := targetBounds.Min.Y; py < targetBounds.Max.Y; py++ {
 		for px := targetBounds.Min.X; px < targetBounds.Max.X; px++ {
