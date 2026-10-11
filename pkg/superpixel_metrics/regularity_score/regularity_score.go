@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -21,11 +22,11 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityCalibrationScore float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (regularityCalibrationScore float64, err error) {
 
 	// Check that images are valid
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
@@ -33,7 +34,8 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityCalib
 	}
 
 	// Find islands in GT
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
+	groundTruthIslands, _, groundTruthIslandSize := superpixel_utils.FindConnectedComponents(groundTruth)
+	groundTruthIslandCount := uint32(len(groundTruthIslandSize))
 
 	// Prepare metrics
 	cumulativeRegularityCalibrationScore := 0.0
@@ -46,9 +48,9 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityCalib
 	islandFillRatios := fillRatioOfOwnBoundingBoxPerIsland(groundTruthIslands, groundTruthIslandCount)
 
 	// Evaluate islands
-	for i := uint16(1); i <= groundTruthIslandCount; i++ {
+	for i := uint32(1); i <= groundTruthIslandCount; i++ {
 		// Only consider the superpixels that approximate this specific island, not the whole image.
-		currentGroundTruthIsland := superpixel_utils.SelectIsland(groundTruthIslands, i)
+		currentGroundTruthIsland := superpixel_utils.SelectConnectedComponent(groundTruthIslands, i)
 		currentSelection := result.SelectFromMask(currentGroundTruthIsland, 0.5)
 		currentSuperpixelFillRatio := fillRatioOfOwnBoundingBoxPerSuperpixel(result.LabelMap, result.SpCount, currentSelection)
 
@@ -69,13 +71,13 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (regularityCalib
 // fillRatioOfOwnBoundingBoxPerIsland computes, in a single pass over islandMap, the fill ratio of
 // every ground truth island (label 0 is background and is ignored). The returned slice is indexed
 // by island label, so index 0 is always 0.
-func fillRatioOfOwnBoundingBoxPerIsland(islandMap *image.Gray16, islandCount uint16) []float64 {
+func fillRatioOfOwnBoundingBoxPerIsland(islandMap *superpixel_map.LabelMap, islandCount uint32) []float64 {
 	islandPixelCount := make([]int, islandCount+1)
 	islandBoundingBox := make([]superpixel_utils.BoundingBox, islandCount+1)
 	bounds := islandMap.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			islandLabel := islandMap.Gray16At(x, y).Y
+			islandLabel := islandMap.ValueAt(x, y)
 			if islandLabel == 0 {
 				continue
 			}
@@ -85,7 +87,7 @@ func fillRatioOfOwnBoundingBoxPerIsland(islandMap *image.Gray16, islandCount uin
 	}
 
 	fillRatios := make([]float64, islandCount+1)
-	for i := uint16(1); i <= islandCount; i++ {
+	for i := uint32(1); i <= islandCount; i++ {
 		if islandPixelCount[i] > 0 {
 			fillRatios[i] = float64(islandPixelCount[i]) / float64(islandBoundingBox[i].Area())
 		}
@@ -96,13 +98,13 @@ func fillRatioOfOwnBoundingBoxPerIsland(islandMap *image.Gray16, islandCount uin
 // fillRatioOfOwnBoundingBoxPerSuperpixel computes, in a single pass over labelMap, the average fill
 // ratio of the superpixels marked in selection. Superpixels not in selection are ignored entirely,
 // both when accumulating pixel/bounding box data and when averaging the result.
-func fillRatioOfOwnBoundingBoxPerSuperpixel(labelMap *image.Gray16, spCount int, selection []bool) float64 {
+func fillRatioOfOwnBoundingBoxPerSuperpixel(labelMap *superpixel_map.LabelMap, spCount int, selection []bool) float64 {
 	spPixelCount := make([]int, spCount)
 	spBoundingBox := make([]superpixel_utils.BoundingBox, spCount)
 	bounds := labelMap.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			spLabel := labelMap.Gray16At(x, y).Y
+			spLabel := labelMap.ValueAt(x, y)
 			if !selection[spLabel] {
 				continue
 			}

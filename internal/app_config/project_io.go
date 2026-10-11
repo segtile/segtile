@@ -242,7 +242,7 @@ func (appState *AppState) RecreateExistingMaskFromDisk() {
 			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "The existing mask's dimensions do not match the image.", 3*time.Second)
 		} else {
 			// Adopt the on-disk mask as the active selection without any superpixel approximation.
-			appState.SelectionMask = io_utils.ToGray16(io_utils.CopyImage(appState.ActiveImageExistingMask))
+			appState.SelectionMask = appState.ActiveImageExistingMask.Clone()
 			appState.SelectionMaskDirty = true
 			appState.ReprocessSelection()
 		}

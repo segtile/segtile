@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 )
 
@@ -20,11 +21,11 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score float64, err error) {
 
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
@@ -38,12 +39,12 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 	var intersection, union int
 	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
-			pOriginal := groundTruth.Gray16At(x, y)
-			pApproximated := maskApproximated.Gray16At(x, y)
-			if pOriginal.Y > 0 && pApproximated.Y > 0 {
+			pOriginal := groundTruth.ValueAt(x, y)
+			pApproximated := maskApproximated.ValueAt(x, y)
+			if pOriginal > 0 && pApproximated > 0 {
 				intersection++
 				union += 2
-			} else if pOriginal.Y > 0 || pApproximated.Y > 0 {
+			} else if pOriginal > 0 || pApproximated > 0 {
 				union += 1
 			}
 		}

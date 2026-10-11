@@ -1,38 +1,37 @@
 package superpixel_utils
 
 import (
-	"image"
-	"image/color"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
 // FindConnectedComponents finds all 4-connected components of pixels with equal values.
 // The returned row-major map stores component id + 1 per pixel (0 means unvisited while
 // the search is running); after the call every pixel holds a valid id in 1..componentCount.
-func FindConnectedComponents(img *image.Gray16) (componentIdMap []int, componentValue []uint16, componentSize []int) {
-	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
+func FindConnectedComponents(labelMap superpixel_map.Map) (componentIdMap *superpixel_map.LabelMap, componentValue []uint32, componentSize []int) {
 
 	// Zero-initialized: 0 means unvisited, stored ids are shifted by +1.
-	componentIdMap = make([]int, width*height)
+	bounds := labelMap.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+	componentIdMap = superpixel_map.NewLabelMap(width, height)
 
-	componentValue = []uint16{}
+	componentValue = []uint32{}
 	componentSize = []int{}
 	queue := []int{}
 
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			startIndex := (y-bounds.Min.Y)*width + (x - bounds.Min.X)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			startIndex := y*width + x
 
 			// Skip pixels that already belong to a component
-			if componentIdMap[startIndex] != 0 {
+			if componentIdMap.ValueAt(startIndex%width, startIndex/width) != 0 {
 				continue
 			}
 
 			// Start a new connected component from this pixel
-			value := UnsafeGray16At(img, x, y)
-			currentComponentId := len(componentValue) + 1
-			componentIdMap[startIndex] = currentComponentId
+			value := labelMap.ValueAt(x, y)
+			currentComponentId := uint32(len(componentValue) + 1)
+			componentIdMap.SetLabelAt(startIndex%width, startIndex/width, currentComponentId)
 
 			queue = queue[:0]
 			queue = append(queue, startIndex)
@@ -42,38 +41,38 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap []int, component
 				currentIndex := queue[head]
 				size++
 
-				currentX := (currentIndex % width) + bounds.Min.X
-				currentY := (currentIndex / width) + bounds.Min.Y
+				currentX := currentIndex % width
+				currentY := currentIndex / width
 
 				// Left neighbor
-				if currentX > bounds.Min.X {
+				if currentX > 0 {
 					neighborIndex := currentIndex - 1
-					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX-1, currentY) == value {
-						componentIdMap[neighborIndex] = currentComponentId
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX-1, currentY) == value {
+						componentIdMap.SetLabelAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
 				// Right neighbor
-				if currentX+1 < bounds.Max.X {
+				if currentX+1 < width {
 					neighborIndex := currentIndex + 1
-					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX+1, currentY) == value {
-						componentIdMap[neighborIndex] = currentComponentId
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX+1, currentY) == value {
+						componentIdMap.SetLabelAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
 				// Top neighbor
-				if currentY > bounds.Min.Y {
+				if currentY > 0 {
 					neighborIndex := currentIndex - width
-					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX, currentY-1) == value {
-						componentIdMap[neighborIndex] = currentComponentId
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX, currentY-1) == value {
+						componentIdMap.SetLabelAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
 				// Bottom neighbor
-				if currentY+1 < bounds.Max.Y {
+				if currentY+1 < height {
 					neighborIndex := currentIndex + width
-					if componentIdMap[neighborIndex] == 0 && UnsafeGray16At(img, currentX, currentY+1) == value {
-						componentIdMap[neighborIndex] = currentComponentId
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX, currentY+1) == value {
+						componentIdMap.SetLabelAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
 				}
@@ -87,48 +86,15 @@ func FindConnectedComponents(img *image.Gray16) (componentIdMap []int, component
 	return componentIdMap, componentValue, componentSize
 }
 
-// Identifies connected components of non-zero pixels in the mask and assigns each component a unique label in the output image.
-// The value 0 is used as the background, 1 for the first island, 2 for the second, and so on.
-// It also returns the total number of connected components (islands) found.
-func FindIslands(mask *image.Gray16) (islandMap *image.Gray16, islandCount uint16) {
-
-	islandMap = image.NewGray16(mask.Bounds())
-	bounds := mask.Bounds()
-
-	componentIdMap, componentValue, _ := FindConnectedComponents(mask)
-
-	// Assign each foreground component a label
-	islandLabels := make([]uint16, len(componentValue))
-	nextLabel := uint16(1)
-	for id, value := range componentValue {
-		if value > 0 {
-			islandLabels[id] = nextLabel
-			nextLabel++
-		}
-	}
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			componentIndex := (y-bounds.Min.Y)*bounds.Dx() + (x - bounds.Min.X)
-			componentId := componentIdMap[componentIndex] - 1
-			if islandLabel := islandLabels[componentId]; islandLabel > 0 {
-				islandMap.SetGray16(x, y, color.Gray16{Y: islandLabel})
-			}
-		}
-	}
-
-	return islandMap, nextLabel - 1
-}
-
-// SelectIsland creates a new mask where only the pixels belonging to the specified island label are set.
-func SelectIsland(islandMap *image.Gray16, islandLabel uint16) *image.Gray16 {
+// SelectConnectedComponent creates a new mask where only the pixels belonging to the specified island label are set.
+func SelectConnectedComponent(islandMap *superpixel_map.LabelMap, islandLabel uint32) *superpixel_map.Mask {
 	bounds := islandMap.Bounds()
-	selectedIsland := image.NewGray16(bounds)
+	selectedIsland := superpixel_map.NewMask(islandMap.Width, islandMap.Height)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			if islandMap.Gray16At(x, y).Y == islandLabel {
-				selectedIsland.SetGray16(x, y, color.Gray16{Y: 65535})
+			if islandMap.ValueAt(x, y) == islandLabel {
+				selectedIsland.SetMaskAt(x, y, true)
 			}
 		}
 	}

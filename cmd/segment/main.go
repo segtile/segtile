@@ -17,13 +17,14 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 
 	//_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
-func renderSegmentationBorders(img image.Image, labelMap *image.Gray16, borderColor colorful.Color) *image.NRGBA {
+func renderSegmentationBorders(img image.Image, labelMap *superpixel_map.LabelMap, borderColor colorful.Color) *image.NRGBA {
 	segmentation := io_utils.CopyImage(img)
 	for _, point := range superpixel_utils.BoundaryPoints(labelMap, true) {
 		segmentation.Set(point.X, point.Y, borderColor)
@@ -77,6 +78,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
 		os.Exit(1)
 	}
+	result.Optimize()
 
 	//io_utils.SaveImage(labelMapOutPath, result.LabelMap)
 	io_utils.SaveImage(segmentationOutPath, renderSegmentationBorders(img, result.LabelMap, borderColor))

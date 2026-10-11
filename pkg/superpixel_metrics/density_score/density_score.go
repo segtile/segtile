@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -32,11 +33,11 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrationScore float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityCalibrationScore float64, err error) {
 
 	// Check that input images match
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
@@ -47,28 +48,29 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 	pixelCount := bounds.Dx() * bounds.Dy()
 
 	// Find islands in GT
-	groundTruthIslands, groundTruthIslandCount := superpixel_utils.FindIslands(groundTruth)
+	gtComponentIdMap, _, gtComponentSize := superpixel_utils.FindConnectedComponents(groundTruth)
+	gtComponentCount := len(gtComponentSize)
 
 	// Count the number of pixels in each island
-	pixelCountPerIsland := make([]int, groundTruthIslandCount+1)
+	pixelCountPerIsland := make([]int, gtComponentCount+1)
 
 	// Count the number of pixels per superpixel
 	pixelCountPerSuperpixel := make([]int, result.SpCount)
 
 	// For each superpixel, keep track of how many pixels overlap with each island
-	pixelCountPerSuperpixelPerIsland := make([]map[uint16]int, result.SpCount)
+	pixelCountPerSuperpixelPerIsland := make([]map[uint32]int, result.SpCount)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			islandIndex := groundTruthIslands.Gray16At(x, y).Y
-			spLabel := result.LabelMap.Gray16At(x, y).Y
+			islandIndex := gtComponentIdMap.ValueAt(x, y)
+			spLabel := result.LabelMap.ValueAt(x, y)
 
 			pixelCountPerSuperpixel[spLabel]++
 			pixelCountPerIsland[islandIndex]++
 
 			if islandIndex > 0 {
 				if pixelCountPerSuperpixelPerIsland[spLabel] == nil {
-					pixelCountPerSuperpixelPerIsland[spLabel] = make(map[uint16]int)
+					pixelCountPerSuperpixelPerIsland[spLabel] = make(map[uint32]int)
 				}
 				pixelCountPerSuperpixelPerIsland[spLabel][islandIndex]++
 			}
@@ -78,7 +80,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 	// Determine which island (if any) "owns" each superpixel. Because islands are disjoint, a superpixel's overlap fractions across islands sum to
 	// at most 1, so at most one island can reach the 50% threshold.
 	const selectionThreshold = 0.5
-	owningIsland := make([]uint16, result.SpCount)
+	owningIsland := make([]uint32, result.SpCount)
 	for spLabel, overlaps := range pixelCountPerSuperpixelPerIsland {
 		for islandLabel, overlapCount := range overlaps {
 			if float64(overlapCount)/float64(pixelCountPerSuperpixel[spLabel]) >= selectionThreshold {
@@ -90,11 +92,11 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 
 	// Classify every boundary pixel of the label map exactly once, attributing it to whichever
 	// island owns its superpixel (if any), and tally inside/outside boundary counts per island.
-	boundariesInside := make([]int, groundTruthIslandCount+1)
-	boundariesOutside := make([]int, groundTruthIslandCount+1)
+	boundariesInside := make([]int, gtComponentCount+1)
+	boundariesOutside := make([]int, gtComponentCount+1)
 
 	for _, boundaryPoint := range superpixel_utils.BoundaryPoints(result.LabelMap, false) {
-		owner := owningIsland[result.LabelMap.Gray16At(boundaryPoint.X, boundaryPoint.Y).Y]
+		owner := owningIsland[result.LabelMap.ValueAt(boundaryPoint.X, boundaryPoint.Y)]
 		if owner == 0 {
 			continue
 		}
@@ -102,7 +104,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 		// Does it have a neighbor pixel not in the same island's selection?
 		hasNeighborOutsideSelection := false
 		for _, neighbor := range superpixel_utils.PixelNeighbours(boundaryPoint, result.LabelMap.Bounds(), true, false) {
-			neighborSpLabel := result.LabelMap.Gray16At(neighbor.X, neighbor.Y).Y
+			neighborSpLabel := result.LabelMap.ValueAt(neighbor.X, neighbor.Y)
 			if owningIsland[neighborSpLabel] != owner {
 				hasNeighborOutsideSelection = true
 				break
@@ -118,7 +120,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 
 	// Aggregate the per-island scores
 	cumulativeDensityScore := 0.0
-	for i := uint16(1); i <= groundTruthIslandCount; i++ {
+	for i := uint32(1); i <= uint32(gtComponentCount); i++ {
 		inside := boundariesInside[i]
 		outside := boundariesOutside[i]
 		if inside+outside == 0 {
@@ -130,7 +132,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (densityCalibrat
 		cumulativeDensityScore += math.Min(outsideRatio, desiredOutsideRatio) / math.Max(outsideRatio, desiredOutsideRatio)
 	}
 
-	densityCalibrationScore = cumulativeDensityScore / float64(groundTruthIslandCount)
+	densityCalibrationScore = cumulativeDensityScore / float64(gtComponentCount)
 
 	return densityCalibrationScore, nil
 }

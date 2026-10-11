@@ -24,10 +24,7 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 	}
 
 	// Run the post-processing steps on the superpixel result
-	newResult.EnforceConnectivity()
-	newResult.EnforceContiguousIndexing()
-	newResult.SetActualSpCount()
-	newResult.UpdateSpBoundingBoxes()
+	newResult.Optimize()
 
 	// Merge the new SP into the app state
 	appState.ActiveSp = newResult

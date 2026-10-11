@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
 type SpMetricParameterKind int
@@ -29,7 +30,7 @@ type spMetricRegistryEntry struct {
 	Title          string
 	Description    string
 	OptimalScore   float64
-	Run            func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error)
+	Run            func(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error)
 	Parameters     []SpMetricParameterInfo
 	ParameterIndex map[string]int // Maps parameter id to its index in the Parameters slice
 }
@@ -41,7 +42,7 @@ func RegisterSpMetric(
 	title string,
 	description string,
 	optimalScore float64,
-	run func(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error),
+	run func(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error),
 	parameters []SpMetricParameterInfo) {
 	if _, exists := spMetricRegistry[id]; exists {
 		panic("Superpixel metric with id " + id + " is already registered")
@@ -101,7 +102,7 @@ func GetDefaultSpMetricParameters(id string) (params map[string]float64, err err
 // Run executes the registered superpixel metric with the given id.
 // It takes the superpixel result, the original image, the ground truth mask, and a map of parameters as input.
 // Not all algorithms may use all parameters.
-func Run(id string, result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func Run(id string, result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	entry, exists := spMetricRegistry[id]
 	if !exists {
 		return 0, fmt.Errorf("Superpixel metric with id %s is not registered", id)

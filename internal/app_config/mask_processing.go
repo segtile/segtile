@@ -1,8 +1,6 @@
 package app_config
 
 import (
-	"image/color"
-
 	"gioui.org/op/clip"
 
 	"github.com/struffel/annotation-tool/internal/rendering"
@@ -38,9 +36,9 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 			dy := py - y
 			if dx*dx+dy*dy <= radius2 {
 				if add {
-					appState.SelectionMask.SetGray16(px, py, color.Gray16{Y: 65535})
+					appState.SelectionMask.SetMaskAt(px, py, true)
 				} else {
-					appState.SelectionMask.SetGray16(px, py, color.Gray16{Y: 0})
+					appState.SelectionMask.SetMaskAt(px, py, false)
 				}
 			}
 		}
@@ -85,7 +83,7 @@ func (appState *AppState) ReprocessSelection() {
 		return
 	}
 
-	if appState.SelectionMask == nil || !superpixel_utils.HasNonZeroPixels(appState.SelectionMask) {
+	if appState.SelectionMask == nil || appState.SelectionMask.IsEmpty() {
 		appState.ProcessedSelectionMask = nil
 		appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
 		appState.SelectionMaskDirty = false
@@ -99,7 +97,7 @@ func (appState *AppState) ReprocessSelection() {
 		return
 	}
 
-	width := float32(appState.SelectionMask.Bounds().Dx())
+	width := float32(appState.SelectionMask.Width)
 	shrinkGrowRadius := int(SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value) * width * shrinkGrowMaxFactor)
 	smoothRadius := int(appState.SmoothAmount.Value * width * smoothMaxFactor)
 

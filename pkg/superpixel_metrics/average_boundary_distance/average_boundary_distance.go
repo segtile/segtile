@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -21,11 +22,11 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score float64, err error) {
 
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
@@ -44,7 +45,7 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 
 	// For every boundary in the grount truth segmentation, get the distance to the nearest boundary in the SP segmentation and add it to the average
 	for _, p := range boundariesGroundTruth {
-		distance := boundaryDistanceMap.Gray16At(p.X, p.Y).Y
+		distance := boundaryDistanceMap.ValueAt(p.X, p.Y)
 		cumulativeBoundaryDistance += float64(distance)
 	}
 

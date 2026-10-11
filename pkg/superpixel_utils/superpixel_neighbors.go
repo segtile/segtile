@@ -1,59 +1,39 @@
 package superpixel_utils
 
 import (
-	"image"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
-// LabelMapNeighborhoodsWeighted computes, for each label in a label map, which other labels
+// labelMapNeighborhoodsWeighted computes, for each label in a label map, which other labels
 // share a border with it and how long that shared border is (in pixels).
-func LabelMapNeighborhoodsWeighted(labelMap *image.Gray16, labelCount int) [][]LabelBorder {
-	bounds := labelMap.Bounds()
-	intBorders := labelNeighborhoodsWeighted(bounds, labelCount, func(x, y int) int {
-		return int(UnsafeGray16At(labelMap, x, y))
-	})
-	borders := make([][]LabelBorder, labelCount)
-	for label, neighbors := range intBorders {
-		borders[label] = make([]LabelBorder, 0, len(neighbors))
-		for _, neighbor := range neighbors {
-			borders[label] = append(borders[label], LabelBorder{
-				Label:              uint16(neighbor.Label),
-				SharedBorderLength: neighbor.SharedBorderLength,
-			})
+// The result is a map: from -> to -> shared border length (in pixels)
+func LabelMapNeighborhoodsWeighted(labelMap *superpixel_map.LabelMap) map[uint32]map[uint32]int {
+	width, height := labelMap.Width, labelMap.Height
+	labels := labelMap.Labels
+	labelCount := 0
+	for _, l := range labels {
+		if int(l)+1 > labelCount {
+			labelCount = int(l) + 1
 		}
 	}
-	return borders
-}
 
-// LabelMapNeighborhoodsWeightedInt computes weighted neighborhoods for a row-major integer label map.
-func LabelMapNeighborhoodsWeightedInt(labelMap []int, bounds image.Rectangle, labelCount int) [][]IntLabelBorder {
-	return labelNeighborhoodsWeighted(bounds, labelCount, func(x, y int) int {
-		return labelMap[(y-bounds.Min.Y)*bounds.Dx()+x-bounds.Min.X]
-	})
-}
-
-type IntLabelBorder struct {
-	Label              int
-	SharedBorderLength int
-}
-
-func labelNeighborhoodsWeighted(bounds image.Rectangle, labelCount int, labelAt func(x, y int) int) [][]IntLabelBorder {
 	// Measure the shared border length between each pair of neighboring labels.
 	// Only right and bottom neighbors are checked, so every undirected pair is counted exactly once.
 	borderLengths := make([]map[int]int, labelCount)
 	for label := range borderLengths {
 		borderLengths[label] = make(map[int]int)
 	}
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			currentLabel := labelAt(x, y)
-			if x+1 < bounds.Max.X {
-				if neighborLabel := labelAt(x+1, y); neighborLabel != currentLabel {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			currentLabel := int(labels[y*width+x])
+			if x+1 < width {
+				if neighborLabel := int(labels[y*width+x+1]); neighborLabel != currentLabel {
 					borderLengths[currentLabel][neighborLabel]++
 					borderLengths[neighborLabel][currentLabel]++
 				}
 			}
-			if y+1 < bounds.Max.Y {
-				if neighborLabel := labelAt(x, y+1); neighborLabel != currentLabel {
+			if y+1 < height {
+				if neighborLabel := int(labels[(y+1)*width+x]); neighborLabel != currentLabel {
 					borderLengths[currentLabel][neighborLabel]++
 					borderLengths[neighborLabel][currentLabel]++
 				}
@@ -61,69 +41,27 @@ func labelNeighborhoodsWeighted(bounds image.Rectangle, labelCount int, labelAt 
 		}
 	}
 
-	// Flatten the per-label maps into border slices.
-	borders := make([][]IntLabelBorder, labelCount)
+	// Convert the per-label maps into the final map format.
+	borders := make(map[uint32]map[uint32]int, labelCount)
 	for label, lengths := range borderLengths {
-		borders[label] = make([]IntLabelBorder, 0, len(lengths))
+		borders[uint32(label)] = make(map[uint32]int, len(lengths))
 		for neighborLabel, length := range lengths {
-			borders[label] = append(borders[label], IntLabelBorder{Label: neighborLabel, SharedBorderLength: length})
+			borders[uint32(label)][uint32(neighborLabel)] = length
 		}
 	}
 	return borders
 }
 
-// LabelBorder describes one neighboring label and the length of the border shared with it.
-type LabelBorder struct {
-	Label              uint16
-	SharedBorderLength int
-}
-
 // Computes for each superpixel which other superpixels are its neighbors (i.e. share a border with it)
-func LabelMapNeighborhoods(labelMap *image.Gray16, spCount int) [][]uint16 {
+// The result is a slice of slices: [from label] -> [neighbor labels]
+func LabelMapNeighborhoods(labelMap *superpixel_map.LabelMap, spCount int) [][]uint32 {
 
-	borders := LabelMapNeighborhoodsWeighted(labelMap, spCount)
-	neighbors := make([][]uint16, spCount)
+	borders := LabelMapNeighborhoodsWeighted(labelMap)
+	neighbors := make([][]uint32, spCount)
 	for label, labelBorders := range borders {
-		for _, border := range labelBorders {
-			neighbors[label] = append(neighbors[label], border.Label)
+		for neighborLabel := range labelBorders {
+			neighbors[label] = append(neighbors[label], neighborLabel)
 		}
 	}
 	return neighbors
-}
-
-// Returns a new selection which includes all SP from the old selection, but only if they border at least one unselected SP (i.e. they are on the border of the selection)
-func SelectBorderingSuperpixels(labelMap *image.Gray16, selection []bool) []bool {
-	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
-	newSelection := make([]bool, len(selection))
-	//copy(newSelection, selection)
-	for spLabel, selected := range selection {
-		if selected {
-			for _, neighbor := range neighbors[spLabel] {
-				if !selection[neighbor] {
-					newSelection[spLabel] = true
-					break
-				}
-			}
-		}
-	}
-	return newSelection
-}
-
-func CountBorderingSuperpixels(labelMap *image.Gray16, selection []bool) (selectedSpCount int, selectedBorderingSpCount int) {
-
-	neighbors := LabelMapNeighborhoods(labelMap, len(selection))
-
-	for spLabel, selected := range selection {
-		if selected {
-			selectedSpCount++
-			for _, neighbor := range neighbors[spLabel] {
-				if !selection[neighbor] {
-					selectedBorderingSpCount++
-					break
-				}
-			}
-		}
-
-	}
-	return selectedSpCount, selectedBorderingSpCount
 }

@@ -188,7 +188,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					// interpolated in-between points so no superpixels are skipped.
 					forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
 						// Sample the current superpixel label at this stroke point
-						label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
+						label := appState.ActiveSp.LabelMap.ValueAt(x, y)
 						// Only paint when the cursor moved into a different superpixel;
 						// a held drag inside the same one needs no full-image rescan.
 						if int(label) != appState.LastPaintedSpLabel {
@@ -203,7 +203,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 				buttonPressed = true
 				// Same stroke interpolation for deselection.
 				forEachStrokePoint(strokeFrom(appState, pe), appState.LastHoverImagePosition, bounds.Dx(), bounds.Dy(), func(x, y int) {
-					label := appState.ActiveSp.LabelMap.Gray16At(x, y).Y
+					label := appState.ActiveSp.LabelMap.ValueAt(x, y)
 					if int(label) != appState.LastPaintedSpLabel {
 						if appState.SetSpSelected(label, false) {
 							inputMade = true
