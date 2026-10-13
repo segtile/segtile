@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -21,20 +22,20 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result)
 }
 
 func Run(result superpixel.SpResult) (circularity float64, err error) {
 
-	areaPerSp := make(map[uint16]float64)
-	boundaryLengthPerSp := make(map[uint16]float64)
+	areaPerSp := make(map[uint32]float64)
+	boundaryLengthPerSp := make(map[uint32]float64)
 
 	bounds := result.LabelMap.Bounds()
 
 	for y := 0; y < bounds.Dy(); y++ {
 		for x := 0; x < bounds.Dx(); x++ {
-			spId := result.LabelMap.Gray16At(x, y).Y
+			spId := result.LabelMap.ValueAt(x, y)
 
 			// Tally up area
 			areaPerSp[spId]++
@@ -45,7 +46,7 @@ func Run(result superpixel.SpResult) (circularity float64, err error) {
 					boundaryLengthPerSp[spId]++
 					continue
 				}
-				neighbourSpId := result.LabelMap.Gray16At(neighbour.X, neighbour.Y).Y
+				neighbourSpId := result.LabelMap.ValueAt(neighbour.X, neighbour.Y)
 				if neighbourSpId != spId {
 					boundaryLengthPerSp[spId]++
 				}

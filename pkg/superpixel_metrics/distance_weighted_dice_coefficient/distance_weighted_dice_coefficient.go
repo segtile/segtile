@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
@@ -21,11 +22,11 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score float64, err error) {
 
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
@@ -45,9 +46,9 @@ func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, 
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
 
 			// Read the maps
-			gtValue := groundTruth.Gray16At(x, y).Y
-			approxValue := maskApproximated.Gray16At(x, y).Y
-			distance := int(distanceMap.Gray16At(x, y).Y)
+			gtValue := groundTruth.ValueAt(x, y)
+			approxValue := maskApproximated.ValueAt(x, y)
+			distance := int(distanceMap.ValueAt(x, y))
 
 			// Tally up area and average squared distance
 			if gtValue > 0 {

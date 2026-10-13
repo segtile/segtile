@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/struffel/annotation-tool/internal/io_utils"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
 func BenchmarkCalculateSelectionOutlineFromSlice(b *testing.B) {
-	labelmap := io_utils.ToGray16(io_utils.LoadImage("./testdata/labelmap.png"))
+	labelmap := superpixel_map.NewLabelMapFromImage(io_utils.LoadImage("./testdata/labelmap.png"))
 
 	b.Run("CalculateOutline", func(b *testing.B) {
 		for b.Loop() {

@@ -6,11 +6,12 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/progress"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
 type SpOptimizerInputPair struct {
 	Image       image.Image
-	GroundTruth *image.Gray16
+	GroundTruth *superpixel_map.Mask
 }
 
 type SpOptimizerParameterKind int
