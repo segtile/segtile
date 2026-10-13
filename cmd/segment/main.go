@@ -81,6 +81,6 @@ func main() {
 	}
 
 	//io_utils.SaveImage(labelMapOutPath, result.LabelMap)
-	io_utils.SaveImage(segmentationOutPath, renderSegmentationBorders(img, result.LabelMap, borderColor))
+	io_utils.SavePngImage(segmentationOutPath, renderSegmentationBorders(img, result.LabelMap, borderColor))
 
 }

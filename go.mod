@@ -20,7 +20,13 @@ require (
 	gioui.org/shader v1.0.9 // indirect
 	github.com/akavel/rsrc v0.10.2 // indirect
 	github.com/dchest/jsmin v1.0.0 // indirect
+	github.com/dsoprea/go-exif/v3 v3.0.1 // indirect
+	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
+	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d // indirect
+	github.com/dsoprea/go-utility/v2 v2.0.0-20221003172846-a3e1774ef349 // indirect
+	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-text/typesetting v0.3.4 // indirect
+	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
 	github.com/josephspurrier/goversioninfo v1.7.0 // indirect
 	github.com/randall77/makefat v0.0.0-20260406194835-1b91746796b7 // indirect
 	github.com/reiver/go-calltrace v0.0.0-20251217043535-394ea5ae65a7 // indirect
@@ -28,4 +34,5 @@ require (
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

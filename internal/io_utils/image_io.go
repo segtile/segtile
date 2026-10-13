@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
-
-	"golang.org/x/image/tiff"
 )
 
 func LoadImage(path string) image.Image {
@@ -45,23 +42,14 @@ func ToGray16(src image.Image) *image.Gray16 {
 	return dst
 }
 
-func SaveImage(path string, img image.Image) error {
+func SavePngImage(path string, img image.Image) error {
 	f, err := os.Create(filepath.Clean(path))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	ext := filepath.Ext(path)
-	switch ext {
-	case ".png":
-		err = png.Encode(f, img)
-	case ".jpg", ".jpeg":
-		err = jpeg.Encode(f, img, &jpeg.Options{Quality: 99})
-	case ".tiff", ".tif":
-		err = tiff.Encode(f, img, nil)
-	default:
-		return fmt.Errorf("Unsupported file format: %s", ext)
-	}
+
+	err = png.Encode(f, img)
 	if err != nil {
 		return fmt.Errorf("Failed to save image: %v", err)
 	}

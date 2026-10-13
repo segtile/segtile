@@ -137,7 +137,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			mask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 		}
 
-		err := io_utils.SaveImage(outPath, mask.ToImageGray16())
+		err := io_utils.SavePngImage(outPath, mask.ToImageGray16())
 
 		if err != nil {
 			log.Printf("Failed to save mask to %s: %v", outPath, err)
