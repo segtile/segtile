@@ -23,9 +23,6 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 		return err
 	}
 
-	// Run the post-processing steps on the superpixel result
-	newResult.Optimize()
-
 	// Merge the new SP into the app state
 	appState.ActiveSp = newResult
 

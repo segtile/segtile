@@ -78,7 +78,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
 		os.Exit(1)
 	}
-	result.Optimize()
 
 	//io_utils.SaveImage(labelMapOutPath, result.LabelMap)
 	io_utils.SaveImage(segmentationOutPath, renderSegmentationBorders(img, result.LabelMap, borderColor))

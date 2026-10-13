@@ -73,7 +73,6 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 	connectedResult := SpResult{LabelMap: connected}
 	connectedResult.Optimize()
 	disconnectedResult := SpResult{LabelMap: disconnected}
-
 	disconnectedResult.Optimize()
 
 	// At this point, the two label maps should be identical
