@@ -70,7 +70,7 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 		case app.DestroyEvent:
 
 			// Save the current mask before exiting.
-			appState.SaveCurrentMask(false, false)
+			appState.SaveCurrentMask(false)
 
 			return e.Err
 		case app.FrameEvent:

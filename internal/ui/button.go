@@ -38,11 +38,6 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
-	if button == &appState.EditExistingMaskButton {
-		appState.RecreateExistingMaskFromDisk()
-		return
-	}
-
 	if button == &appState.PrevUnlabeledButton {
 		appState.LoadPreviousUnlabeledImage()
 		return
@@ -90,7 +85,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.SaveButton {
 		if appState.SelectionMade() || showSaveEmptyMaskWarning() {
-			appState.SaveCurrentMask(true, true)
+			appState.SaveCurrentMask(true)
 		}
 
 		return

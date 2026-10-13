@@ -199,7 +199,7 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	// Save the old image before loading the new project
 	if appState.ActiveImage != nil {
-		appState.SaveCurrentMask(false, true)
+		appState.SaveCurrentMask(false)
 		appState.ActiveImage = nil
 	}
 
@@ -231,21 +231,4 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	appState.ImageFiles = imageFiles
 	appState.ImageFilesIndex = 0
 	appState.loadImageAtIndex(0)
-}
-
-// RecreateExistingMaskFromDisk resolves the pending existing-mask decision by adopting the
-// on-disk mask pixel-identically as the active selection mask, so the user can keep editing it.
-func (appState *AppState) RecreateExistingMaskFromDisk() {
-	appState.AwaitingMaskDecision = false
-	if appState.ActiveImageExistingMask != nil {
-		if appState.ActiveImage == nil || appState.ActiveImageExistingMask.Bounds() != appState.ActiveImage.Bounds() {
-			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "The existing mask's dimensions do not match the image.", 3*time.Second)
-		} else {
-			// Adopt the on-disk mask as the active selection without any superpixel approximation.
-			appState.SelectionMask = appState.ActiveImageExistingMask.Clone()
-			appState.SelectionMaskDirty = true
-			appState.ReprocessSelection()
-		}
-	}
-	appState.Window.Invalidate()
 }

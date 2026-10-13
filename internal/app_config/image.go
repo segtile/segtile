@@ -68,12 +68,12 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 }
 
 // loadImageAtIndex saves the current mask (if any), loads the image at index i,
-// runs the superpixel algorithm, and restores any previously saved mask.
+// runs the superpixel algorithm, and loads any existing mask as the active selection.
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
 	if appState.ActiveImage != nil && appState.SelectionMade() {
-		appState.SaveCurrentMask(false, false)
+		appState.SaveCurrentMask(false)
 	}
 
 	// Update the current image, start with a fresh, empty selection and run the superpixel algorithm.
@@ -84,20 +84,18 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		return err
 	}
 
-	// Reset the outline for showing the existing mask
-	appState.ActiveImageExistingMask = nil
-	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	appState.ProcessedSelectionMask = nil
-	appState.AwaitingMaskDecision = false
 	appState.LastPaintedSpLabel = -1
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
 		loadedMask := superpixel_map.NewMaskFromImage(io_utils.LoadImage(maskPath))
-		if !loadedMask.IsEmpty() {
-			appState.ActiveImageExistingMask = loadedMask
-			appState.ExistingMaskPathSpec = rendering.CalculateOutline(loadedMask, 0)
-			appState.AwaitingMaskDecision = true
+		if loadedMask.Width != appState.ActiveImage.Bounds().Dx() || loadedMask.Height != appState.ActiveImage.Bounds().Dy() {
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "The existing mask's dimensions do not match the image.", 3*time.Second)
+		} else {
+			appState.SelectionMask = loadedMask.Clone()
+			appState.SelectionMaskDirty = true
+			appState.ReprocessSelection()
 		}
 	}
 
@@ -119,7 +117,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 }
 
 // SaveCurrentMask writes the current selection (after Shrink/Grow + Smooth) as a Gray16 PNG to the output directory.
-func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
+func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 
 	// Apply any pending brush strokes so the saved mask reflects the latest input.
 	appState.FlushPendingManualFixes()
@@ -144,11 +142,6 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
 			return
 		} else {
-
-			if recalculateOutline {
-				// The saved mask is now the on-disk state too.
-				appState.ExistingMaskPathSpec = rendering.CalculateOutline(mask, 0)
-			}
 
 			// Add toast
 			appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)

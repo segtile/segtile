@@ -9,20 +9,16 @@ import (
 // AppTheme defines the colors and styles used throughout the application.
 // It encapsulates the Gio material theme and adds its own stuff on top.
 type AppTheme struct {
-	GioTheme                 material.Theme
-	HoverOutlineColor        color.NRGBA
-	HoverHaloColor           color.NRGBA
-	SelectionOutlineColor    color.NRGBA
-	SelectionHaloColor       color.NRGBA
-	ExistingMaskOutlineColor color.NRGBA
-	ExistingMaskHaloColor    color.NRGBA
+	GioTheme              material.Theme
+	HoverOutlineColor     color.NRGBA
+	HoverHaloColor        color.NRGBA
+	SelectionOutlineColor color.NRGBA
+	SelectionHaloColor    color.NRGBA
 
-	SelectionStrokeWidth    float32
-	SelectionHaloWidth      float32
-	HoverStrokeWidth        float32
-	HoverHaloWidth          float32
-	ExistingMaskStrokeWidth float32
-	ExistingMaskHaloWidth   float32
+	SelectionStrokeWidth float32
+	SelectionHaloWidth   float32
+	HoverStrokeWidth     float32
+	HoverHaloWidth       float32
 }
 
 // Menu bar
@@ -55,16 +51,10 @@ var Theme = &AppTheme{
 	SelectionOutlineColor: color.NRGBA{R: 255, G: 200, B: 0, A: 255},
 	SelectionHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
 
-	ExistingMaskOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 160},
-	ExistingMaskHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
-
 	// Stroke widths
 	SelectionStrokeWidth: 1,
 	SelectionHaloWidth:   0.75,
 
 	HoverStrokeWidth: 0.75,
 	HoverHaloWidth:   0.5,
-
-	ExistingMaskStrokeWidth: 1.0,
-	ExistingMaskHaloWidth:   1,
 }
