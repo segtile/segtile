@@ -17,7 +17,7 @@ func FloodFillMaskFromPoint(mask *superpixel_map.Mask, x, y int) bool {
 		rowVisited := visited[(py-bounds.Min.Y)*bounds.Dx() : (py-bounds.Min.Y+1)*bounds.Dx()]
 		for px := bounds.Min.X; px < bounds.Max.X; px++ {
 			if rowVisited[px-bounds.Min.X] {
-				mask.SetMaskAt(px, py, true)
+				mask.SetValueAt(px, py, true)
 				changed = true
 			}
 		}
@@ -51,7 +51,7 @@ func FillEnclosedMaskRegions(mask *superpixel_map.Mask) bool {
 		rowReachable := reachable[(py-bounds.Min.Y)*width : (py-bounds.Min.Y+1)*width]
 		for px := bounds.Min.X; px < bounds.Max.X; px++ {
 			if !rowReachable[px-bounds.Min.X] && !mask.PositiveAt(px, py) {
-				mask.SetMaskAt(px, py, true)
+				mask.SetValueAt(px, py, true)
 				changed = true
 			}
 		}

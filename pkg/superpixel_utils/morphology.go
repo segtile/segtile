@@ -94,7 +94,7 @@ func GrowShrink(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
 				keep = isForeground && d >= erosionRadius
 			}
 
-			result.SetMaskAt(x, y, keep)
+			result.SetValueAt(x, y, keep)
 		}
 	}
 	return result
@@ -144,7 +144,7 @@ func SmoothMask(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
 			area := int64(x1-x0+1) * int64(y1-y0+1)
 			sum := sat[(y1+1)*satStride+(x1+1)] - sat[y0*satStride+(x1+1)] - sat[(y1+1)*satStride+x0] + sat[y0*satStride+x0]
 
-			result.SetMaskAt(x, y, sum*2 >= area)
+			result.SetValueAt(x, y, sum*2 >= area)
 		}
 	}
 	return result

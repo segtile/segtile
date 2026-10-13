@@ -99,7 +99,7 @@ func (r *SpResult) SelectionToMask(selection []bool) *superpixel_map.Mask {
 		for y := 0; y < r.LabelMap.Height; y++ {
 			spLabel := r.LabelMap.ValueAt(x, y)
 			if selection[spLabel] {
-				mask.SetMaskAt(x, y, true)
+				mask.SetValueAt(x, y, true)
 			}
 		}
 	}
@@ -113,7 +113,7 @@ func (m *SpResult) IndexToMask(spId uint32) *superpixel_map.Mask {
 	for x := 0; x < m.LabelMap.Width; x++ {
 		for y := 0; y < m.LabelMap.Height; y++ {
 			if m.LabelMap.ValueAt(x, y) == spId {
-				mask.SetMaskAt(x, y, true)
+				mask.SetValueAt(x, y, true)
 			}
 		}
 	}

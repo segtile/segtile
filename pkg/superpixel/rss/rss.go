@@ -195,7 +195,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		if label < 0 {
 			return superpixel.SpResult{}, errors.New("Rooted spanning growth did not cover every pixel.")
 		}
-		labelMap.SetLabelAt(pixelIndex%width, pixelIndex/width, uint32(label))
+		labelMap.SetValueAt(pixelIndex%width, pixelIndex/width, uint32(label))
 	}
 	return superpixel.NewSpResult(labelMap), nil
 }

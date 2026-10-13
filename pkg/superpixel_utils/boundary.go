@@ -128,7 +128,7 @@ func DistanceToNextBoundaryPixel(labelMap superpixel_map.Map) *superpixel_map.La
 		for x := 0; x < w; x++ {
 			idx := y*w + x
 			d := dist[idx]
-			distanceMap.SetLabelAt(x, y, uint32(d))
+			distanceMap.SetValueAt(x, y, uint32(d))
 		}
 	}
 

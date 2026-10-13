@@ -98,7 +98,7 @@ func TestEnforceConnectivity_MoreThan65535Components(t *testing.T) {
 	labelMap := superpixel_map.NewLabelMap(width, height)
 	for y := 0; y < height; y += 2 {
 		for x := 0; x < width; x += 2 {
-			labelMap.SetLabelAt(x, y, 1)
+			labelMap.SetValueAt(x, y, 1)
 		}
 	}
 

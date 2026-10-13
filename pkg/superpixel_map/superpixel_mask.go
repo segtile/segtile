@@ -27,20 +27,20 @@ func NewMaskFromImage(img image.Image) *Mask {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			grayColor := color.Gray16Model.Convert(img.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray16)
-			mask.SetMaskAt(x, y, grayColor.Y > 0)
+			mask.SetValueAt(x, y, grayColor.Y > 0)
 		}
 	}
 	return mask
 }
 
-// Returns the label at the specified coordinates without any bounds-checking.
-// Use LabelAtSafely if you need bounds-checking.
+// Returns the value at the specified coordinates without any bounds-checking.
+// Use ValueAtSafely if you need bounds-checking.
 func (m *Mask) PositiveAt(x, y int) bool {
 	return m.Mask[y*m.Width+x]
 }
 
-// Returns the label at the specified coordinates without any bounds-checking.
-// Use LabelAtSafely if you need bounds-checking.
+// Returns the value at the specified coordinates without any bounds-checking.
+// Use ValueAtSafely if you need bounds-checking.
 func (m *Mask) ValueAt(x, y int) uint32 {
 	if m.Mask[y*m.Width+x] {
 		return 1
@@ -48,11 +48,11 @@ func (m *Mask) ValueAt(x, y int) uint32 {
 	return 0
 }
 
-func (m *Mask) SetMaskAt(x, y int, value bool) {
+func (m *Mask) SetValueAt(x, y int, value bool) {
 	m.Mask[y*m.Width+x] = value
 }
 
-func (m *Mask) SetMaskAtSafely(x, y int, value bool) bool {
+func (m *Mask) SetValueAtSafely(x, y int, value bool) bool {
 	if x < 0 || x >= m.Width || y < 0 || y >= m.Height {
 		return false
 	}
@@ -88,7 +88,7 @@ func (m *Mask) To2DArray() [][]bool {
 	return result
 }
 
-// Converts the label map to a 16 bit grayscale image.
+// Converts the mask to a 16 bit grayscale image.
 // Values that exceed the 16-bit range will be clamped.
 func (m *Mask) ToImageGray16() *image.Gray16 {
 	img := &image.Gray16{
@@ -119,9 +119,9 @@ func (m *Mask) ToLabelMap() *LabelMap {
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
 			if m.PositiveAt(x, y) {
-				labelMap.SetLabelAt(x, y, 1)
+				labelMap.SetValueAt(x, y, 1)
 			} else {
-				labelMap.SetLabelAt(x, y, 0)
+				labelMap.SetValueAt(x, y, 0)
 			}
 		}
 	}

@@ -107,7 +107,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			label := state.labelMap[y*width+x]
-			resultLabelMap.SetLabelAt(x, y, uint32(label))
+			resultLabelMap.SetValueAt(x, y, uint32(label))
 		}
 	}
 	result := superpixel.NewSpResult(resultLabelMap)
