@@ -63,7 +63,7 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityC
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			islandIndex := gtComponentIdMap.ValueAt(x, y)
-			islandValue := gtComponentValueIndex[islandIndex]
+			islandValue := gtComponentValueIndex[islandIndex-1]
 			spLabel := result.LabelMap.ValueAt(x, y)
 
 			pixelCountPerSuperpixel[spLabel]++

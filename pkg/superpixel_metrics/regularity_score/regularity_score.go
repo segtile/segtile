@@ -52,7 +52,7 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (regulari
 	// Evaluate islands
 	for i := uint32(1); i <= groundTruthIslandCount; i++ {
 
-		if groundTruthIslandValue[i] == 0 {
+		if groundTruthIslandValue[i-1] == 0 {
 			skippedIslandCount++
 			continue
 		}
