@@ -67,8 +67,10 @@ func (m *IntMap) ToImageGray16() *image.Gray16 {
 		for x := 0; x < m.Width; x++ {
 			label := m.Values[y*m.Width+x]
 
-			// clamping
-			if label > 0xFFFF {
+// Clamp to the Gray16 range.
+			if label < 0 {
+				label = 0
+			} else if label > 0xFFFF {
 				label = 0xFFFF
 			}
 			offset := (y*m.Width + x) * 2

@@ -67,8 +67,10 @@ func (m *FloatMap) ToImageGray16() *image.Gray16 {
 		for x := 0; x < m.Width; x++ {
 			value := m.Values[y*m.Width+x]
 
-			// clamping
-			if value > 0xFFFF {
+// Clamp to the Gray16 range.
+			if value < 0 {
+				value = 0
+			} else if value > 0xFFFF {
 				value = 0xFFFF
 			}
 			offset := (y*m.Width + x) * 2
