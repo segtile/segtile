@@ -82,7 +82,7 @@
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/main",
 			"args": [
-				"S:\\MasterThesisData\\Projects\\SkinMarks\\settings.yaml"
+				"S:\\MasterThesisData\\Projects\\SkinMarks\\"
 			]
 		},
 		{

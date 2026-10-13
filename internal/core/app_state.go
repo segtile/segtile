@@ -27,27 +27,24 @@ type AppState struct {
 	LoadingState
 
 	// Project
-	Settings        *ProjectSettings
-	ImageFiles      []string
-	ImageFilesIndex int
+	Settings                *ProjectSettings
+	ProjectSettingsDefaults *ProjectSettings
+	ImageFiles              []string
+	ImageFilesIndex         int
 
 	// Bitmaps and Superpixel
-	ActiveImage             *image.NRGBA
-	ActiveImageExistingMask *superpixel_map.Mask
-	ActiveSp                superpixel.SpResult
+	ActiveImage *image.NRGBA
+	ActiveSp    superpixel.SpResult
 
 	// Selection
 	SelectionMask *superpixel_map.Mask
 
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
-	SelectionMaskDirty bool
+	SelectionMaskDirty     bool
+	ActiveImageHasMetadata bool
 
 	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
 	LastPaintedSpLabel int
-
-	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
-	// user has not yet chosen to start from scratch or edit it.
-	AwaitingMaskDecision bool
 }
 
 // UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
@@ -74,9 +71,6 @@ type UiState struct {
 	ShrinkGrowAmountReset widget.Clickable
 	SmoothAmount          widget.Float
 	SmoothAmountReset     widget.Clickable
-
-	// Existing-mask decision popover
-	EditExistingMaskButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable
@@ -156,10 +150,9 @@ type SuperpixelParameterEditor struct {
 
 // CacheState holds cached rendering data (rebuilt when selection or image transform changes, not every frame)
 type CacheState struct {
-	ImgBaseOp            paint.ImageOp
-	SelectionPathSpec    clip.PathSpec
-	HoverPathSpec        clip.PathSpec
-	ExistingMaskPathSpec clip.PathSpec
+	ImgBaseOp         paint.ImageOp
+	SelectionPathSpec clip.PathSpec
+	HoverPathSpec     clip.PathSpec
 
 	// ProcessedSelectionMask is the current selection's mask after Shrink/Grow and Smooth are
 	// applied; it is what actually gets saved to disk and is shown by the (processed) yellow outline.

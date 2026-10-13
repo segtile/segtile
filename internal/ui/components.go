@@ -35,30 +35,6 @@ func drawProjectLoadError(gtx layout.Context, appState *core.AppState) layout.Di
 	return label.Layout(gtx)
 }
 
-// drawExistingMaskWarning renders a sidebar card asking the user to either start a fresh
-// selection (by clicking in the image) or load the on-disk mask as the active selection.
-func drawExistingMaskWarning(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-
-	if !appState.AwaitingMaskDecision {
-		return layout.Dimensions{}
-	}
-
-	return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				label := material.Body2(&appState.Theme.GioTheme, "An existing annotation was found for this image. Make a new annotation to overwrite it or load it as the active selection to make further edits.")
-				label.Color = appState.Theme.GioTheme.Palette.Fg
-				return label.Layout(gtx)
-			}),
-			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				HandleUiButtonClick(appState, gtx, &appState.EditExistingMaskButton)
-				return drawBigButton(gtx, &appState.EditExistingMaskButton, appState.Theme, "Load & Edit", 14)
-			}),
-		)
-	})
-}
-
 // drawIconButton draws a button with an icon and handles its click event.
 func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string, filled bool) layout.Dimensions {
 	style := material.IconButton(&theme.GioTheme, btn, icon, description)

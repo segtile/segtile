@@ -38,11 +38,6 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		return
 	}
 
-	if button == &appState.EditExistingMaskButton {
-		appState.RecreateExistingMaskFromDisk()
-		return
-	}
-
 	if button == &appState.PrevUnlabeledButton {
 		appState.LoadPreviousUnlabeledImage()
 		return
@@ -100,7 +95,7 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		appState.ShrinkGrowAmount.Value = 0.5
 		appState.Settings.ShrinkGrowAmount = core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
 		appState.ReprocessSelection()
-		if err := core.SaveProjectSettings(appState.Settings); err != nil {
+		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 		appState.Window.Invalidate()
@@ -111,7 +106,7 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		appState.SmoothAmount.Value = 0
 		appState.Settings.SmoothAmount = 0
 		appState.ReprocessSelection()
-		if err := core.SaveProjectSettings(appState.Settings); err != nil {
+		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 		appState.Window.Invalidate()

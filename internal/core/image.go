@@ -1,10 +1,12 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 	"time"
 
@@ -66,8 +68,7 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 	}
 }
 
-// loadImageAtIndex saves the current mask (if any), loads the image at index i,
-// runs the superpixel algorithm, and restores any previously saved mask.
+// loadImageAtIndex saves the current mask (if any), then loads the image and its saved selection.
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask, if a selection is made
@@ -75,28 +76,47 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		appState.SaveCurrentMask(false, false)
 	}
 
-	// Update the current image, start with a fresh, empty selection and run the superpixel algorithm.
+	// Update the current image and start with a fresh, empty selection.
 	appState.ActiveImage = ToNRGBA(LoadImage(appState.ImageFiles[i]))
 	appState.SelectionMask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
-	err := appState.RecalculateSuperpixels(false)
-	if err != nil {
-		return err
-	}
-
-	// Reset the outline for showing the existing mask
-	appState.ActiveImageExistingMask = nil
-	appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
 	appState.ProcessedSelectionMask = nil
-	appState.AwaitingMaskDecision = false
 	appState.LastPaintedSpLabel = -1
 
-	maskPath := appState.maskPathForIndex(i)
-	if _, err := os.Stat(maskPath); err == nil {
-		loadedMask := superpixel_map.NewMaskFromImage(LoadImage(maskPath))
-		if !loadedMask.IsEmpty() {
-			appState.ActiveImageExistingMask = loadedMask
-			appState.ExistingMaskPathSpec = rendering.CalculateOutline(loadedMask, 0)
-			appState.AwaitingMaskDecision = true
+	metadata, savedSelection, found, err := appState.loadSavedImageState(i)
+	if err != nil {
+		log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
+	}
+	if found {
+		appState.Settings.Superpixel = metadata.Superpixel
+		appState.Settings.SmoothAmount = metadata.SmoothAmount
+		appState.Settings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
+		appState.SmoothAmount.Value = metadata.SmoothAmount
+		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
+	} else if appState.ActiveImageHasMetadata && appState.ProjectSettingsDefaults != nil {
+		defaults := appState.ProjectSettingsDefaults
+		appState.Settings.Superpixel = cloneProjectSettings(defaults).Superpixel
+		appState.Settings.SmoothAmount = defaults.SmoothAmount
+		appState.Settings.ShrinkGrowAmount = defaults.ShrinkGrowAmount
+		appState.SmoothAmount.Value = defaults.SmoothAmount
+		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(defaults.ShrinkGrowAmount)
+	}
+	if found || (appState.ActiveImageHasMetadata && appState.ProjectSettingsDefaults != nil) {
+		appState.RebuildEditors()
+	}
+	appState.ActiveImageHasMetadata = found
+
+	if err := appState.RecalculateSuperpixels(false); err != nil {
+		return err
+	}
+	if found {
+		if savedSelection.Bounds() != appState.ActiveImage.Bounds() {
+			err := fmt.Errorf("saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds())
+			log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
+		} else {
+			appState.SelectionMask = savedSelection
+			appState.ReprocessSelection()
 		}
 	}
 
@@ -111,13 +131,15 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	appState.SyncEditors()
 
 	appState.ImageFilesIndex = i
-	appState.Window.Invalidate()
+	if appState.Window != nil {
+		appState.Window.Invalidate()
+	}
 
 	return nil
 
 }
 
-// SaveCurrentMask writes the current selection (after Shrink/Grow + Smooth) as a Gray16 PNG to the output directory.
+// SaveCurrentMask writes the processed mask to the project root and the editable state to .meta.
 func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
 	// Apply any pending brush strokes so the saved mask reflects the latest input.
@@ -128,41 +150,123 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 		// Ensure that a processed selection mask is available
 		appState.ReprocessSelection()
 
-		// Save as image
-		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
-
 		mask := appState.ProcessedSelectionMask
 		if mask == nil {
 			mask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 		}
 
-		err := SavePngImage(outPath, mask.ToImageGray16())
-
+		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
+		selectionPath := appState.selectionMaskPathForIndex(appState.ImageFilesIndex)
+		metadataPath := appState.imageMetadataPathForIndex(appState.ImageFilesIndex)
+		currentUser, err := user.Current()
 		if err != nil {
-			log.Printf("Failed to save mask to %s: %v", outPath, err)
-			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(outPath)), 2*time.Second)
+			appState.reportMaskSaveError(metadataPath, fmt.Errorf("could not determine annotator: %w", err))
 			return
-		} else {
-
-			if recalculateOutline {
-				// The saved mask is now the on-disk state too.
-				appState.ExistingMaskPathSpec = rendering.CalculateOutline(mask, 0)
-			}
-
-			// Add toast
-			appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)
 		}
+		if err := os.MkdirAll(filepath.Dir(outPath), 0750); err != nil {
+			appState.reportMaskSaveError(outPath, err)
+			return
+		}
+		if err := os.MkdirAll(filepath.Dir(selectionPath), 0750); err != nil {
+			appState.reportMaskSaveError(selectionPath, err)
+			return
+		}
+		if err := SavePngImage(outPath, mask.ToImageGray16()); err != nil {
+			appState.reportMaskSaveError(outPath, err)
+			return
+		}
+		if err := SavePngImage(selectionPath, appState.SelectionMask.ToImageGray16()); err != nil {
+			appState.reportMaskSaveError(selectionPath, err)
+			return
+		}
+
+		metadata := ImageMetadata{
+			Annotator:        currentUser.Username,
+			Superpixel:       appState.Settings.Superpixel,
+			SmoothAmount:     appState.SmoothAmount.Value,
+			ShrinkGrowAmount: SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value),
+		}
+		data, err := json.MarshalIndent(metadata, "", "  ")
+		if err != nil {
+			appState.reportMaskSaveError(metadataPath, err)
+			return
+		}
+		if err := os.WriteFile(metadataPath, data, 0600); err != nil {
+			appState.reportMaskSaveError(metadataPath, err)
+			return
+		}
+		appState.ActiveImageHasMetadata = true
+
+		if recalculateOutline {
+			appState.SelectionPathSpec = rendering.CalculateOutline(mask, 0)
+		}
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)
 	}
 
+}
+
+func (appState *AppState) loadSavedImageState(i int) (ImageMetadata, *superpixel_map.Mask, bool, error) {
+	metadataPath := appState.imageMetadataPathForIndex(i)
+	selectionPath := appState.selectionMaskPathForIndex(i)
+
+	metadataBytes, metadataErr := os.ReadFile(metadataPath)
+	_, selectionErr := os.Stat(selectionPath)
+	metadataMissing := os.IsNotExist(metadataErr)
+	selectionMissing := os.IsNotExist(selectionErr)
+	if metadataMissing && selectionMissing {
+		return ImageMetadata{}, nil, false, nil
+	}
+	if metadataErr != nil {
+		return ImageMetadata{}, nil, false, metadataErr
+	}
+	if selectionErr != nil {
+		return ImageMetadata{}, nil, false, selectionErr
+	}
+
+	var metadata ImageMetadata
+	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+		return ImageMetadata{}, nil, false, fmt.Errorf("could not parse %s: %w", filepath.Base(metadataPath), err)
+	}
+	if err := metadata.Superpixel.normalizeSuperpixelSettings(); err != nil {
+		return ImageMetadata{}, nil, false, fmt.Errorf("invalid superpixel metadata: %w", err)
+	}
+
+	selectionFile, err := os.Open(selectionPath)
+	if err != nil {
+		return ImageMetadata{}, nil, false, err
+	}
+	defer selectionFile.Close()
+	selectionImage, _, err := image.Decode(selectionFile)
+	if err != nil {
+		return ImageMetadata{}, nil, false, fmt.Errorf("could not decode %s: %w", filepath.Base(selectionPath), err)
+	}
+	return metadata, superpixel_map.NewMaskFromImage(selectionImage), true, nil
+}
+
+func (appState *AppState) reportMaskSaveError(path string, err error) {
+	log.Printf("Failed to save %s: %v", path, err)
+	appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to save %s", filepath.Base(path)), 2*time.Second)
 }
 
 // maskPathForIndex returns the output PNG path for image at index i.
 // The base name of the source file is kept but the extension is replaced with .png.
 func (appState *AppState) maskPathForIndex(i int) string {
-	base := filepath.Base(appState.ImageFiles[i])
+	return filepath.Join(projectOutputDirectory(appState.Settings), imageMaskBaseName(appState.ImageFiles[i]))
+}
+
+func (appState *AppState) selectionMaskPathForIndex(i int) string {
+	return filepath.Join(projectOutputDirectory(appState.Settings), ProjectMetadataDirectoryName, imageMaskBaseName(appState.ImageFiles[i]))
+}
+
+func (appState *AppState) imageMetadataPathForIndex(i int) string {
+	name := imageMaskBaseName(appState.ImageFiles[i])
+	return filepath.Join(projectOutputDirectory(appState.Settings), ProjectMetadataDirectoryName, name[:len(name)-len(filepath.Ext(name))]+".json")
+}
+
+func imageMaskBaseName(imagePath string) string {
+	base := filepath.Base(imagePath)
 	ext := filepath.Ext(base)
-	name := base[:len(base)-len(ext)] + ".png"
-	return filepath.Join(filepath.Dir(appState.Settings.SettingsFile), name)
+	return base[:len(base)-len(ext)] + ".png"
 }
 
 // FitImageToWindow updates the scale and offset to fit the active image within the given canvas size.

@@ -223,14 +223,6 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 			}
 
 			if inputMade {
-				// A click while a mask decision is pending implicitly means "start from scratch".
-				if appState.AwaitingMaskDecision {
-					appState.AwaitingMaskDecision = false
-					appState.ActiveImageExistingMask = nil
-					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
-					appState.Window.Invalidate()
-				}
-
 				appState.ReprocessSelectionIfChanged()
 				appState.Window.Invalidate()
 			}

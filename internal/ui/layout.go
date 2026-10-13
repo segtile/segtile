@@ -97,9 +97,6 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 									return drawSelectionSection(gtx, appState)
 								}),
 								layout.Flexed(1, layout.Spacer{Height: unit.Dp(12)}.Layout),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return drawExistingMaskWarning(gtx, appState)
-								}),
 							)
 						}),
 
@@ -172,9 +169,6 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 
 								if appState.RenderSelectionOutlines {
 									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.SelectionHaloColor, appState.Theme.SelectionHaloWidth)
-									if appState.AwaitingMaskDecision {
-										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, appState.Theme.ExistingMaskHaloColor, appState.Theme.ExistingMaskHaloWidth)
-									}
 								}
 							}
 
