@@ -25,7 +25,8 @@ func TestRunHandlesThreeGroundTruthComponents(t *testing.T) {
 	if math.IsNaN(score) || math.IsInf(score, 0) {
 		t.Fatalf("Run() returned a non-finite score: %v", score)
 	}
-	if score <= 0 {
-		t.Fatalf("Run() score = %v, want a positive score", score)
+	want := 1 - math.Pow(1.0/3, 0.25)
+	if math.Abs(score-want) > 1e-12 {
+		t.Fatalf("Run() score = %v, want %v", score, want)
 	}
 }
