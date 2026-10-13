@@ -29,7 +29,7 @@ func FindConnectedComponents(labelMap superpixel_map.Map) (componentIdMap *super
 			}
 
 			// Start a new connected component from this pixel
-			value := labelMap.ValueAt(x, y)
+			value := labelMap.Uint32At(x, y)
 			currentComponentId := uint32(len(componentValue) + 1)
 			componentIdMap.SetValueAt(startIndex%width, startIndex/width, currentComponentId)
 
@@ -47,7 +47,7 @@ func FindConnectedComponents(labelMap superpixel_map.Map) (componentIdMap *super
 				// Left neighbor
 				if currentX > 0 {
 					neighborIndex := currentIndex - 1
-					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX-1, currentY) == value {
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.Uint32At(currentX-1, currentY) == value {
 						componentIdMap.SetValueAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
@@ -55,7 +55,7 @@ func FindConnectedComponents(labelMap superpixel_map.Map) (componentIdMap *super
 				// Right neighbor
 				if currentX+1 < width {
 					neighborIndex := currentIndex + 1
-					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX+1, currentY) == value {
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.Uint32At(currentX+1, currentY) == value {
 						componentIdMap.SetValueAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
@@ -63,7 +63,7 @@ func FindConnectedComponents(labelMap superpixel_map.Map) (componentIdMap *super
 				// Top neighbor
 				if currentY > 0 {
 					neighborIndex := currentIndex - width
-					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX, currentY-1) == value {
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.Uint32At(currentX, currentY-1) == value {
 						componentIdMap.SetValueAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}
@@ -71,7 +71,7 @@ func FindConnectedComponents(labelMap superpixel_map.Map) (componentIdMap *super
 				// Bottom neighbor
 				if currentY+1 < height {
 					neighborIndex := currentIndex + width
-					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.ValueAt(currentX, currentY+1) == value {
+					if componentIdMap.ValueAt(neighborIndex%width, neighborIndex/width) == 0 && labelMap.Uint32At(currentX, currentY+1) == value {
 						componentIdMap.SetValueAt(neighborIndex%width, neighborIndex/width, currentComponentId)
 						queue = append(queue, neighborIndex)
 					}

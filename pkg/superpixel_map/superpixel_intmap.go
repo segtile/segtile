@@ -28,6 +28,10 @@ func (m *IntMap) ValueAt(x, y int) int {
 	return m.Values[y*m.Width+x]
 }
 
+func (m *IntMap) Uint32At(x, y int) uint32 {
+	return uint32(m.ValueAt(x, y))
+}
+
 func (m *IntMap) PositiveAt(x, y int) bool {
 	return m.ValueAt(x, y) > 0
 }
@@ -73,6 +77,16 @@ func (m *IntMap) ToImageGray16() *image.Gray16 {
 		}
 	}
 	return img
+}
+
+func (m *IntMap) ToLabelMap() *LabelMap {
+	labelMap := NewLabelMap(m.Width, m.Height)
+	for y := 0; y < m.Height; y++ {
+		for x := 0; x < m.Width; x++ {
+			labelMap.SetValueAt(x, y, uint32(m.ValueAt(x, y)))
+		}
+	}
+	return labelMap
 }
 
 func (m *IntMap) Bounds() image.Rectangle {

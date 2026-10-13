@@ -39,9 +39,8 @@ func (m *Mask) PositiveAt(x, y int) bool {
 	return m.Mask[y*m.Width+x]
 }
 
-// Returns the value at the specified coordinates without any bounds-checking.
-// Use ValueAtSafely if you need bounds-checking.
-func (m *Mask) ValueAt(x, y int) uint32 {
+// For interface compatibility
+func (m *Mask) Uint32At(x, y int) uint32 {
 	if m.Mask[y*m.Width+x] {
 		return 1
 	}

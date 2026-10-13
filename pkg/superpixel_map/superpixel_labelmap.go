@@ -44,6 +44,11 @@ func (m *LabelMap) ValueAt(x, y int) uint32 {
 	return m.Labels[y*m.Width+x]
 }
 
+// For interface compatibility
+func (m *LabelMap) Uint32At(x, y int) uint32 {
+	return m.ValueAt(x, y)
+}
+
 func (m *LabelMap) PositiveAt(x, y int) bool {
 	return m.ValueAt(x, y) > 0
 }

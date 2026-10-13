@@ -28,6 +28,10 @@ func (m *FloatMap) ValueAt(x, y int) float64 {
 	return m.Values[y*m.Width+x]
 }
 
+func (m *FloatMap) Uint32At(x, y int) uint32 {
+	return uint32(m.ValueAt(x, y))
+}
+
 func (m *FloatMap) PositiveAt(x, y int) bool {
 	return m.ValueAt(x, y) > 0
 }

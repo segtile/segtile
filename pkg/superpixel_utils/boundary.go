@@ -17,7 +17,7 @@ func BoundaryPoints(labelMap superpixel_map.Map, singleSided bool) []image.Point
 	points := []image.Point{}
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			value := labelMap.ValueAt(x, y)
+			value := labelMap.Uint32At(x, y)
 			hasBoundaryNeighbor := false
 
 			for _, neighbor := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
@@ -30,7 +30,7 @@ func BoundaryPoints(labelMap superpixel_map.Map, singleSided bool) []image.Point
 				}
 
 				// Check if the neighbor has a different value
-				neighborValue := labelMap.ValueAt(neighborX, neighborY)
+				neighborValue := labelMap.Uint32At(neighborX, neighborY)
 				if singleSided {
 					if neighborValue < value {
 						hasBoundaryNeighbor = true
@@ -53,7 +53,7 @@ func BoundaryPointsPerValue(labelMap superpixel_map.Map) (points map[uint32][]im
 	points = make(map[uint32][]image.Point)
 	for y := 0; y < labelMap.Bounds().Dy(); y++ {
 		for x := 0; x < labelMap.Bounds().Dx(); x++ {
-			value := labelMap.ValueAt(x, y)
+			value := labelMap.Uint32At(x, y)
 			hasBoundaryNeighbor := false
 
 			for _, neighbor := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
@@ -66,7 +66,7 @@ func BoundaryPointsPerValue(labelMap superpixel_map.Map) (points map[uint32][]im
 				}
 
 				// Check if the neighbor has a different value
-				neighborValue := labelMap.ValueAt(neighborX, neighborY)
+				neighborValue := labelMap.Uint32At(neighborX, neighborY)
 				if neighborValue != value {
 					hasBoundaryNeighbor = true
 					break

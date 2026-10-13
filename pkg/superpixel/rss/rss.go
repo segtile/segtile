@@ -102,39 +102,43 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 	if len(seeds) == 0 {
 		seeds = []image.Point{{X: width / 2, Y: height / 2}}
 	}
-	if len(seeds) > math.MaxUint16 {
-		return superpixel.SpResult{}, errors.New("Seed grid exceeds the maximum number of label values.")
+	if uint64(len(seeds)-1) > uint64(^uint32(0)) {
+		return superpixel.SpResult{}, errors.New("Seed grid exceeds the maximum uint32 label value.")
 	}
 	if gridInterval < 1 {
 		gridInterval = 1
 	}
 
 	// Extract color features from the image
-	features := make([][3]uint8, pixelCount)
+	features := superpixel_map.NewThreeChannelUint8Map(width, height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			pixel := color.NRGBAModel.Convert(img.At(imageBounds.Min.X+x, imageBounds.Min.Y+y)).(color.NRGBA)
-			features[y*width+x] = [3]uint8{pixel.R, pixel.G, pixel.B}
+			features.SetValueAt(x, y, [3]uint8{pixel.R, pixel.G, pixel.B})
 		}
 	}
 
-	// Initialize label, cost, and state arrays for the superpixel algorithm
-	labels := make([]int, pixelCount)
-	bestCosts := make([]float64, pixelCount)
-	lockedSeeds := make([]bool, pixelCount)
-	visited := make([]bool, pixelCount)
-	for index := range labels {
-		labels[index] = -1
-		bestCosts[index] = math.Inf(1)
+	// Initialize label, cost, and state maps for the superpixel algorithm
+
+	labels := superpixel_map.NewIntMap(width, height)
+	bestCosts := superpixel_map.NewFloatMap(width, height)
+	lockedSeeds := superpixel_map.NewMask(width, height)
+	visited := superpixel_map.NewMask(width, height)
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			labels.SetValueAt(x, y, -1)
+			bestCosts.SetValueAt(x, y, math.Inf(1))
+		}
 	}
 
 	queue := priorityqueue.NewWith(compareQueueItems)
 	var queueOrder uint64
 	for label, seed := range seeds {
 		seedIndex := seed.Y*width + seed.X
-		labels[seedIndex] = label
-		bestCosts[seedIndex] = 0
-		lockedSeeds[seedIndex] = true
+		labels.SetValueAt(seed.X, seed.Y, label)
+		bestCosts.SetValueAt(seed.X, seed.Y, 0)
+		lockedSeeds.SetValueAt(seed.X, seed.Y, true)
 		queue.Enqueue(queueItem{pixelIndex: seedIndex, label: label, cost: 0, order: queueOrder})
 		queueOrder++
 	}
@@ -145,39 +149,40 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 
 		// Dequeue the next pixel to process
 		item, _ := queue.Dequeue()
-		if visited[item.pixelIndex] || labels[item.pixelIndex] != item.label || bestCosts[item.pixelIndex] != item.cost {
+		point := image.Point{X: item.pixelIndex % width, Y: item.pixelIndex / width}
+		if visited.PositiveAt(point.X, point.Y) ||
+			labels.ValueAt(point.X, point.Y) != item.label ||
+			bestCosts.ValueAt(point.X, point.Y) != item.cost {
 			continue
 		}
-		visited[item.pixelIndex] = true
+		visited.SetValueAt(point.X, point.Y, true)
 
 		// Retrieve the seed corresponding to the current label
 		seed := seeds[item.label]
-		seedIndex := seed.Y*width + seed.X
-		seedColor := features[seedIndex]
-		point := image.Point{X: item.pixelIndex % width, Y: item.pixelIndex / width}
+		seedColor := features.ValueAt(seed.X, seed.Y)
 
 		// Iterate over the neighboring pixels to update their costs and labels
 		for _, neighbor := range superpixel_utils.PixelNeighbours(point, imageRect, true, false) {
 
 			// Compute the index of the neighboring pixel
 			neighborIndex := neighbor.Y*width + neighbor.X
-			if visited[neighborIndex] || lockedSeeds[neighborIndex] {
+			if visited.PositiveAt(neighbor.X, neighbor.Y) || lockedSeeds.PositiveAt(neighbor.X, neighbor.Y) {
 				continue
 			}
 
 			// Compute the cost of assigning the neighboring pixel to the current superpixel
-			neighborColor := features[neighborIndex]
+			neighborColor := features.ValueAt(neighbor.X, neighbor.Y)
 			colorDifference := maxChannelDifference(seedColor, neighborColor)
 			spatialDifference := compactness * math.Max(
 				math.Abs(float64(seed.X-neighbor.X)),
 				math.Abs(float64(seed.Y-neighbor.Y)),
 			) / float64(gridInterval)
 			candidateCost := math.Max(item.cost, math.Max(colorDifference, spatialDifference))
-			if candidateCost < bestCosts[neighborIndex] {
+			if candidateCost < bestCosts.ValueAt(neighbor.X, neighbor.Y) {
 
 				// Update the best cost and label for the neighboring pixel
-				bestCosts[neighborIndex] = candidateCost
-				labels[neighborIndex] = item.label
+				bestCosts.SetValueAt(neighbor.X, neighbor.Y, candidateCost)
+				labels.SetValueAt(neighbor.X, neighbor.Y, item.label)
 				queue.Enqueue(queueItem{
 					pixelIndex: neighborIndex,
 					label:      item.label,
@@ -189,13 +194,16 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		}
 	}
 
-	// Convert the label array into a label map for the final superpixel result
+	// Convert labels into the label map for the final superpixel result
 	labelMap := superpixel_map.NewLabelMap(width, height)
-	for pixelIndex, label := range labels {
-		if label < 0 {
-			return superpixel.SpResult{}, errors.New("Rooted spanning growth did not cover every pixel.")
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			label := labels.ValueAt(x, y)
+			if label < 0 {
+				return superpixel.SpResult{}, errors.New("Rooted spanning growth did not cover every pixel.")
+			}
+			labelMap.SetValueAt(x, y, uint32(label))
 		}
-		labelMap.SetValueAt(pixelIndex%width, pixelIndex/width, uint32(label))
 	}
 	return superpixel.NewSpResult(labelMap), nil
 }
