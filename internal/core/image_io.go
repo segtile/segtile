@@ -9,11 +9,10 @@ import (
 	"path/filepath"
 )
 
-/*
 type ImageMetadata struct {
-	Annotator string
-	Settings  app_config.SuperpixelSettings
-}*/
+	Annotator  string             `json:"annotator"`
+	Superpixel SuperpixelSettings `json:"superpixel"`
+}
 
 func LoadImage(path string) image.Image {
 	f, err := os.Open(filepath.Clean(path))
