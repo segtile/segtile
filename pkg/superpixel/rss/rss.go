@@ -38,7 +38,7 @@ func init() {
 		{
 			Id:          "compactness",
 			Title:       "Compactness",
-			Description: "The normalized spatial weight. Higher values produce more compact superpixels; values from 0 to 5 are a useful starting range.",
+			Description: "The normalized spatial weight. Higher values produce more compact superpixels.",
 			Kind:        superpixel.SpParameterKindFloat,
 			Default:     3,
 			Min:         0,
@@ -48,7 +48,7 @@ func init() {
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
 		return Run(img, int(params["count"]), params["compactness"])
 	}
-	superpixel.RegisterSpAlgorithm("rss", "RSS", "Rooted Spanning Superpixels (Chai, 2020), using a maximum-difference path cost.", runFromMap, parameters)
+	superpixel.RegisterSpAlgorithm("rss", "RSS", "Rooted Spanning Superpixels (Chai, 2020).", runFromMap, parameters)
 }
 
 type queueItem struct {
@@ -73,8 +73,6 @@ func compareQueueItems(a, b queueItem) int {
 	}
 }
 
-// Run segments img into rooted spanning superpixels. Compactness weights
-// normalized spatial distance against the 8-bit RGB maximum-difference cost.
 func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, error) {
 	if img == nil {
 		return superpixel.SpResult{}, errors.New("Image is nil.")
