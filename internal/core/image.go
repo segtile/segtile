@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/paint"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
@@ -77,7 +76,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	}
 
 	// Update the current image, start with a fresh, empty selection and run the superpixel algorithm.
-	appState.ActiveImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
+	appState.ActiveImage = ToNRGBA(LoadImage(appState.ImageFiles[i]))
 	appState.SelectionMask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 	err := appState.RecalculateSuperpixels(false)
 	if err != nil {
@@ -93,7 +92,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
-		loadedMask := superpixel_map.NewMaskFromImage(io_utils.LoadImage(maskPath))
+		loadedMask := superpixel_map.NewMaskFromImage(LoadImage(maskPath))
 		if !loadedMask.IsEmpty() {
 			appState.ActiveImageExistingMask = loadedMask
 			appState.ExistingMaskPathSpec = rendering.CalculateOutline(loadedMask, 0)
@@ -137,7 +136,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			mask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 		}
 
-		err := io_utils.SavePngImage(outPath, mask.ToImageGray16())
+		err := SavePngImage(outPath, mask.ToImageGray16())
 
 		if err != nil {
 			log.Printf("Failed to save mask to %s: %v", outPath, err)

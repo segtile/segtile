@@ -9,11 +9,11 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/rendering"
 )
 
-func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
+func HandlePointer(appState *core.AppState, gtx layout.Context) {
 
 	if appState.UiLocked() {
 		return
@@ -241,7 +241,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 // strokeFrom returns the image-space point that the current stroke should be
 // interpolated from: the position where the stroke last applied paint during a
 // drag, or the pointer position itself for a fresh press (a single point).
-func strokeFrom(appState *app_config.AppState, pe pointer.Event) f32.Point {
+func strokeFrom(appState *core.AppState, pe pointer.Event) f32.Point {
 	if pe.Kind == pointer.Drag && appState.StrokeAnchorValid {
 		return appState.StrokeAnchor
 	}

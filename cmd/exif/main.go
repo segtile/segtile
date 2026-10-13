@@ -4,27 +4,35 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"log"
 	"os"
 	"os/user"
+	"sort"
 
-	"github.com/dsoprea/go-exif/v3"
-	exifcommon "github.com/dsoprea/go-exif/v3/common"
-	pngstructure "github.com/dsoprea/go-png-image-structure/v2"
+	gometadata "github.com/FlavioCFOliveira/GoMetadata"
+	"github.com/FlavioCFOliveira/GoMetadata/exif"
+	"github.com/FlavioCFOliveira/GoMetadata/xmp"
+)
+
+const (
+	annotationDescription = "slic;count=200;compactness=10"
+	annotationSoftware    = "AnnotationTool 1.0"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	// Create empty image
 	img := image.NewRGBA(image.Rect(0, 0, 800, 600))
-	// Encode the image to PNG with EXIF data
 	pngBytes, err := EncodeTIFFWithExif(img)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	// Write the png bytes to a file
-	f, _ := os.Create("./test.png")
-	defer f.Close()
-	f.Write(pngBytes)
-
+	return os.WriteFile("./test.png", pngBytes, 0o644)
 }
 
 func getUsername() (string, error) {
@@ -36,31 +44,9 @@ func getUsername() (string, error) {
 }
 
 func EncodeTIFFWithExif(img image.Image) ([]byte, error) {
-	// 1. Encode the in-memory image to TIFF bytes first.
+	// Encode the image first; GoMetadata adds metadata without re-encoding pixels.
 	var pngBuf bytes.Buffer
 	if err := png.Encode(&pngBuf, img); err != nil {
-		return nil, err
-	}
-
-	// 2. Build the EXIF IFD with go-exif.
-	im, err := exifcommon.NewIfdMappingWithStandard()
-	if err != nil {
-		return nil, err
-	}
-	ti := exif.NewTagIndex()
-
-	ib := exif.NewIfdBuilder(
-		im,
-		ti,
-		exifcommon.IfdStandardIfdIdentity,
-		exifcommon.EncodeDefaultByteOrder, // binary.BigEndian
-	)
-
-	// Add whatever tags you need, by standard name:
-	if err := ib.AddStandardWithName("ImageDescription", "slic;count=200;compactness=10"); err != nil {
-		return nil, err
-	}
-	if err := ib.AddStandardWithName("Software", "AnnotationTool 1.0"); err != nil {
 		return nil, err
 	}
 
@@ -68,31 +54,38 @@ func EncodeTIFFWithExif(img image.Image) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := ib.AddStandardWithName("Artist", username); err != nil {
-		return nil, err
-	}
 
-	// Numeric/rational tags, GPS, etc. work the same way, e.g.:
-	// ib.AddStandardWithName("ImageWidth", []uint32{uint32(img.Bounds().Dx())})
-
-	// 3. Parse the in-memory PNG bytes into a ChunkSlice.
-	pmp := pngstructure.NewPngMediaParser()
-	intfc, err := pmp.ParseBytes(pngBuf.Bytes())
+	metadata, err := gometadata.Read(bytes.NewReader(pngBuf.Bytes()))
 	if err != nil {
 		return nil, err
 	}
-	cs := intfc.(*pngstructure.ChunkSlice)
+	metadata.SetCaption(annotationDescription)
+	metadata.SetCreator(username)
+	metadata.XMP.Set(xmp.NSxmp, "CreatorTool", annotationSoftware)
+	setEXIFSoftware(metadata.EXIF.IFD0, annotationSoftware)
 
-	// 4. Inject/replace the eXIf chunk with our IFD.
-	if err := cs.SetExif(ib); err != nil {
-		return nil, err
-	}
-
-	// 5. Write the final PNG (with EXIF) back out to bytes.
 	var out bytes.Buffer
-	if err := cs.WriteTo(&out); err != nil {
+	if err := gometadata.Write(bytes.NewReader(pngBuf.Bytes()), &out, metadata); err != nil {
 		return nil, err
 	}
 
 	return out.Bytes(), nil
+}
+
+func setEXIFSoftware(ifd *exif.IFD, software string) {
+	value := append([]byte(software), 0)
+	entry := exif.IFDEntry{
+		Tag:   exif.TagSoftware,
+		Type:  exif.TypeASCII,
+		Count: uint32(len(value)),
+		Value: value,
+	}
+	if existing := ifd.Get(exif.TagSoftware); existing != nil {
+		*existing = entry
+	} else {
+		ifd.Entries = append(ifd.Entries, entry)
+		sort.Slice(ifd.Entries, func(i, j int) bool {
+			return ifd.Entries[i].Tag < ifd.Entries[j].Tag
+		})
+	}
 }

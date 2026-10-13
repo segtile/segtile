@@ -9,6 +9,7 @@ require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	github.com/ncruces/zenity v0.10.15
+	github.com/FlavioCFOliveira/GoMetadata v1.4.0
 	github.com/reiver/go-giotoast v0.0.0-20260530213940-e1bb4d6f5a14
 	golang.org/x/exp/shiny v0.0.0-20260812173653-3d80eb74bc5b
 	golang.org/x/image v0.45.0
@@ -19,7 +20,9 @@ require (
 	codeberg.org/reiver/go-field v0.0.0-20260509173924-0dc6d883004c // indirect
 	gioui.org/shader v1.0.9 // indirect
 	github.com/akavel/rsrc v0.10.2 // indirect
+	github.com/datatogether/xmp v0.0.0-20180218001206-51e3f95eff3b // indirect
 	github.com/dchest/jsmin v1.0.0 // indirect
+	github.com/drswork/image v0.0.1 // indirect
 	github.com/dsoprea/go-exif/v3 v3.0.1 // indirect
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d // indirect

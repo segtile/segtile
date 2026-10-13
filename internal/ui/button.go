@@ -5,11 +5,11 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
-func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
+func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *widget.Clickable) {
 
 	if !button.Clicked(gtx) {
 		return
@@ -98,9 +98,9 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.ShrinkGrowAmountReset {
 		appState.ShrinkGrowAmount.Value = 0.5
-		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		appState.Settings.ShrinkGrowAmount = core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
 		appState.ReprocessSelection()
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := core.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 		appState.Window.Invalidate()
@@ -111,7 +111,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		appState.SmoothAmount.Value = 0
 		appState.Settings.SmoothAmount = 0
 		appState.ReprocessSelection()
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := core.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 		appState.Window.Invalidate()

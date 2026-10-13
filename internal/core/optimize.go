@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/progress"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
@@ -42,11 +41,11 @@ func collectGTSamples(appState *AppState, maxImageCount int) []superpixel_optimi
 		if _, err := os.Stat(maskPath); err != nil {
 			continue
 		}
-		loadedMask := superpixel_map.NewMaskFromImage(io_utils.LoadImage(maskPath))
+		loadedMask := superpixel_map.NewMaskFromImage(LoadImage(maskPath))
 		if loadedMask.IsEmpty() {
 			continue
 		}
-		img := io_utils.LoadImage(appState.ImageFiles[i])
+		img := LoadImage(appState.ImageFiles[i])
 		samples = append(samples, superpixel_optimizer.SpOptimizerInputPair{Image: img, GroundTruth: loadedMask})
 	}
 

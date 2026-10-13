@@ -9,7 +9,7 @@ import (
 	"gioui.org/app"
 	"gioui.org/op"
 	"gioui.org/unit"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/ui"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
@@ -38,14 +38,14 @@ func main() {
 			app.Size(unit.Dp(1200), unit.Dp(800)),
 		)
 
-		appState := app_config.NewAppState()
+		appState := core.NewAppState()
 		appState.Window = appWindow
 
 		// If a config was provided on the CLI, load the project immediately.
 		if len(os.Args) >= 2 {
 			configPath := os.Args[1]
 			go func() {
-				result := app_config.LoadProjectSettings(configPath)
+				result := core.LoadProjectSettings(configPath)
 				appState.ProjectLoadResult <- result
 			}()
 		}
@@ -61,7 +61,7 @@ func main() {
 	app.Main()
 }
 
-func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error {
+func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 
 	var ops op.Ops
 

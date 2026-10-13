@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"gioui.org/op/clip"

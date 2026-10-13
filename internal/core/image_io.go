@@ -1,4 +1,4 @@
-package io_utils
+package core
 
 import (
 	"fmt"
@@ -8,6 +8,12 @@ import (
 	"os"
 	"path/filepath"
 )
+
+/*
+type ImageMetadata struct {
+	Annotator string
+	Settings  app_config.SuperpixelSettings
+}*/
 
 func LoadImage(path string) image.Image {
 	f, err := os.Open(filepath.Clean(path))

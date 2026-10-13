@@ -6,11 +6,11 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
-func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
+func HandleEditors(appState *core.AppState, gtx layout.Context) {
 	if appState.UiLocked() {
 		return
 	}
@@ -41,7 +41,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	// Handle Shrink/Grow and Smooth slider changes.
 	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
 	if appState.ShrinkGrowAmount.Update(gtx) {
-		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		appState.Settings.ShrinkGrowAmount = core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
 		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 	}
@@ -54,7 +54,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 
 	// Persist config if user just let go of slider.
 	if (shrinkGrowWasDragging && !appState.ShrinkGrowAmount.Dragging()) || (smoothWasDragging && !appState.SmoothAmount.Dragging()) {
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := core.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 	}
@@ -68,7 +68,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 		}
 
 		// Persist updated parameters to config.
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := core.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 
@@ -77,7 +77,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	// Persist the auto flood fill setting whenever it is toggled.
 	if appState.EnableAutoFloodFill.Update(gtx) {
 		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := core.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 	}
@@ -85,7 +85,7 @@ func HandleEditors(appState *app_config.AppState, gtx layout.Context) {
 	// Persist the keep-selection setting whenever it is toggled.
 	if appState.UpdateSelectionOnSpChange.Update(gtx) {
 		appState.Settings.UpdateSelectionOnSpChange = appState.UpdateSelectionOnSpChange.Value
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := core.SaveProjectSettings(appState.Settings); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 	}

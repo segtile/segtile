@@ -3,10 +3,10 @@ package ui
 import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
-func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
+func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 	if appState.CurrentlyOptimizing {
 		return
 	}

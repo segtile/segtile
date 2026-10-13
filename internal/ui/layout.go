@@ -10,11 +10,11 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 )
 
-func Layout(appState *app_config.AppState, gtx layout.Context) {
+func Layout(appState *core.AppState, gtx layout.Context) {
 
 	// Disable the entire UI if a background operation owns project state.
 	if appState.UiLocked() {

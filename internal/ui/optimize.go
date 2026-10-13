@@ -6,10 +6,10 @@ import (
 	"log"
 
 	"github.com/ncruces/zenity"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
-func triggerOptimization(appState *app_config.AppState) {
+func triggerOptimization(appState *core.AppState) {
 
 	// Create a progress indicator and start it
 	progress := &ZenityProgressIndicator{}

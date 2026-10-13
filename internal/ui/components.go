@@ -16,14 +16,14 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 // drawProjectLoadError renders the error from a failed project load/creation attempt,
 // shown under the New/Open Project buttons on the start screen.
-func drawProjectLoadError(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawProjectLoadError(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 
 	if appState.Settings == nil || appState.Settings.Err == nil {
 		return layout.Dimensions{}
@@ -37,7 +37,7 @@ func drawProjectLoadError(gtx layout.Context, appState *app_config.AppState) lay
 
 // drawExistingMaskWarning renders a sidebar card asking the user to either start a fresh
 // selection (by clicking in the image) or load the on-disk mask as the active selection.
-func drawExistingMaskWarning(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawExistingMaskWarning(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 
 	if !appState.AwaitingMaskDecision {
 		return layout.Dimensions{}
@@ -157,7 +157,7 @@ func drawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *
 }
 
 // drawSidebarSection draws a collapsible sidebar section header followed by its body when open.
-func drawSidebarSection(gtx layout.Context, appState *app_config.AppState, title string, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
+func drawSidebarSection(gtx layout.Context, appState *core.AppState, title string, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
 	HandleUiButtonClick(appState, gtx, button)
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -175,7 +175,7 @@ func drawSidebarSection(gtx layout.Context, appState *app_config.AppState, title
 	)
 }
 
-func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Images", appState.ImagesSection.Open, &appState.ImagesSection.Button, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 
@@ -208,7 +208,7 @@ func drawImagesSection(gtx layout.Context, appState *app_config.AppState) layout
 	})
 }
 
-func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Superpixel", appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.Settings == nil {
 			return layout.Dimensions{}
@@ -319,7 +319,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *app_config.AppState) la
 	})
 }
 
-func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -366,7 +366,7 @@ func drawSelectionSection(gtx layout.Context, appState *app_config.AppState) lay
 	})
 }
 
-func drawImageNavigationButtons(gtx layout.Context, appState *app_config.AppState) layout.Dimensions {
+func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	atFirstImage := appState.ImageFilesIndex == 0
 	atLastImage := appState.ImageFilesIndex == len(appState.ImageFiles)-1
 

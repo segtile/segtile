@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"fmt"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
@@ -31,8 +30,8 @@ type ProjectSettings struct {
 // SuperpixelSettings stores the algorithm name and its parameters.
 // This is used for yaml persistence.
 type SuperpixelSettings struct {
-	SpAlgorithmId         string             `yaml:"algorithm"`
-	SpAlgorithmParameters map[string]float64 `yaml:"parameters"`
+	SpAlgorithmId         string             `yaml:"algorithm" json:"algorithm"`
+	SpAlgorithmParameters map[string]float64 `yaml:"parameters" json:"parameters"`
 }
 
 func NewSuperpixelSettings() SuperpixelSettings {
@@ -122,7 +121,7 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 	}
 
 	// Test if the input directory contains any images
-	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	imageFiles, err := ListFiles(settings.InputDirectory, true)
 	if err != nil {
 		return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
 	}
@@ -214,7 +213,7 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	appState.RebuildEditors()
 
 	// List all image files in the input directory
-	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	imageFiles, err := ListFiles(settings.InputDirectory, true)
 	if err != nil {
 		log.Printf("Could not list input directory %q: %v", settings.InputDirectory, err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
