@@ -21,6 +21,7 @@ import (
 
 	"github.com/emirpasic/gods/v2/queues/priorityqueue"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -172,14 +173,14 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		}
 	}
 
-	labelMap := image.NewGray16(image.Rect(0, 0, width, height))
+	labelMap := superpixel_map.NewLabelMap(width, height)
 	for pixelIndex, label := range labels {
 		if label < 0 {
 			return superpixel.SpResult{}, errors.New("Rooted spanning growth did not cover every pixel.")
 		}
-		labelMap.SetGray16(pixelIndex%width, pixelIndex/width, color.Gray16{Y: uint16(label)})
+		labelMap.SetLabelAt(pixelIndex%width, pixelIndex/width, uint32(label))
 	}
-	return superpixel.NewSpResult(labelMap, len(seeds), true), nil
+	return superpixel.NewSpResult(labelMap), nil
 }
 
 func maxChannelDifference(a, b [3]uint8) float64 {
