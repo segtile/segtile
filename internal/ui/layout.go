@@ -97,6 +97,9 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 									return drawSelectionSection(gtx, appState)
 								}),
 								layout.Flexed(1, layout.Spacer{Height: unit.Dp(12)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return drawSavedImageInfo(gtx, appState)
+								}),
 							)
 						}),
 

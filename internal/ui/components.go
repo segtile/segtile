@@ -35,6 +35,31 @@ func drawProjectLoadError(gtx layout.Context, appState *core.AppState) layout.Di
 	return label.Layout(gtx)
 }
 
+func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dimensions {
+	if !appState.ActiveImageHasMetadata {
+		return layout.Dimensions{}
+	}
+
+	annotator := appState.ActiveImageMetadata.Annotator
+	if annotator == "" {
+		annotator = "Unknown"
+	}
+	return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				label := material.Body2(&appState.Theme.GioTheme, "Annotator: "+annotator)
+				label.Color = appState.Theme.GioTheme.Palette.Fg
+				return label.Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
+				return drawBigButton(gtx, &appState.RevertSavedMaskButton, appState.Theme, "Revert to saved mask", 14)
+			}),
+		)
+	})
+}
+
 // drawIconButton draws a button with an icon and handles its click event.
 func drawIconButton(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, icon *widget.Icon, description string, filled bool) layout.Dimensions {
 	style := material.IconButton(&theme.GioTheme, btn, icon, description)

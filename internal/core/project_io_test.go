@@ -345,6 +345,26 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 		loadedState.Settings.SmoothAmount != 0.25 {
 		t.Fatalf("image settings were not restored: %+v", loadedState.Settings)
 	}
+	loadedState.SelectionMask.SetValueAt(0, 0, true)
+	if err := loadedState.RevertToSavedMask(); err != nil {
+		t.Fatal(err)
+	}
+	if countMaskPixels(loadedState.SelectionMask) != 1 || !loadedState.SelectionMask.PositiveAt(8, 8) {
+		t.Fatal("reverting did not restore the unprocessed mask from disk")
+	}
+	loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] = loadedProject.Superpixel.SpAlgorithmParameters["count"]
+	loadedState.Settings.ShrinkGrowAmount = loadedProject.ShrinkGrowAmount
+	loadedState.Settings.SmoothAmount = loadedProject.SmoothAmount
+	loadedState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadedProject.ShrinkGrowAmount)
+	loadedState.SmoothAmount.Value = loadedProject.SmoothAmount
+	if err := loadedState.RevertToSavedMask(); err != nil {
+		t.Fatal(err)
+	}
+	if loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
+		loadedState.Settings.ShrinkGrowAmount != 1 ||
+		loadedState.Settings.SmoothAmount != 0.25 {
+		t.Fatal("reverting did not restore saved image settings")
+	}
 	if err := loadedState.loadImageAtIndex(1); err != nil {
 		t.Fatal(err)
 	}

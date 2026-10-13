@@ -230,11 +230,17 @@ func cloneProjectSettings(settings *ProjectSettings) *ProjectSettings {
 		return nil
 	}
 	cloned := *settings
-	cloned.Superpixel.SpAlgorithmParameters = make(map[string]float64, len(settings.Superpixel.SpAlgorithmParameters))
-	for id, value := range settings.Superpixel.SpAlgorithmParameters {
-		cloned.Superpixel.SpAlgorithmParameters[id] = value
-	}
+	cloned.Superpixel = cloneSuperpixelSettings(settings.Superpixel)
 	return &cloned
+}
+
+func cloneSuperpixelSettings(settings SuperpixelSettings) SuperpixelSettings {
+	cloned := settings
+	cloned.SpAlgorithmParameters = make(map[string]float64, len(settings.SpAlgorithmParameters))
+	for id, value := range settings.SpAlgorithmParameters {
+		cloned.SpAlgorithmParameters[id] = value
+	}
+	return cloned
 }
 
 func (appState *AppState) SaveProjectSettings() error {

@@ -87,13 +87,17 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
 	}
+	hadActiveImageMetadata := appState.ActiveImageHasMetadata
+	appState.ActiveImageMetadata = ImageMetadata{}
 	if found {
-		appState.Settings.Superpixel = metadata.Superpixel
+		appState.ActiveImageMetadata = metadata
+		appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+		appState.Settings.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
 		appState.Settings.SmoothAmount = metadata.SmoothAmount
 		appState.Settings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
 		appState.SmoothAmount.Value = metadata.SmoothAmount
 		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
-	} else if appState.ActiveImageHasMetadata && appState.ProjectSettingsDefaults != nil {
+	} else if hadActiveImageMetadata && appState.ProjectSettingsDefaults != nil {
 		defaults := appState.ProjectSettingsDefaults
 		appState.Settings.Superpixel = cloneProjectSettings(defaults).Superpixel
 		appState.Settings.SmoothAmount = defaults.SmoothAmount
@@ -101,7 +105,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		appState.SmoothAmount.Value = defaults.SmoothAmount
 		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(defaults.ShrinkGrowAmount)
 	}
-	if found || (appState.ActiveImageHasMetadata && appState.ProjectSettingsDefaults != nil) {
+	if found || (hadActiveImageMetadata && appState.ProjectSettingsDefaults != nil) {
 		appState.RebuildEditors()
 	}
 	appState.ActiveImageHasMetadata = found
@@ -196,6 +200,8 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			return
 		}
 		appState.ActiveImageHasMetadata = true
+		appState.ActiveImageMetadata = metadata
+		appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
 
 		if recalculateOutline {
 			appState.SelectionPathSpec = rendering.CalculateOutline(mask, 0)
@@ -241,6 +247,44 @@ func (appState *AppState) loadSavedImageState(i int) (ImageMetadata, *superpixel
 		return ImageMetadata{}, nil, false, fmt.Errorf("could not decode %s: %w", filepath.Base(selectionPath), err)
 	}
 	return metadata, superpixel_map.NewMaskFromImage(selectionImage), true, nil
+}
+
+func (appState *AppState) RevertToSavedMask() error {
+	if appState.ActiveImage == nil || appState.Settings == nil || appState.ImageFilesIndex < 0 || appState.ImageFilesIndex >= len(appState.ImageFiles) {
+		return fmt.Errorf("no project image is currently loaded")
+	}
+
+	metadata, savedSelection, found, err := appState.loadSavedImageState(appState.ImageFilesIndex)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("no saved mask state exists for this image")
+	}
+	if savedSelection.Bounds() != appState.ActiveImage.Bounds() {
+		return fmt.Errorf("saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds())
+	}
+
+	appState.Settings.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+	appState.Settings.SmoothAmount = metadata.SmoothAmount
+	appState.Settings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
+	appState.SmoothAmount.Value = metadata.SmoothAmount
+	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
+	appState.ActiveImageHasMetadata = true
+	appState.ActiveImageMetadata = metadata
+	appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+	appState.RebuildEditors()
+
+	appState.SelectionMask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
+	if err := appState.RecalculateSuperpixels(false); err != nil {
+		return err
+	}
+	appState.SelectionMask = savedSelection
+	appState.ReprocessSelection()
+	if appState.Window != nil {
+		appState.Window.Invalidate()
+	}
+	return nil
 }
 
 func (appState *AppState) reportMaskSaveError(path string, err error) {

@@ -42,6 +42,7 @@ type AppState struct {
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
 	SelectionMaskDirty     bool
 	ActiveImageHasMetadata bool
+	ActiveImageMetadata    ImageMetadata
 
 	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
 	LastPaintedSpLabel int
@@ -71,6 +72,7 @@ type UiState struct {
 	ShrinkGrowAmountReset widget.Clickable
 	SmoothAmount          widget.Float
 	SmoothAmountReset     widget.Clickable
+	RevertSavedMaskButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable
