@@ -13,7 +13,8 @@ import (
 	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/internal/rendering"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
+
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
 func (appState *AppState) LoadNextImage() {
@@ -77,7 +78,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Update the current image, start with a fresh, empty selection and run the superpixel algorithm.
 	appState.ActiveImage = io_utils.ToNRGBA(io_utils.LoadImage(appState.ImageFiles[i]))
-	appState.SelectionMask = image.NewGray16(appState.ActiveImage.Bounds())
+	appState.SelectionMask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 	err := appState.RecalculateSuperpixels(false)
 	if err != nil {
 		return err
@@ -92,8 +93,8 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	maskPath := appState.maskPathForIndex(i)
 	if _, err := os.Stat(maskPath); err == nil {
-		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
-		if superpixel_utils.HasNonZeroPixels(loadedMask) {
+		loadedMask := superpixel_map.NewMaskFromImage(io_utils.LoadImage(maskPath))
+		if !loadedMask.IsEmpty() {
 			appState.ActiveImageExistingMask = loadedMask
 			appState.ExistingMaskPathSpec = rendering.CalculateOutline(loadedMask, 0)
 			appState.AwaitingMaskDecision = true
@@ -133,10 +134,10 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 
 		mask := appState.ProcessedSelectionMask
 		if mask == nil {
-			mask = image.NewGray16(appState.ActiveImage.Bounds())
+			mask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 		}
 
-		err := io_utils.SaveImage(outPath, mask)
+		err := io_utils.SaveImage(outPath, mask.ToImageGray16())
 
 		if err != nil {
 			log.Printf("Failed to save mask to %s: %v", outPath, err)

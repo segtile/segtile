@@ -10,14 +10,14 @@ import (
 )
 
 func (appState *AppState) SelectionMade() bool {
-	return appState.SelectionMask != nil && superpixel_utils.HasNonZeroPixels(appState.SelectionMask)
+	return appState.SelectionMask != nil && !appState.SelectionMask.IsEmpty()
 }
 
 func (appState *AppState) ClearSelection(showToast bool) {
 	if appState.SelectionMask == nil {
 		return
 	}
-	superpixel_utils.ResetImage(appState.SelectionMask)
+	appState.SelectionMask.Clear()
 	appState.SelectionMaskDirty = true
 	appState.ReprocessSelection()
 	appState.Window.Invalidate()
@@ -28,7 +28,7 @@ func (appState *AppState) ClearSelection(showToast bool) {
 
 // SetSpSelected selects or deselects a single superpixel by painting all of its pixels
 // into the selection mask. Returns true if any pixel was changed.
-func (appState *AppState) SetSpSelected(label uint16, selected bool) bool {
+func (appState *AppState) SetSpSelected(label uint32, selected bool) bool {
 
 	if appState.ActiveSp.LabelMap == nil || appState.SelectionMask == nil {
 		return false
@@ -47,8 +47,8 @@ func (appState *AppState) SetSpSelected(label uint16, selected bool) bool {
 
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			if superpixel_utils.UnsafeGray16At(appState.ActiveSp.LabelMap, x, y) == label && superpixel_utils.UnsafeGray16At(appState.SelectionMask, x, y) != target {
-				superpixel_utils.UnsafeSetGray16At(appState.SelectionMask, x, y, target)
+			if appState.ActiveSp.LabelMap.ValueAt(x, y) == label && (appState.SelectionMask.PositiveAt(x, y) != (target != 0)) {
+				appState.SelectionMask.SetMaskAt(x, y, selected)
 				changed = true
 			}
 		}
@@ -105,9 +105,19 @@ func (appState *AppState) RefreshHoverPreview() {
 		return
 	}
 
+	labelMap := appState.ActiveSp.LabelMap
+	hoverX, hoverY := appState.LastHoverImagePosition.X, appState.LastHoverImagePosition.Y
+	if !(hoverX >= 0 && hoverY >= 0 && hoverX < float32(labelMap.Width) && hoverY < float32(labelMap.Height)) {
+		appState.InImageBounds = false
+		if appState.HoverCached {
+			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverCached = false
+		}
+		return
+	}
+	x, y := int(hoverX), int(hoverY)
+
 	if appState.ManualFixMode {
-		x := int(appState.LastHoverImagePosition.X)
-		y := int(appState.LastHoverImagePosition.Y)
 		radius := appState.ManualFixBrushRadius
 		if appState.HoverCached && appState.HoverCacheManual && appState.HoverCachePos == image.Pt(x, y) && appState.HoverCacheRadius == radius {
 			return
@@ -120,7 +130,7 @@ func (appState *AppState) RefreshHoverPreview() {
 		return
 	}
 
-	label := appState.ActiveSp.LabelMap.Gray16At(int(appState.LastHoverImagePosition.X), int(appState.LastHoverImagePosition.Y)).Y
+	label := labelMap.ValueAt(x, y)
 	if appState.HoverCached && !appState.HoverCacheManual && appState.HoverCacheLabel == label {
 		return
 	}

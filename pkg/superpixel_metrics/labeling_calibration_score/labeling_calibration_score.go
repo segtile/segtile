@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
@@ -22,11 +23,11 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, img, groundTruth)
 }
 
-func Run(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16) (score float64, err error) {
+func Run(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask) (score float64, err error) {
 
 	densityScore, _ := density_score.Run(result, groundTruth)
 	dwdc, _ := distance_weighted_dice_coefficient.Run(result, groundTruth)

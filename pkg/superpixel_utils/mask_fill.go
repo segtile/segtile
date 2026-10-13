@@ -1,8 +1,12 @@
 package superpixel_utils
 
-import "image"
+import (
+	"image"
 
-func FloodFillMaskFromPoint(mask *image.Gray16, x, y int) bool {
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+)
+
+func FloodFillMaskFromPoint(mask *superpixel_map.Mask, x, y int) bool {
 	bounds := mask.Bounds()
 	if !image.Pt(x, y).In(bounds) {
 		return false
@@ -13,7 +17,7 @@ func FloodFillMaskFromPoint(mask *image.Gray16, x, y int) bool {
 		rowVisited := visited[(py-bounds.Min.Y)*bounds.Dx() : (py-bounds.Min.Y+1)*bounds.Dx()]
 		for px := bounds.Min.X; px < bounds.Max.X; px++ {
 			if rowVisited[px-bounds.Min.X] {
-				setMaskWhiteAt(mask, px, py)
+				mask.SetMaskAt(px, py, true)
 				changed = true
 			}
 		}
@@ -21,7 +25,7 @@ func FloodFillMaskFromPoint(mask *image.Gray16, x, y int) bool {
 	return changed
 }
 
-func FillEnclosedMaskRegions(mask *image.Gray16) bool {
+func FillEnclosedMaskRegions(mask *superpixel_map.Mask) bool {
 	bounds := mask.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
@@ -46,8 +50,8 @@ func FillEnclosedMaskRegions(mask *image.Gray16) bool {
 	for py := bounds.Min.Y; py < bounds.Max.Y; py++ {
 		rowReachable := reachable[(py-bounds.Min.Y)*width : (py-bounds.Min.Y+1)*width]
 		for px := bounds.Min.X; px < bounds.Max.X; px++ {
-			if !rowReachable[px-bounds.Min.X] && isMaskZeroAt(mask, px, py) {
-				setMaskWhiteAt(mask, px, py)
+			if !rowReachable[px-bounds.Min.X] && !mask.PositiveAt(px, py) {
+				mask.SetMaskAt(px, py, true)
 				changed = true
 			}
 		}
@@ -55,7 +59,7 @@ func FillEnclosedMaskRegions(mask *image.Gray16) bool {
 	return changed
 }
 
-func floodFillUnselected(mask *image.Gray16, seeds []image.Point) []bool {
+func floodFillUnselected(mask *superpixel_map.Mask, seeds []image.Point) []bool {
 	bounds := mask.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
@@ -69,7 +73,7 @@ func floodFillUnselected(mask *image.Gray16, seeds []image.Point) []bool {
 
 	enqueue := func(x, y int) {
 		index := (y-bounds.Min.Y)*width + (x - bounds.Min.X)
-		if visited[index] || !isMaskZeroAt(mask, x, y) {
+		if visited[index] || mask.PositiveAt(x, y) {
 			return
 		}
 		visited[index] = true
@@ -105,17 +109,4 @@ func floodFillUnselected(mask *image.Gray16, seeds []image.Point) []bool {
 		}
 	}
 	return visited
-}
-
-// isMaskZeroAt reports whether the pixel at (x, y) is 0, without bounds checking.
-func isMaskZeroAt(img *image.Gray16, x, y int) bool {
-	offset := img.PixOffset(x, y)
-	return img.Pix[offset] == 0 && img.Pix[offset+1] == 0
-}
-
-// setMaskWhiteAt sets the pixel at (x, y) to 65535, without bounds checking.
-func setMaskWhiteAt(img *image.Gray16, x, y int) {
-	offset := img.PixOffset(x, y)
-	img.Pix[offset] = 0xFF
-	img.Pix[offset+1] = 0xFF
 }

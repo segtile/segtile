@@ -13,6 +13,8 @@ import (
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+
 	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
 )
 
@@ -31,11 +33,11 @@ type AppState struct {
 
 	// Bitmaps and Superpixel
 	ActiveImage             *image.NRGBA
-	ActiveImageExistingMask *image.Gray16
+	ActiveImageExistingMask *superpixel_map.Mask
 	ActiveSp                superpixel.SpResult
 
 	// Selection
-	SelectionMask *image.Gray16
+	SelectionMask *superpixel_map.Mask
 
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
 	SelectionMaskDirty bool
@@ -110,7 +112,7 @@ type UiState struct {
 	// Hover outline cache: remembers what the current HoverPathSpec was built from so
 	// RefreshHoverPreview can skip the rebuild when nothing relevant changed.
 	HoverCached      bool
-	HoverCacheLabel  uint16
+	HoverCacheLabel  uint32
 	HoverCacheManual bool
 	HoverCachePos    image.Point
 	HoverCacheRadius int
@@ -161,7 +163,7 @@ type CacheState struct {
 
 	// ProcessedSelectionMask is the current selection's mask after Shrink/Grow and Smooth are
 	// applied; it is what actually gets saved to disk and is shown by the (processed) yellow outline.
-	ProcessedSelectionMask *image.Gray16
+	ProcessedSelectionMask *superpixel_map.Mask
 }
 
 // LoadingState holds the state of background loading and optimization operations.

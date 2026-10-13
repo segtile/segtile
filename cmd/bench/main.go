@@ -21,6 +21,7 @@ import (
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 
 	//_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
@@ -44,7 +45,6 @@ import (
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/selected_superpixel_count"
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/total_boundary_pixel_count"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 type benchmarkRun struct {
@@ -93,7 +93,7 @@ func buildRunParameterSets(defaultParameters map[string]float64, parameterRanges
 	return runConfigurations, nil
 }
 
-func evaluateBenchmark(result superpixel.SpResult, img image.Image, groundTruthMask *image.Gray16, metricIDs []string, metricParams map[string]map[string]float64) (benchmarkResult, error) {
+func evaluateBenchmark(result superpixel.SpResult, img image.Image, groundTruthMask *superpixel_map.Mask, metricIDs []string, metricParams map[string]map[string]float64) (benchmarkResult, error) {
 	metricScores := make(map[string]float64, len(metricIDs))
 	for _, metricID := range metricIDs {
 		score, err := superpixel_metrics.Run(metricID, result, img, groundTruthMask, metricParams[metricID])
@@ -212,7 +212,7 @@ func main() {
 
 		// Load images
 		img := io_utils.ToNRGBA(io_utils.LoadImage(images[index_img]))
-		groundTruthMask := io_utils.ToGray16(io_utils.LoadImage(masks[index_img]))
+		groundTruthMask := superpixel_map.NewMaskFromImage(io_utils.ToGray16(io_utils.LoadImage(masks[index_img])))
 
 		// Ensure that the image and mask have the same dimensions
 		if img.Bounds() != groundTruthMask.Bounds() {
@@ -221,7 +221,7 @@ func main() {
 		}
 
 		// Test if ground truth mask contains at least one non-zero pixel
-		if !superpixel_utils.HasNonZeroPixels(groundTruthMask) {
+		if groundTruthMask.IsEmpty() {
 			fmt.Fprintf(os.Stderr, "Warning: Ground truth mask %s contains no non-zero pixels. Skipping this pair.\n", masks[index_img])
 			continue
 		}
@@ -255,7 +255,6 @@ func main() {
 						fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
 						return
 					}
-					spResult.EnforceConnectivity()
 
 					metrics, err := evaluateBenchmark(spResult, img, groundTruthMask, metricIDs, metricParameters)
 					if err != nil {

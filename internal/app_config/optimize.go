@@ -11,10 +11,11 @@ import (
 	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/progress"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_optimizer/coordinate_descent"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
 const optimizeSampleCount = 16
@@ -41,8 +42,8 @@ func collectGTSamples(appState *AppState, maxImageCount int) []superpixel_optimi
 		if _, err := os.Stat(maskPath); err != nil {
 			continue
 		}
-		loadedMask := io_utils.ToGray16(io_utils.LoadImage(maskPath))
-		if !superpixel_utils.HasNonZeroPixels(loadedMask) {
+		loadedMask := superpixel_map.NewMaskFromImage(io_utils.LoadImage(maskPath))
+		if loadedMask.IsEmpty() {
 			continue
 		}
 		img := io_utils.LoadImage(appState.ImageFiles[i])
