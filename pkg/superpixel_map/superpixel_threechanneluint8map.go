@@ -73,13 +73,8 @@ func (m *ThreeChannelUint8Map) ToImageGray16() *image.Gray16 {
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
 			value := m.Values[y*m.Width+x]
-			// Convert RGB to grayscale using the luminance formula
-			gray := toGray(value)
-
-			// clamping
-			if gray > 0xFFFF {
-				gray = 0xFFFF
-			}
+			// Expand the 8-bit luminance to the full Gray16 range.
+			gray := toGray(value) * 0x101
 			offset := (y*m.Width + x) * 2
 			img.Pix[offset] = uint8(gray >> 8)
 			img.Pix[offset+1] = uint8(gray & 0xFF)
