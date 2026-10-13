@@ -33,9 +33,11 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (regulari
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
-	// Find islands in GT
-	groundTruthIslands, _, groundTruthIslandSize := superpixel_utils.FindConnectedComponents(groundTruth)
-	groundTruthIslandCount := uint32(len(groundTruthIslandSize))
+	// Find connected components in GT
+	groundTruthIslands, groundTruthIslandValue, _ := superpixel_utils.FindConnectedComponents(groundTruth)
+
+	groundTruthIslandCount := uint32(len(groundTruthIslandValue))
+	skippedIslandCount := uint32(0)
 
 	// Prepare metrics
 	cumulativeRegularityCalibrationScore := 0.0
@@ -49,6 +51,12 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (regulari
 
 	// Evaluate islands
 	for i := uint32(1); i <= groundTruthIslandCount; i++ {
+
+		if groundTruthIslandValue[i] == 0 {
+			skippedIslandCount++
+			continue
+		}
+
 		// Only consider the superpixels that approximate this specific island, not the whole image.
 		currentGroundTruthIsland := superpixel_utils.SelectConnectedComponent(groundTruthIslands, i)
 		currentSelection := result.SelectFromMask(currentGroundTruthIsland, 0.5)
@@ -62,7 +70,7 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (regulari
 	}
 
 	// Calculate the final metric
-	regularityCalibrationScore = cumulativeRegularityCalibrationScore / float64(groundTruthIslandCount)
+	regularityCalibrationScore = cumulativeRegularityCalibrationScore / float64(groundTruthIslandCount-skippedIslandCount)
 
 	return regularityCalibrationScore, nil
 
