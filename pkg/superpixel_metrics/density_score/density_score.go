@@ -48,7 +48,7 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityC
 	pixelCount := bounds.Dx() * bounds.Dy()
 
 	// Find islands in GT
-	gtComponentIdMap, _, gtComponentSize := superpixel_utils.FindConnectedComponents(groundTruth)
+	gtComponentIdMap, gtComponentValueIndex, gtComponentSize := superpixel_utils.FindConnectedComponents(groundTruth)
 	gtComponentCount := len(gtComponentSize)
 
 	// Count the number of pixels in each island
@@ -63,12 +63,13 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityC
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			islandIndex := gtComponentIdMap.ValueAt(x, y)
+			islandValue := gtComponentValueIndex[islandIndex]
 			spLabel := result.LabelMap.ValueAt(x, y)
 
 			pixelCountPerSuperpixel[spLabel]++
 			pixelCountPerIsland[islandIndex]++
 
-			if islandIndex > 0 {
+			if islandValue > 0 {
 				if pixelCountPerSuperpixelPerIsland[spLabel] == nil {
 					pixelCountPerSuperpixelPerIsland[spLabel] = make(map[uint32]int)
 				}
