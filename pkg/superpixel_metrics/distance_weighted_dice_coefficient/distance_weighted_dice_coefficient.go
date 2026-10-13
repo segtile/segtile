@@ -46,8 +46,8 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score fl
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
 
 			// Read the maps
-			gtValue := groundTruth.ValueAt(x, y)
-			approxValue := maskApproximated.ValueAt(x, y)
+			gtValue := groundTruth.Uint32At(x, y)
+			approxValue := maskApproximated.Uint32At(x, y)
 			distance := int(distanceMap.ValueAt(x, y))
 
 			// Tally up area and average squared distance

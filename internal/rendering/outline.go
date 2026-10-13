@@ -66,8 +66,8 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 			defer wg.Done()
 			startPoint := f32.Point{X: -1, Y: -1}
 			for y := 0; y < height; y++ {
-				matchA := mask.ValueAt(x, y) == targetValue
-				matchB := mask.ValueAt(x+1, y) == targetValue
+				matchA := mask.Uint32At(x, y) == targetValue
+				matchB := mask.Uint32At(x+1, y) == targetValue
 				if matchA != matchB {
 					// The two labels are different: This means that there is a boundary
 					if startPoint.X < 0 {
@@ -101,8 +101,8 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 			defer wg.Done()
 			startPoint := f32.Point{X: -1, Y: -1}
 			for x := 0; x < width; x++ {
-				matchA := mask.ValueAt(x, y) == targetValue
-				matchB := mask.ValueAt(x, y+1) == targetValue
+				matchA := mask.Uint32At(x, y) == targetValue
+				matchB := mask.Uint32At(x, y+1) == targetValue
 				if matchA != matchB {
 					// The two labels are different: This means that there is a boundary
 					if startPoint.X < 0 {

@@ -36,9 +36,9 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 			dy := py - y
 			if dx*dx+dy*dy <= radius2 {
 				if add {
-					appState.SelectionMask.SetMaskAt(px, py, true)
+					appState.SelectionMask.SetValueAt(px, py, true)
 				} else {
-					appState.SelectionMask.SetMaskAt(px, py, false)
+					appState.SelectionMask.SetValueAt(px, py, false)
 				}
 			}
 		}

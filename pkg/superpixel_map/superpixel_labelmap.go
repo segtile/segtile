@@ -1,7 +1,9 @@
 package superpixel_map
 
-import "image"
-import "image/color"
+import (
+	"image"
+	"image/color"
+)
 
 type LabelMap struct {
 
@@ -30,7 +32,7 @@ func NewLabelMapFromImage(img image.Image) *LabelMap {
 		for x := 0; x < width; x++ {
 			grayColor := color.Gray16Model.Convert(img.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray16)
 			gray16 := uint32(grayColor.Y)
-			labelMap.SetLabelAt(x, y, gray16)
+			labelMap.SetValueAt(x, y, gray16)
 		}
 	}
 	return labelMap
@@ -40,6 +42,11 @@ func NewLabelMapFromImage(img image.Image) *LabelMap {
 // Use LabelAtSafely if you need bounds-checking.
 func (m *LabelMap) ValueAt(x, y int) uint32 {
 	return m.Labels[y*m.Width+x]
+}
+
+// For interface compatibility
+func (m *LabelMap) Uint32At(x, y int) uint32 {
+	return m.ValueAt(x, y)
 }
 
 func (m *LabelMap) PositiveAt(x, y int) bool {
@@ -88,18 +95,18 @@ func (m *LabelMap) LabelPixelIndex() map[uint32]int {
 }
 
 // Sets the label at the specified coordinates without any bounds-checking.
-func (m *LabelMap) SetLabelAt(x, y int, label uint32) {
+func (m *LabelMap) SetValueAt(x, y int, label uint32) {
 	// Set the new label.
 	m.Labels[y*m.Width+x] = label
 }
 
 // Sets the label at the specified coordinates safely. Returns false if the coordinates are out of bounds.
-func (m *LabelMap) SetLabelAtSafely(x, y int, label uint32) bool {
+func (m *LabelMap) SetValueAtSafely(x, y int, label uint32) bool {
 	if x < 0 || x >= m.Width || y < 0 || y >= m.Height {
 		return false
 	}
 
-	m.SetLabelAt(x, y, label)
+	m.SetValueAt(x, y, label)
 
 	return true
 }

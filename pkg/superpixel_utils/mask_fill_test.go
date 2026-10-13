@@ -11,7 +11,7 @@ import (
 func newMask(width, height int, selected ...image.Point) *superpixel_map.Mask {
 	mask := superpixel_map.NewMask(width, height)
 	for _, p := range selected {
-		mask.SetMaskAt(p.X, p.Y, true)
+		mask.SetValueAt(p.X, p.Y, true)
 	}
 	return mask
 }
@@ -19,7 +19,7 @@ func newMask(width, height int, selected ...image.Point) *superpixel_map.Mask {
 // selectedColumn selects a full vertical line of pixels.
 func selectedColumn(mask *superpixel_map.Mask, x int) {
 	for y := 0; y < mask.Bounds().Dy(); y++ {
-		mask.SetMaskAt(x, y, true)
+		mask.SetValueAt(x, y, true)
 	}
 }
 
@@ -79,10 +79,10 @@ func TestFillEnclosedMaskRegions_FillsHole(t *testing.T) {
 	// 7x7 mask with a ring (perimeter of the inner 5x5) selected, enclosing a 3x3 hole.
 	mask := newMask(7, 7)
 	for i := 1; i <= 5; i++ {
-		mask.SetMaskAt(i, 1, true)
-		mask.SetMaskAt(i, 5, true)
-		mask.SetMaskAt(1, i, true)
-		mask.SetMaskAt(5, i, true)
+		mask.SetValueAt(i, 1, true)
+		mask.SetValueAt(i, 5, true)
+		mask.SetValueAt(1, i, true)
+		mask.SetValueAt(5, i, true)
 	}
 
 	if !FillEnclosedMaskRegions(mask) {
@@ -118,12 +118,12 @@ func largeMask(width, height int) *superpixel_map.Mask {
 	mask := superpixel_map.NewMask(width, height)
 	// Wall around the middle half, leaving an enclosed hole.
 	for i := width / 4; i < 3*width/4; i++ {
-		mask.SetMaskAt(i, height/4, true)
-		mask.SetMaskAt(i, 3*height/4, true)
+		mask.SetValueAt(i, height/4, true)
+		mask.SetValueAt(i, 3*height/4, true)
 	}
 	for j := height / 4; j < 3*height/4; j++ {
-		mask.SetMaskAt(width/4, j, true)
-		mask.SetMaskAt(3*width/4, j, true)
+		mask.SetValueAt(width/4, j, true)
+		mask.SetValueAt(3*width/4, j, true)
 	}
 	return mask
 }

@@ -38,7 +38,7 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score fl
 	for y := 0; y < bounds.Dy(); y++ {
 		for x := 0; x < bounds.Dx(); x++ {
 			spId := result.LabelMap.ValueAt(x, y)
-			gtLabel := groundTruth.ValueAt(x, y)
+			gtLabel := groundTruth.Uint32At(x, y)
 
 			if overlapPerSp[spId] == nil {
 				overlapPerSp[spId] = make(map[uint32]int)

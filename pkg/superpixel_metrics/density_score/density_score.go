@@ -49,7 +49,17 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityC
 
 	// Find islands in GT
 	gtComponentIdMap, gtComponentValueIndex, gtComponentSize := superpixel_utils.FindConnectedComponents(groundTruth)
+
 	gtComponentCount := len(gtComponentSize)
+	gtForegroundComponentCount := 0
+	for _, value := range gtComponentValueIndex {
+		if value > 0 {
+			gtForegroundComponentCount++
+		}
+	}
+	if gtForegroundComponentCount == 0 {
+		return 0, nil
+	}
 
 	// Count the number of pixels in each island
 	pixelCountPerIsland := make([]int, gtComponentCount+1)
@@ -122,6 +132,10 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityC
 	// Aggregate the per-island scores
 	cumulativeDensityScore := 0.0
 	for i := uint32(1); i <= uint32(gtComponentCount); i++ {
+		if gtComponentValueIndex[i-1] == 0 {
+			continue
+		}
+
 		inside := boundariesInside[i]
 		outside := boundariesOutside[i]
 		if inside+outside == 0 {
@@ -133,7 +147,7 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (densityC
 		cumulativeDensityScore += math.Min(outsideRatio, desiredOutsideRatio) / math.Max(outsideRatio, desiredOutsideRatio)
 	}
 
-	densityCalibrationScore = cumulativeDensityScore / float64(gtComponentCount)
+	densityCalibrationScore = cumulativeDensityScore / float64(gtForegroundComponentCount)
 
 	return densityCalibrationScore, nil
 }

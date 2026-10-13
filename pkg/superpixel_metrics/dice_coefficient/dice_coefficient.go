@@ -39,8 +39,8 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score fl
 	var intersection, union int
 	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
-			pOriginal := groundTruth.ValueAt(x, y)
-			pApproximated := maskApproximated.ValueAt(x, y)
+			pOriginal := groundTruth.Uint32At(x, y)
+			pApproximated := maskApproximated.Uint32At(x, y)
 			if pOriginal > 0 && pApproximated > 0 {
 				intersection++
 				union += 2

@@ -11,6 +11,7 @@ import (
 	"gioui.org/unit"
 	"github.com/struffel/annotation-tool/internal/app_config"
 	"github.com/struffel/annotation-tool/internal/ui"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
 

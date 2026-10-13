@@ -248,7 +248,7 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 			if lbl < 0 {
 				lbl = 0
 			}
-			resultLabelMap.SetLabelAt(x, y, uint32(lbl))
+			resultLabelMap.SetValueAt(x, y, uint32(lbl))
 		}
 	}
 

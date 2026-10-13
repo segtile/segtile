@@ -48,7 +48,7 @@ func (appState *AppState) SetSpSelected(label uint32, selected bool) bool {
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 			if appState.ActiveSp.LabelMap.ValueAt(x, y) == label && (appState.SelectionMask.PositiveAt(x, y) != (target != 0)) {
-				appState.SelectionMask.SetMaskAt(x, y, selected)
+				appState.SelectionMask.SetValueAt(x, y, selected)
 				changed = true
 			}
 		}

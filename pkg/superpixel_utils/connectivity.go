@@ -126,7 +126,7 @@ func EnforceConnectivity(labelMap *superpixel_map.LabelMap) (changed bool) {
 				continue
 			}
 			changed = true
-			labelMap.SetLabelAt(x, y, newLabel)
+			labelMap.SetValueAt(x, y, newLabel)
 		}
 	}
 

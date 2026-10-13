@@ -36,7 +36,7 @@ func EnforceContiguousIndexing(labelMap *superpixel_map.LabelMap) (changed bool)
 		for x := 0; x < labelMap.Width; x++ {
 			for y := 0; y < labelMap.Height; y++ {
 				oldLabel := labelMap.Labels[y*labelMap.Width+x]
-				labelMap.SetLabelAt(x, y, uint32(labelRemap[oldLabel]))
+				labelMap.SetValueAt(x, y, uint32(labelRemap[oldLabel]))
 			}
 		}
 		labelCount = newLabel
