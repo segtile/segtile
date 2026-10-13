@@ -2,32 +2,33 @@ package superpixel_utils
 
 import (
 	"image"
-	"image/color"
 	"testing"
+
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
 // newMask creates a width x height mask with the given pixels set to selected (65535).
-func newMask(width, height int, selected ...image.Point) *image.Gray16 {
-	mask := image.NewGray16(image.Rect(0, 0, width, height))
+func newMask(width, height int, selected ...image.Point) *superpixel_map.Mask {
+	mask := superpixel_map.NewMask(width, height)
 	for _, p := range selected {
-		mask.SetGray16(p.X, p.Y, color.Gray16{Y: 65535})
+		mask.SetValueAt(p.X, p.Y, true)
 	}
 	return mask
 }
 
 // selectedColumn selects a full vertical line of pixels.
-func selectedColumn(mask *image.Gray16, x int) {
+func selectedColumn(mask *superpixel_map.Mask, x int) {
 	for y := 0; y < mask.Bounds().Dy(); y++ {
-		mask.SetGray16(x, y, color.Gray16{Y: 65535})
+		mask.SetValueAt(x, y, true)
 	}
 }
 
-func countSelected(t *testing.T, mask *image.Gray16) int {
+func countSelected(t *testing.T, mask *superpixel_map.Mask) int {
 	t.Helper()
 	count := 0
 	for y := mask.Bounds().Min.Y; y < mask.Bounds().Max.Y; y++ {
 		for x := mask.Bounds().Min.X; x < mask.Bounds().Max.X; x++ {
-			if mask.Gray16At(x, y).Y != 0 {
+			if mask.PositiveAt(x, y) {
 				count++
 			}
 		}
@@ -49,7 +50,7 @@ func TestFloodFillMaskFromPoint_FillsUpToBarrier(t *testing.T) {
 	}
 	for x := 4; x < 6; x++ {
 		for y := 0; y < 5; y++ {
-			if mask.Gray16At(x, y).Y != 0 {
+			if mask.PositiveAt(x, y) {
 				t.Fatalf("flood fill crossed the barrier at (%d, %d)", x, y)
 			}
 		}
@@ -78,10 +79,10 @@ func TestFillEnclosedMaskRegions_FillsHole(t *testing.T) {
 	// 7x7 mask with a ring (perimeter of the inner 5x5) selected, enclosing a 3x3 hole.
 	mask := newMask(7, 7)
 	for i := 1; i <= 5; i++ {
-		mask.SetGray16(i, 1, color.Gray16{Y: 65535})
-		mask.SetGray16(i, 5, color.Gray16{Y: 65535})
-		mask.SetGray16(1, i, color.Gray16{Y: 65535})
-		mask.SetGray16(5, i, color.Gray16{Y: 65535})
+		mask.SetValueAt(i, 1, true)
+		mask.SetValueAt(i, 5, true)
+		mask.SetValueAt(1, i, true)
+		mask.SetValueAt(5, i, true)
 	}
 
 	if !FillEnclosedMaskRegions(mask) {
@@ -92,10 +93,10 @@ func TestFillEnclosedMaskRegions_FillsHole(t *testing.T) {
 	if got := countSelected(t, mask); got != 25 {
 		t.Fatalf("expected 25 selected pixels, got %d", got)
 	}
-	if mask.Gray16At(3, 3).Y != 65535 {
+	if !mask.PositiveAt(3, 3) {
 		t.Fatal("expected enclosed center pixel to be selected")
 	}
-	if mask.Gray16At(0, 0).Y != 0 {
+	if mask.PositiveAt(0, 0) {
 		t.Fatal("expected border-connected pixel to stay unselected")
 	}
 }
@@ -113,23 +114,23 @@ func TestFillEnclosedMaskRegions_NoEnclosedRegion(t *testing.T) {
 
 // largeMask builds a width x height mask with a checkerboard of selected pixels on the
 // border rows/columns and a large enclosed empty area in the middle.
-func largeMask(width, height int) *image.Gray16 {
-	mask := image.NewGray16(image.Rect(0, 0, width, height))
+func largeMask(width, height int) *superpixel_map.Mask {
+	mask := superpixel_map.NewMask(width, height)
 	// Wall around the middle half, leaving an enclosed hole.
 	for i := width / 4; i < 3*width/4; i++ {
-		mask.SetGray16(i, height/4, color.Gray16{Y: 65535})
-		mask.SetGray16(i, 3*height/4, color.Gray16{Y: 65535})
+		mask.SetValueAt(i, height/4, true)
+		mask.SetValueAt(i, 3*height/4, true)
 	}
 	for j := height / 4; j < 3*height/4; j++ {
-		mask.SetGray16(width/4, j, color.Gray16{Y: 65535})
-		mask.SetGray16(3*width/4, j, color.Gray16{Y: 65535})
+		mask.SetValueAt(width/4, j, true)
+		mask.SetValueAt(3*width/4, j, true)
 	}
 	return mask
 }
 
 func BenchmarkFloodFillMaskFromPoint(b *testing.B) {
 	for b.Loop() {
-		mask := image.NewGray16(image.Rect(0, 0, 2048, 2048))
+		mask := superpixel_map.NewMask(2048, 2048)
 		FloodFillMaskFromPoint(mask, 1024, 1024)
 	}
 }

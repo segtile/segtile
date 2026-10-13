@@ -7,9 +7,11 @@ import (
 	"math/rand"
 	"os"
 	"testing"
+
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
-func loadGray16Testdata(t testing.TB, path string) *image.Gray16 {
+func loadTestData(t testing.TB, path string) *superpixel_map.LabelMap {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
@@ -22,11 +24,11 @@ func loadGray16Testdata(t testing.TB, path string) *image.Gray16 {
 		t.Fatalf("failed to decode %s: %v", path, err)
 	}
 
-	gray16, ok := src.(*image.Gray16)
+	labelMap, ok := src.(*image.Gray16)
 	if !ok {
 		t.Fatalf("%s is not a 16-bit grayscale PNG (got %T)", path, src)
 	}
-	return gray16
+	return superpixel_map.NewLabelMapFromImage(labelMap)
 }
 
 func saveGray16Testdata(path string, img *image.Gray16) {
@@ -65,13 +67,13 @@ func generatePseudoRandomGray16(t *testing.T, width, height int) *image.Gray16 {
 }
 
 func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
-	connected := loadGray16Testdata(t, "testdata/grid_4x4_connected.png")
-	disconnected := loadGray16Testdata(t, "testdata/grid_4x4_disconnected.png")
+	connected := loadTestData(t, "testdata/grid_4x4_connected.png")
+	disconnected := loadTestData(t, "testdata/grid_4x4_disconnected.png")
 
 	connectedResult := SpResult{LabelMap: connected}
+	connectedResult.Optimize()
 	disconnectedResult := SpResult{LabelMap: disconnected}
-
-	disconnectedResult.EnforceConnectivity()
+	disconnectedResult.Optimize()
 
 	// At this point, the two label maps should be identical
 
@@ -82,8 +84,8 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			want := connectedResult.LabelMap.Gray16At(x, y).Y
-			got := disconnectedResult.LabelMap.Gray16At(x, y).Y
+			want := connectedResult.LabelMap.ValueAt(x, y)
+			got := disconnectedResult.LabelMap.ValueAt(x, y)
 			if want != got {
 				t.Errorf("label mismatch at (%d,%d): connected=%d disconnected(post-enforcement)=%d", x, y, want, got)
 			}
@@ -91,42 +93,31 @@ func TestEnforceConnectivity_MergesDisjointComponents(t *testing.T) {
 	}
 }
 
-func TestMakeSpResult_RemapsRandomLabels(t *testing.T) {
-	original := generatePseudoRandomGray16(t, 32, 32)
-	originalResult := NewSpResult(original, 0, false)
-	originalResult.EnforceContiguousIndexing()
-
-	// At this point, originalResult.LabelMap should have labels ranging from 0 to 1023 for this 32x32 image.
-
-	// Check which labels are actually used
-	seenLabels := make([]bool, 65535)
-	for i := 0; i < originalResult.LabelMap.Bounds().Dy(); i++ {
-		for j := 0; j < originalResult.LabelMap.Bounds().Dx(); j++ {
-			label := originalResult.LabelMap.Gray16At(j, i).Y
-			seenLabels[label] = true
+func TestEnforceConnectivity_MoreThan65535Components(t *testing.T) {
+	const width, height = 512, 512
+	labelMap := superpixel_map.NewLabelMap(width, height)
+	for y := 0; y < height; y += 2 {
+		for x := 0; x < width; x += 2 {
+			labelMap.SetValueAt(x, y, 1)
 		}
 	}
 
-	// Throw errors for any labels that are expected to be present but are not, or the other way around.
-	for label := uint16(0); label < 65535; label++ {
-		if label < 1024 && !seenLabels[label] {
-			t.Errorf("Expected label %d to be present in the original result, but it was not found.", label)
-		}
-		if label >= 1024 && seenLabels[label] {
-			t.Errorf("Did not expect label %d to be present in the original result, but it was found.", label)
-		}
-	}
+	result := NewSpResult(labelMap)
+	result.Optimize()
 
+	if result.SpCount != 2 {
+		t.Fatalf("expected 2 superpixel labels after connectivity enforcement, got %d", result.SpCount)
+	}
 }
 
 func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
-	continuous := loadGray16Testdata(t, "testdata/grid_4x4_continuous.png")
-	discontinuous := loadGray16Testdata(t, "testdata/grid_4x4_discontinuous.png")
+	continuous := loadTestData(t, "testdata/grid_4x4_continuous.png")
+	discontinuous := loadTestData(t, "testdata/grid_4x4_discontinuous.png")
 
-	continuousResult := NewSpResult(continuous, 0, false)
-	discontinuousResult := NewSpResult(discontinuous, 0, false)
-	continuousResult.EnforceContiguousIndexing()
-	discontinuousResult.EnforceContiguousIndexing()
+	continuousResult := NewSpResult(continuous)
+	discontinuousResult := NewSpResult(discontinuous)
+	continuousResult.Optimize()
+	discontinuousResult.Optimize()
 
 	if continuousResult.SpCount != discontinuousResult.SpCount {
 		t.Fatalf("SpCount mismatch: continuous=%d discontinuous=%d",
@@ -140,8 +131,8 @@ func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			want := continuousResult.LabelMap.Gray16At(x, y).Y
-			got := discontinuousResult.LabelMap.Gray16At(x, y).Y
+			want := continuousResult.LabelMap.ValueAt(x, y)
+			got := discontinuousResult.LabelMap.ValueAt(x, y)
 			if want != got {
 				t.Errorf("label mismatch at (%d,%d): continuous=%d discontinuous(post-cleanup)=%d", x, y, want, got)
 			}
@@ -150,22 +141,24 @@ func TestMakeSpResult_RemapsDiscontinuousLabels(t *testing.T) {
 }
 
 func TestSetActualSpCount(t *testing.T) {
-	img := loadGray16Testdata(t, "testdata/bad_labelmap_32colors.png")
-	spResult := NewSpResult(img, 0, false)
-	spResult.SetActualSpCount()
+	img := loadTestData(t, "testdata/bad_labelmap_32colors.png")
+	spResult := NewSpResult(img)
+	spResult.Optimize()
 	if spResult.SpCount != 32 {
 		t.Errorf("Expected SpCount to be 32 but got %d", spResult.SpCount)
 	}
 }
 
-func BenchmarkEnforceConnectivity(b *testing.B) {
-	img := loadGray16Testdata(b, "testdata/bad_labelmap_32colors.png")
-	originalResult := NewSpResult(img, 0, false)
-	originalResult.SetActualSpCount()
+func BenchmarkOptimize(b *testing.B) {
+	labelMap := loadTestData(b, "testdata/bad_labelmap_32colors.png")
+	originalResult := &SpResult{
+		LabelMap: labelMap,
+	}
+	originalResult.Optimize()
 	b.ResetTimer()
 	for b.Loop() {
 		spResult := originalResult.Clone()
-		spResult.EnforceConnectivity()
+		spResult.Optimize()
 	}
 
 }

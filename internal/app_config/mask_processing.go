@@ -1,8 +1,6 @@
 package app_config
 
 import (
-	"image/color"
-
 	"gioui.org/op/clip"
 
 	"github.com/struffel/annotation-tool/internal/rendering"
@@ -16,7 +14,7 @@ const smoothMaxFactor = 0.05
 func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 
 	// Early return if there is no image
-	if appState.ActiveImage == nil {
+	if appState.ActiveImage == nil || appState.SelectionMask == nil {
 		return
 	}
 
@@ -30,7 +28,7 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	targetBbox := superpixel_utils.BoundingBox{}
 	targetBbox.AddPoint(x-appState.ManualFixBrushRadius, y-appState.ManualFixBrushRadius)
 	targetBbox.AddPoint(x+appState.ManualFixBrushRadius, y+appState.ManualFixBrushRadius)
-	targetBounds := targetBbox.Bounds()
+	targetBounds := targetBbox.Bounds().Intersect(appState.SelectionMask.Bounds())
 
 	for py := targetBounds.Min.Y; py < targetBounds.Max.Y; py++ {
 		for px := targetBounds.Min.X; px < targetBounds.Max.X; px++ {
@@ -38,9 +36,9 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 			dy := py - y
 			if dx*dx+dy*dy <= radius2 {
 				if add {
-					appState.SelectionMask.SetGray16(px, py, color.Gray16{Y: 65535})
+					appState.SelectionMask.SetValueAt(px, py, true)
 				} else {
-					appState.SelectionMask.SetGray16(px, py, color.Gray16{Y: 0})
+					appState.SelectionMask.SetValueAt(px, py, false)
 				}
 			}
 		}
@@ -85,7 +83,7 @@ func (appState *AppState) ReprocessSelection() {
 		return
 	}
 
-	if appState.SelectionMask == nil || !superpixel_utils.HasNonZeroPixels(appState.SelectionMask) {
+	if appState.SelectionMask == nil || appState.SelectionMask.IsEmpty() {
 		appState.ProcessedSelectionMask = nil
 		appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
 		appState.SelectionMaskDirty = false
@@ -99,7 +97,7 @@ func (appState *AppState) ReprocessSelection() {
 		return
 	}
 
-	width := float32(appState.SelectionMask.Bounds().Dx())
+	width := float32(appState.SelectionMask.Width)
 	shrinkGrowRadius := int(SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value) * width * shrinkGrowMaxFactor)
 	smoothRadius := int(appState.SmoothAmount.Value * width * smoothMaxFactor)
 

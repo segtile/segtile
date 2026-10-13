@@ -19,11 +19,11 @@ Scale-adaptive superpixel algorithm for medical images, based on:
 import (
 	"errors"
 	"image"
-	"image/color"
 	"math"
 
 	"github.com/emirpasic/gods/v2/queues/priorityqueue"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -241,16 +241,16 @@ func Run(img image.Image, threshold float64, beta float64) (superpixel.SpResult,
 	}
 
 	// Build result
-	resultLabelMap := image.NewGray16(img.Bounds())
+	resultLabelMap := superpixel_map.NewLabelMap(img.Bounds().Dx(), img.Bounds().Dy())
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			lbl := labelMap[y*width+x]
 			if lbl < 0 {
 				lbl = 0
 			}
-			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(lbl)})
+			resultLabelMap.SetValueAt(x, y, uint32(lbl))
 		}
 	}
 
-	return superpixel.NewSpResult(resultLabelMap, 0, true), nil
+	return superpixel.NewSpResult(resultLabelMap), nil
 }

@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
 )
 
@@ -20,27 +21,27 @@ func init() {
 	)
 }
 
-func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *image.Gray16, params map[string]float64) (score float64, err error) {
+func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask, params map[string]float64) (score float64, err error) {
 	return Run(result, groundTruth)
 }
 
-func Run(result superpixel.SpResult, groundTruth *image.Gray16) (score float64, err error) {
+func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score float64, err error) {
 
 	if result.LabelMap.Bounds() != groundTruth.Bounds() {
 		return 0, fmt.Errorf("Ground truth and superpixel label map must have the same dimensions")
 	}
 
 	// Tally up the overlap between each superpixel and each ground truth label
-	overlapPerSp := make(map[uint16]map[uint16]int)
+	overlapPerSp := make(map[uint32]map[uint32]int)
 
 	bounds := result.LabelMap.Bounds()
 	for y := 0; y < bounds.Dy(); y++ {
 		for x := 0; x < bounds.Dx(); x++ {
-			spId := result.LabelMap.Gray16At(x, y).Y
-			gtLabel := groundTruth.Gray16At(x, y).Y
+			spId := result.LabelMap.ValueAt(x, y)
+			gtLabel := groundTruth.Uint32At(x, y)
 
 			if overlapPerSp[spId] == nil {
-				overlapPerSp[spId] = make(map[uint16]int)
+				overlapPerSp[spId] = make(map[uint32]int)
 			}
 			overlapPerSp[spId][gtLabel]++
 		}

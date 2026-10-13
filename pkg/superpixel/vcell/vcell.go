@@ -20,10 +20,10 @@ This is an implementation of VCells superpixels, based on the original paper:
 import (
 	"errors"
 	"image"
-	"image/color"
 	"math"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -109,15 +109,15 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 	state.detectSegmentBreaking()
 
 	// Write the final result into a SpResult struct
-	resultLabelMap := image.NewGray16(image.Rect(0, 0, width, height))
+	resultLabelMap := superpixel_map.NewLabelMap(width, height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			label := state.labelMap[y*width+x]
-			resultLabelMap.SetGray16(x, y, color.Gray16{Y: uint16(label)})
+			resultLabelMap.SetValueAt(x, y, uint32(label))
 		}
 	}
 
-	result := superpixel.NewSpResult(resultLabelMap, 0, true)
+	result := superpixel.NewSpResult(resultLabelMap)
 	return result, nil
 }
 
