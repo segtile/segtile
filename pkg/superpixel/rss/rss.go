@@ -75,6 +75,8 @@ func compareQueueItems(a, b queueItem) int {
 }
 
 func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, error) {
+
+	// Validate input parameters
 	if img == nil {
 		return superpixel.SpResult{}, errors.New("Image is nil.")
 	}
@@ -95,6 +97,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		return superpixel.SpResult{}, errors.New("Superpixel count cannot exceed the number of pixels.")
 	}
 
+	// Place starting points
 	seeds, gridInterval := superpixel_utils.RegularGridPoints(width, height, count)
 	if len(seeds) == 0 {
 		seeds = []image.Point{{X: width / 2, Y: height / 2}}
@@ -106,6 +109,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		gridInterval = 1
 	}
 
+	// Extract color features from the image
 	features := make([][3]uint8, pixelCount)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
@@ -114,6 +118,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		}
 	}
 
+	// Initialize label, cost, and state arrays for the superpixel algorithm
 	labels := make([]int, pixelCount)
 	bestCosts := make([]float64, pixelCount)
 	lockedSeeds := make([]bool, pixelCount)
@@ -134,24 +139,33 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		queueOrder++
 	}
 
+	// Perform the rooted spanning growth to assign pixels to superpixels
 	imageRect := image.Rect(0, 0, width, height)
 	for !queue.Empty() {
+
+		// Dequeue the next pixel to process
 		item, _ := queue.Dequeue()
 		if visited[item.pixelIndex] || labels[item.pixelIndex] != item.label || bestCosts[item.pixelIndex] != item.cost {
 			continue
 		}
 		visited[item.pixelIndex] = true
 
+		// Retrieve the seed corresponding to the current label
 		seed := seeds[item.label]
 		seedIndex := seed.Y*width + seed.X
 		seedColor := features[seedIndex]
 		point := image.Point{X: item.pixelIndex % width, Y: item.pixelIndex / width}
+
+		// Iterate over the neighboring pixels to update their costs and labels
 		for _, neighbor := range superpixel_utils.PixelNeighbours(point, imageRect, true, false) {
+
+			// Compute the index of the neighboring pixel
 			neighborIndex := neighbor.Y*width + neighbor.X
 			if visited[neighborIndex] || lockedSeeds[neighborIndex] {
 				continue
 			}
 
+			// Compute the cost of assigning the neighboring pixel to the current superpixel
 			neighborColor := features[neighborIndex]
 			colorDifference := maxChannelDifference(seedColor, neighborColor)
 			spatialDifference := compactness * math.Max(
@@ -160,6 +174,8 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 			) / float64(gridInterval)
 			candidateCost := math.Max(item.cost, math.Max(colorDifference, spatialDifference))
 			if candidateCost < bestCosts[neighborIndex] {
+
+				// Update the best cost and label for the neighboring pixel
 				bestCosts[neighborIndex] = candidateCost
 				labels[neighborIndex] = item.label
 				queue.Enqueue(queueItem{
@@ -173,6 +189,7 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		}
 	}
 
+	// Convert the label array into a label map for the final superpixel result
 	labelMap := superpixel_map.NewLabelMap(width, height)
 	for pixelIndex, label := range labels {
 		if label < 0 {
