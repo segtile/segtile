@@ -54,8 +54,6 @@ func init() {
 	superpixel.RegisterSpAlgorithm("slic", "SLIC", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
 }
 
-// This is the new run function.
-// It works like the old one, but no longer uses a stateful struct, instead it is completely functional.
 func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, error) {
 
 	const initialPerturbationNeighborhoodRadius = 1
