@@ -10,7 +10,6 @@ import (
 	"gioui.org/layout"
 	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/core"
-	"github.com/struffel/annotation-tool/internal/rendering"
 )
 
 func HandlePointer(appState *core.AppState, gtx layout.Context) {
@@ -48,7 +47,7 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 
 		if pe.Kind == pointer.Leave || pe.Kind == pointer.Cancel {
 			appState.InImageBounds = false
-			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverPathSpec = core.GetEmptySelectionOutline()
 			appState.HoverCached = false
 			appState.StrokeAnchorValid = false
 			appState.LastPaintedSpLabel = -1
@@ -164,7 +163,9 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 					appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
 				}
 			}
-			appState.ReprocessSelectionIfChanged()
+			if appState.SelectionMaskDirty {
+				appState.ReprocessSelection()
+			}
 			// A fresh press must re-evaluate the superpixel under the cursor.
 			appState.LastPaintedSpLabel = -1
 			appState.StrokeAnchorValid = false
@@ -223,7 +224,9 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 			}
 
 			if inputMade {
-				appState.ReprocessSelectionIfChanged()
+				if appState.SelectionMaskDirty {
+					appState.ReprocessSelection()
+				}
 				appState.Window.Invalidate()
 			}
 		}

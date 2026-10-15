@@ -68,17 +68,17 @@ func distanceToBoundary(mask *superpixel_map.Mask) *superpixel_map.LabelMap {
 	}
 }
 
-// GrowShrink dilates (radius > 0) or erodes (radius < 0) a binary mask by the given number of
-// pixels. radius == 0 returns an unchanged copy. mask is not modified.
-func GrowShrink(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
+// GrowShrink dilates (radius > 0) or erodes (radius < 0) a binary mask by the given number of pixels.
+// The operation is performed in-place on the input mask.
+// Radius <= 0 leaves the mask unchanged.
+func GrowShrink(mask *superpixel_map.Mask, radius int) {
 
-	if radius == 0 {
-		return mask.Clone()
+	if radius <= 0 {
+		return
 	}
 
 	dist := distanceToBoundary(mask)
 	w, h := mask.Width, mask.Height
-	result := superpixel_map.NewMask(w, h)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			isForeground := mask.PositiveAt(x, y)
@@ -94,18 +94,17 @@ func GrowShrink(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
 				keep = isForeground && d >= erosionRadius
 			}
 
-			result.SetValueAt(x, y, keep)
+			mask.SetValueAt(x, y, keep)
 		}
 	}
-	return result
 }
 
 // SmoothMask blurs a binary mask with a box filter of the given pixel radius and re-binarizes
 // at the 50% coverage threshold, so the result stays binary but has rounded/smoothed edges.
-// radius <= 0 returns an unchanged copy. mask is not modified.
-func SmoothMask(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
+// The operation is performed in-place. Radius <= 0 leaves the mask unchanged.
+func SmoothMask(mask *superpixel_map.Mask, radius int) {
 	if radius <= 0 {
-		return mask.Clone()
+		return
 	}
 
 	// Summed-area table over the binary mask (values 0/1) so any window sum is O(1).
@@ -121,7 +120,6 @@ func SmoothMask(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
 		}
 	}
 
-	result := superpixel_map.NewMask(mask.Width, mask.Height)
 	for y := 0; y < mask.Height; y++ {
 		y0 := 0
 		if radius < y {
@@ -144,8 +142,7 @@ func SmoothMask(mask *superpixel_map.Mask, radius int) *superpixel_map.Mask {
 			area := int64(x1-x0+1) * int64(y1-y0+1)
 			sum := sat[(y1+1)*satStride+(x1+1)] - sat[y0*satStride+(x1+1)] - sat[(y1+1)*satStride+x0] + sat[y0*satStride+x0]
 
-			result.SetValueAt(x, y, sum*2 >= area)
+			mask.SetValueAt(x, y, sum*2 >= area)
 		}
 	}
-	return result
 }

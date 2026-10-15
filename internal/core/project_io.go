@@ -14,27 +14,27 @@ import (
 
 const DefaultConfigFileName = "settings.yaml"
 const ProjectMetadataDirectoryName = ".meta"
-const defaultSpAlgorithmId = "snic"
+const defaultSpAlgorithmId = "slic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	SettingsFile              string             `yaml:"-"` // The path to the settings file itself, not persisted in the yaml.
+	SettingsFile              string             `yaml:"-"` // Don't store the path to the file in itself.
 	InputDirectory            string             `yaml:"input_directory"`
 	Superpixel                SuperpixelSettings `yaml:"superpixel"`
 	EnableAutoFloodFill       bool               `yaml:"auto_flood_fill"`
 	UpdateSelectionOnSpChange bool               `yaml:"update_selection_on_sp_change"`
 	ShrinkGrowAmount          float32            `yaml:"shrink_grow_amount"`
 	SmoothAmount              float32            `yaml:"smooth_amount"`
-	Err                       error              `yaml:"-"` // The error is also not persisted to disk.
+	Err                       error              `yaml:"-"` // Don't store the error
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
-// This is used for yaml persistence.
 type SuperpixelSettings struct {
 	SpAlgorithmId         string             `yaml:"algorithm" json:"algorithm"`
 	SpAlgorithmParameters map[string]float64 `yaml:"parameters" json:"parameters"`
 }
 
+// ImageMetadata stores metadata for an individual image within the project.
 type ImageMetadata struct {
 	Annotator        string             `json:"annotator"`
 	Superpixel       SuperpixelSettings `json:"superpixel"`
@@ -84,46 +84,42 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 }
 
 // LoadProjectSettings reads and unmarshals a config file from the given path.
-// This can be either a direct path to a settings yaml file or the path to a directory,
-// in which case it will look for a settings yaml file within that directory.
-func LoadProjectSettings(settingsPath string) *ProjectSettings {
+func LoadProjectSettings(settingsYamlPath string) *ProjectSettings {
 
-	// Check if the given path exists and whether it is a file or directory
-	stat, err := os.Stat(settingsPath)
+	// Ensure the path is clean
+	settingsYamlPath = filepath.Clean(settingsYamlPath)
+
+	// Check if the given path exists
+	stat, err := os.Stat(settingsYamlPath)
 	if err != nil {
-		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsYamlPath, err: err}}
 	}
 
-	// If the path is a directory, use the default config file name within it.
+	// If the path is a directory,
 	if stat.IsDir() {
-		settingsPath = filepath.Join(settingsPath, DefaultConfigFileName)
+		settingsYamlPath = filepath.Join(settingsYamlPath, DefaultConfigFileName)
 	}
 
-	// Then try reading the settings
-	data, err := os.ReadFile(filepath.Clean(settingsPath))
+	// Then try reading the settings file
+	data, err := os.ReadFile(settingsYamlPath)
 	if err != nil {
-		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsYamlPath, err: err}}
 	}
 
-	// Parse yaml
 	var settings ProjectSettings
-	if err := yaml.Unmarshal(data, &settings); err != nil {
+	err = yaml.Unmarshal(data, &settings)
+	if err != nil {
 		return &ProjectSettings{Err: &SettingsFileYamlParseError{err: err}}
 	}
 
 	// Resolve relative input paths against the settings file that was selected.
-	settings.SettingsFile = settingsPath
+	settings.SettingsFile = settingsYamlPath
 
 	if !filepath.IsAbs(settings.InputDirectory) {
-		if _, err := os.Stat(settings.InputDirectory); err != nil {
-			settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
-		}
-		settings.InputDirectory, err = filepath.Abs(settings.InputDirectory)
-		if err != nil {
-			return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
-		}
+		settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
 	}
-	if _, err := os.Stat(settings.InputDirectory); err != nil {
+	_, err = os.Stat(settings.InputDirectory)
+	if err != nil {
 		return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
 	}
 
@@ -136,7 +132,9 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 		return &ProjectSettings{Err: &SettingsNoImagesInInputDirectoryError{path: settings.InputDirectory}}
 	}
 
-	if err := settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
+	// Normalize the parsed SP settings before returning the final project settings.
+	err = settings.Superpixel.normalizeSuperpixelSettings()
+	if err != nil {
 		return &ProjectSettings{Err: err}
 	}
 

@@ -70,7 +70,7 @@ func TestRefreshHoverPreviewRejectsOutOfBoundsCoordinates(t *testing.T) {
 
 func TestLoadOkProjectSettings(t *testing.T) {
 
-	settingsPath := "testdata/settings_ok.yaml"
+	settingsPath := "testdata/project/settings_ok.yaml"
 	settings := LoadProjectSettings(settingsPath)
 
 	if settings == nil {
@@ -83,7 +83,7 @@ func TestLoadOkProjectSettings(t *testing.T) {
 
 func TestLoadUnknownAlgorithmProjectSettings(t *testing.T) {
 
-	settingsPath := "testdata/settings_bad_algorithm.yaml"
+	settingsPath := "testdata/project/settings_bad_algorithm.yaml"
 	settings := LoadProjectSettings(settingsPath)
 
 	var targetErr *superpixel.UnknownSpAlgorithmError
@@ -95,7 +95,7 @@ func TestLoadUnknownAlgorithmProjectSettings(t *testing.T) {
 
 func TestBadInputDirectoryProjectSettings(t *testing.T) {
 
-	settingsPath := "testdata/settings_bad_input_directory.yaml"
+	settingsPath := "testdata/project/settings_bad_input_directory.yaml"
 	settings := LoadProjectSettings(settingsPath)
 
 	var targetErr *SettingsInputDirectoryError
@@ -107,7 +107,7 @@ func TestBadInputDirectoryProjectSettings(t *testing.T) {
 
 func TestNonExistentSettingsYaml(t *testing.T) {
 
-	settingsPath := "testdata/settings_does_not_exist.yaml"
+	settingsPath := "testdata/project/settings_does_not_exist.yaml"
 	settings := LoadProjectSettings(settingsPath)
 
 	var targetErr *SettingsFileReadError
@@ -119,7 +119,7 @@ func TestNonExistentSettingsYaml(t *testing.T) {
 
 func TestNoImagesInInputDirectory(t *testing.T) {
 
-	settingsPath := "testdata/settings_no_images_in_directory.yaml"
+	settingsPath := "testdata/project/settings_no_images_in_directory.yaml"
 	settings := LoadProjectSettings(settingsPath)
 
 	var targetErr *SettingsNoImagesInInputDirectoryError

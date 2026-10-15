@@ -17,6 +17,7 @@ func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "R", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
@@ -81,20 +82,18 @@ func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// Shift: Disable smoothing of selection outline (while held)
-		/*if ke.Name == key.NameShift {
+		// [R]aw mask: Disable smoothing of selection outline (while held)
+		if ke.Name == "R" {
 			if ke.State == key.Press {
 				appState.SmoothSelectionOutlines = false
-				appState.ReprocessSelection()
-				log.Println("Disable smoothing of selection outline")
+				appState.ReprocessSelectionOutline()
 				appState.Window.Invalidate()
 			} else if ke.State == key.Release {
 				appState.SmoothSelectionOutlines = true
-				appState.ReprocessSelection()
-				log.Println("Enable smoothing of selection outline")
+				appState.ReprocessSelectionOutline()
 				appState.Window.Invalidate()
 			}
-		}*/
+		}
 
 		// Space: next image, Shift+Space: previous image
 		// Alternatively: Left/Right arrow keys

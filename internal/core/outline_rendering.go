@@ -1,4 +1,4 @@
-package rendering
+package core
 
 import (
 	"image"
@@ -147,4 +147,19 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 	}
 
 	return p.End()
+}
+
+// Set the selection outline based on the processed selection mask and the smoothing preference.
+func (appState *AppState) ReprocessSelectionOutline() {
+	if appState.ProcessedSelectionMask == nil {
+		appState.SelectionPathSpec = GetEmptySelectionOutline()
+		return
+	}
+
+	if appState.SmoothSelectionOutlines {
+		appState.SelectionPathSpec = CalculateOutline(appState.ProcessedSelectionMask, 0)
+	} else {
+		appState.SelectionPathSpec = CalculateOutline(appState.SelectionMask, 0)
+	}
+	log.Printf("Reprocessed Selection Outline Postprocessing: %v", appState.SmoothSelectionOutlines)
 }

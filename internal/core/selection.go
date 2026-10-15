@@ -5,12 +5,20 @@ import (
 	"time"
 
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
+// SelectionMade returns true if there is an active selection in the current image.
+// This is measured by the processed selection mask rather than the raw selection mask.
 func (appState *AppState) SelectionMade() bool {
-	return appState.SelectionMask != nil && !appState.SelectionMask.IsEmpty()
+
+	// Since grow/shrink/smooth operations can make the selection mask empty,
+	// we need to reprocess it before checking if a selection exists.
+	if appState.SelectionMaskDirty {
+		appState.ReprocessSelection()
+	}
+
+	return appState.SelectionMask != nil && !appState.ProcessedSelectionMask.IsEmpty()
 }
 
 func (appState *AppState) ClearSelection(showToast bool) {
@@ -106,7 +114,7 @@ func (appState *AppState) SetManualFixMode(enabled bool) {
 func (appState *AppState) RefreshHoverPreview() {
 	if !appState.InImageBounds || appState.ActiveSp.LabelMap == nil {
 		if appState.HoverCached {
-			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverPathSpec = GetEmptySelectionOutline()
 			appState.HoverCached = false
 		}
 		return
@@ -117,7 +125,7 @@ func (appState *AppState) RefreshHoverPreview() {
 	if !(hoverX >= 0 && hoverY >= 0 && hoverX < float32(labelMap.Width) && hoverY < float32(labelMap.Height)) {
 		appState.InImageBounds = false
 		if appState.HoverCached {
-			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverPathSpec = GetEmptySelectionOutline()
 			appState.HoverCached = false
 		}
 		return
@@ -129,7 +137,7 @@ func (appState *AppState) RefreshHoverPreview() {
 		if appState.HoverCached && appState.HoverCacheManual && appState.HoverCachePos == image.Pt(x, y) && appState.HoverCacheRadius == radius {
 			return
 		}
-		appState.HoverPathSpec = rendering.CalculateCircleOutline(x, y, radius)
+		appState.HoverPathSpec = CalculateCircleOutline(x, y, radius)
 		appState.HoverCached = true
 		appState.HoverCacheManual = true
 		appState.HoverCachePos = image.Pt(x, y)
@@ -141,7 +149,7 @@ func (appState *AppState) RefreshHoverPreview() {
 	if appState.HoverCached && !appState.HoverCacheManual && appState.HoverCacheLabel == label {
 		return
 	}
-	appState.HoverPathSpec = rendering.CalculateOutline(appState.ActiveSp.LabelMap, label)
+	appState.HoverPathSpec = CalculateOutline(appState.ActiveSp.LabelMap, label)
 	appState.HoverCached = true
 	appState.HoverCacheManual = false
 	appState.HoverCacheLabel = label

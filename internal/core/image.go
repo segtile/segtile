@@ -13,7 +13,6 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/paint"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/rendering"
 
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
@@ -131,7 +130,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Reset view and hover.
 	appState.FitToWindow = true
-	appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+	appState.HoverPathSpec = GetEmptySelectionOutline()
 
 	appState.SyncEditors()
 
@@ -147,14 +146,12 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 // SaveCurrentMask writes the processed mask to the project root and the editable state to .meta.
 func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
 
-	// Apply any pending brush strokes so the saved mask reflects the latest input.
-	appState.FlushPendingManualFixes()
+	appState.ReprocessSelection()
 
 	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
 
-		// Ensure that a processed selection mask is available
-		appState.ReprocessSelection()
-
+		// Apply postprocessing to the selection mask before saving.
+		// Selection smoothing can cause the current processed selection mask
 		mask := appState.ProcessedSelectionMask
 		if mask == nil {
 			mask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
@@ -206,7 +203,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 		appState.SelectionModified = false
 
 		if recalculateOutline {
-			appState.SelectionPathSpec = rendering.CalculateOutline(mask, 0)
+			appState.SelectionPathSpec = CalculateOutline(mask, 0)
 		}
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)
 	}

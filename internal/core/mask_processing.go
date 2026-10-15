@@ -1,9 +1,8 @@
 package core
 
 import (
-	"gioui.org/op/clip"
+	"log"
 
-	"github.com/struffel/annotation-tool/internal/rendering"
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -55,17 +54,6 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	}
 }
 
-// FlushPendingManualFixes rebuilds the processed selection once if any brush stamps are pending.
-// Call once per frame, before building the UI. Returns true if a rebuild happened.
-func (appState *AppState) FlushPendingManualFixes() bool {
-	if !appState.SelectionMaskDirty {
-		return false
-	}
-	appState.SelectionMaskDirty = false
-	appState.ReprocessSelection()
-	return true
-}
-
 func SliderToSignedShrinkGrow(sliderValue float32) float32 {
 	return sliderValue*2 - 1
 }
@@ -75,46 +63,32 @@ func SignedShrinkGrowToSlider(signedAmount float32) float32 {
 }
 
 // ReprocessSelection rebuilds ProcessedSelectionMask and the selection outlines.
-// Callers that know the inputs changed (mask mutated, smoothing parameters
-// adjusted, superpixels rebuilt) call this directly; callers on high-frequency
-// input paths that merely suspect a change should use ReprocessSelectionIfChanged.
 func (appState *AppState) ReprocessSelection() {
 
+	// If there is no active superpixel label map, clear the processed selection.
 	if appState.ActiveSp.LabelMap == nil {
 		appState.ProcessedSelectionMask = nil
-		appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
-		return
 	}
 
-	if appState.SelectionMask == nil || appState.SelectionMask.IsEmpty() {
-		appState.ProcessedSelectionMask = nil
-		appState.SelectionPathSpec = rendering.GetEmptySelectionOutline()
-		appState.SelectionMaskDirty = false
-		return
+	// If there is a non-empty selection mask, apply postprocessing to it.
+	if appState.SelectionMask != nil && !appState.SelectionMask.IsEmpty() {
+		//processed := applyPostprocessing(appState.SelectionMask, appState.ShrinkGrowAmount.Value, appState.SmoothAmount.Value)
+
+		// Prepare the parameters for postprocessing.
+		width := float32(appState.SelectionMask.Width)
+		shrinkGrowRadius := int(SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value) * width * shrinkGrowMaxFactor)
+		smoothRadius := int(appState.SmoothAmount.Value * width * smoothMaxFactor)
+
+		// Prepare the new processed selection mask.
+		processed := appState.SelectionMask.Clone()
+
+		// Run the post-processing steps
+		superpixel_utils.GrowShrink(processed, shrinkGrowRadius)
+		superpixel_utils.SmoothMask(processed, smoothRadius)
+		appState.ProcessedSelectionMask = processed
 	}
 
-	if !appState.SmoothSelectionOutlines {
-		appState.ProcessedSelectionMask = appState.SelectionMask
-		appState.SelectionPathSpec = rendering.CalculateOutline(appState.ProcessedSelectionMask, 0)
-		appState.SelectionMaskDirty = false
-		return
-	}
-
-	width := float32(appState.SelectionMask.Width)
-	shrinkGrowRadius := int(SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value) * width * shrinkGrowMaxFactor)
-	smoothRadius := int(appState.SmoothAmount.Value * width * smoothMaxFactor)
-
-	processed := superpixel_utils.GrowShrink(appState.SelectionMask, shrinkGrowRadius)
-	processed = superpixel_utils.SmoothMask(processed, smoothRadius)
-
-	appState.ProcessedSelectionMask = processed
-	appState.SelectionPathSpec = rendering.CalculateOutline(processed, 0)
+	appState.ReprocessSelectionOutline()
 	appState.SelectionMaskDirty = false
-}
-
-func (appState *AppState) ReprocessSelectionIfChanged() {
-	if !appState.SelectionMaskDirty && appState.SelectionPathSpec != (clip.PathSpec{}) {
-		return
-	}
-	appState.ReprocessSelection()
+	log.Println("Reprocessed Selection")
 }

@@ -44,10 +44,9 @@ func main() {
 		// If a config was provided on the CLI, load the project immediately.
 		if len(os.Args) >= 2 {
 			configPath := os.Args[1]
-			go func() {
-				result := core.LoadProjectSettings(configPath)
-				appState.ProjectLoadResult <- result
-			}()
+			appState.CurrentlyLoadingProject = true
+			result := core.LoadProjectSettings(configPath)
+			appState.ProjectLoadResult <- result
 		}
 
 		// Main app loop
@@ -69,7 +68,7 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 		switch e := appWindow.Event().(type) {
 		case app.DestroyEvent:
 
-			// Save the current mask before exiting, but only if it was actually changed.
+			// Save the current mask before exiting, if it was actually changed.
 			if appState.SelectionModified {
 				appState.SaveCurrentMask(false, false)
 			}
@@ -96,7 +95,9 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 			gtx := app.NewContext(&ops, e)
 
 			// Rebuild the selection mask at most once per frame if brush strokes are pending
-			appState.FlushPendingManualFixes()
+			if appState.SelectionMaskDirty {
+				appState.ReprocessSelection()
+			}
 
 			// Handle interactions
 			ui.HandlePointer(appState, gtx)
