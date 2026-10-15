@@ -76,6 +76,9 @@ func (m *Mask) Equals(other *Mask) bool {
 }
 
 func (m *Mask) IsEmpty() bool {
+	if m.Mask == nil {
+		return true
+	}
 	for i := range m.Mask {
 		if m.Mask[i] {
 			return false
@@ -85,6 +88,10 @@ func (m *Mask) IsEmpty() bool {
 }
 
 func (m *Mask) Clear() {
+	if m.Mask == nil {
+		m.Mask = make([]bool, m.Width*m.Height)
+		return
+	}
 	for i := range m.Mask {
 		m.Mask[i] = false
 	}

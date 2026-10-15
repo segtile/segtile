@@ -86,6 +86,10 @@ func (appState *AppState) ReprocessSelection() {
 		superpixel_utils.GrowShrink(processed, shrinkGrowRadius)
 		superpixel_utils.SmoothMask(processed, smoothRadius)
 		appState.ProcessedSelectionMask = processed
+	} else {
+		// The selection is empty (or gone entirely), so the processed mask must be
+		// cleared as well. Otherwise its stale content keeps producing an outline.
+		appState.ProcessedSelectionMask = nil
 	}
 
 	appState.ReprocessSelectionOutline()

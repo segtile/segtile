@@ -18,7 +18,7 @@ func (appState *AppState) SelectionMade() bool {
 		appState.ReprocessSelection()
 	}
 
-	return appState.SelectionMask != nil && !appState.ProcessedSelectionMask.IsEmpty()
+	return appState.ProcessedSelectionMask != nil && !appState.ProcessedSelectionMask.IsEmpty()
 }
 
 func (appState *AppState) ClearSelection(showToast bool) {
