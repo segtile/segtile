@@ -171,7 +171,13 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, appState.Theme.HoverHaloColor, appState.Theme.HoverHaloWidth)
 
 								if appState.RenderSelectionOutlines {
-									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.SelectionHaloColor, appState.Theme.SelectionHaloWidth)
+									outlineColor := appState.Theme.SelectionOutlineColor
+									haloColor := appState.Theme.SelectionHaloColor
+									if appState.ActiveImageHasMetadata && !appState.SelectionModified {
+										outlineColor = appState.Theme.SavedSelectionOutlineColor
+										haloColor = appState.Theme.SavedSelectionHaloColor
+									}
+									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, outlineColor, appState.Theme.SelectionStrokeWidth, haloColor, appState.Theme.SelectionHaloWidth)
 								}
 							}
 

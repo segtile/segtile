@@ -32,8 +32,12 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 	// Snap the existing selection mask to the new superpixel segmentation or keep it as-is.
 	if appState.UpdateSelectionOnSpChange.Value && appState.SelectionMask != nil && appState.SelectionMask.Bounds() == appState.ActiveImage.Bounds() {
 		newSpSelection := appState.ActiveSp.SelectFromMask(appState.SelectionMask, 0.5)
-		appState.SelectionMask = appState.ActiveSp.SelectionToMask(newSpSelection)
-		appState.SelectionMaskDirty = true
+		snapped := appState.ActiveSp.SelectionToMask(newSpSelection)
+		if !snapped.Equals(appState.SelectionMask) {
+			appState.SelectionMask = snapped
+			appState.SelectionMaskDirty = true
+			appState.SelectionModified = true
+		}
 	}
 
 	// The label map changed, so any tracked superpixel labels are stale.

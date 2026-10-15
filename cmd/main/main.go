@@ -69,8 +69,10 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 		switch e := appWindow.Event().(type) {
 		case app.DestroyEvent:
 
-			// Save the current mask before exiting.
-			appState.SaveCurrentMask(false, false)
+			// Save the current mask before exiting, but only if it was actually changed.
+			if appState.SelectionModified {
+				appState.SaveCurrentMask(false, false)
+			}
 
 			return e.Err
 		case app.FrameEvent:

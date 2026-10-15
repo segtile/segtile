@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/goccy/go-yaml"
@@ -95,13 +94,9 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
 	}
 
-	projectDirectory := ""
+	// If the path is a directory, use the default config file name within it.
 	if stat.IsDir() {
-		projectDirectory = settingsPath
-		settingsPath, err = findProjectSettingsFile(projectDirectory)
-		if err != nil {
-			return &ProjectSettings{Err: &SettingsFileReadError{path: projectDirectory, err: err}}
-		}
+		settingsPath = filepath.Join(settingsPath, DefaultConfigFileName)
 	}
 
 	// Then try reading the settings
@@ -119,8 +114,6 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 	// Resolve relative input paths against the settings file that was selected.
 	settings.SettingsFile = settingsPath
 
-	// Resolve relative paths before migrating the settings file to .meta so the input path
-	// continues to point to the same directory after relocation.
 	if !filepath.IsAbs(settings.InputDirectory) {
 		if _, err := os.Stat(settings.InputDirectory); err != nil {
 			settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
@@ -147,58 +140,7 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 		return &ProjectSettings{Err: err}
 	}
 
-	if projectDirectory != "" {
-		settings.SettingsFile = filepath.Join(projectDirectory, ProjectMetadataDirectoryName, DefaultConfigFileName)
-		if err := SaveProjectSettings(&settings); err != nil {
-			return &ProjectSettings{Err: err}
-		}
-	}
-
 	return &settings
-}
-
-func findProjectSettingsFile(projectDirectory string) (string, error) {
-	preferredPath := filepath.Join(projectDirectory, ProjectMetadataDirectoryName, DefaultConfigFileName)
-	if info, err := os.Stat(preferredPath); err == nil && !info.IsDir() {
-		return preferredPath, nil
-	} else if err != nil && !os.IsNotExist(err) {
-		return "", err
-	}
-
-	var candidates []string
-	var scanDirectory func(string, int) error
-	scanDirectory = func(directory string, depth int) error {
-		entries, err := os.ReadDir(directory)
-		if err != nil {
-			return err
-		}
-		for _, entry := range entries {
-			entryPath := filepath.Join(directory, entry.Name())
-			if entry.IsDir() {
-				if depth < 2 {
-					if err := scanDirectory(entryPath, depth+1); err != nil {
-						return err
-					}
-				}
-				continue
-			}
-			extension := strings.ToLower(filepath.Ext(entry.Name()))
-			if extension == ".yaml" || extension == ".yml" {
-				candidates = append(candidates, entryPath)
-			}
-		}
-		return nil
-	}
-	if err := scanDirectory(projectDirectory, 0); err != nil {
-		return "", err
-	}
-	if len(candidates) == 1 {
-		return candidates[0], nil
-	}
-	if len(candidates) == 0 {
-		return "", fmt.Errorf("no YAML settings file found within two directory levels")
-	}
-	return "", fmt.Errorf("multiple YAML settings files found; expected %s or exactly one YAML file", preferredPath)
 }
 
 // SaveProjectSettings marshals cfg and writes it to the settings file
@@ -254,7 +196,7 @@ func (appState *AppState) SaveProjectSettings() error {
 // NewProjectSettings creates a new ProjectSettings with the given directories and superpixel settings, saves it to disk and returns the result.
 func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
-		SettingsFile:     filepath.Join(outputDir, ProjectMetadataDirectoryName, DefaultConfigFileName),
+		SettingsFile:     filepath.Join(outputDir, DefaultConfigFileName),
 		InputDirectory:   inputDir,
 		Superpixel:       spSettings,
 		ShrinkGrowAmount: 0,
@@ -265,12 +207,10 @@ func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSetting
 	return cfg, nil
 }
 
+// projectOutputDirectory is the directory containing the settings file; final masks and
+// the .meta metadata directory both live there.
 func projectOutputDirectory(settings *ProjectSettings) string {
-	settingsDirectory := filepath.Dir(settings.SettingsFile)
-	if filepath.Base(settingsDirectory) == ProjectMetadataDirectoryName {
-		return filepath.Dir(settingsDirectory)
-	}
-	return settingsDirectory
+	return filepath.Dir(settings.SettingsFile)
 }
 
 // ApplyProjectSettings processes a result returned by a background dialog goroutine.
@@ -295,9 +235,11 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 		return
 	}
 
-	// Save the old image before loading the new project
+	// Save the old image before loading the new project, but only if it was actually changed.
 	if appState.ActiveImage != nil {
-		appState.SaveCurrentMask(false, true)
+		if appState.SelectionModified {
+			appState.SaveCurrentMask(false, true)
+		}
 		appState.ActiveImage = nil
 	}
 

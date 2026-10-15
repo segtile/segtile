@@ -129,70 +129,7 @@ func TestNoImagesInInputDirectory(t *testing.T) {
 
 }
 
-func TestFindProjectSettingsFilePrefersMetadataSettings(t *testing.T) {
-	projectDir := t.TempDir()
-	metadataDir := filepath.Join(projectDir, ProjectMetadataDirectoryName)
-	if err := os.MkdirAll(metadataDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	preferredPath := filepath.Join(metadataDir, DefaultConfigFileName)
-	for _, path := range []string{
-		preferredPath,
-		filepath.Join(projectDir, "other.yaml"),
-		filepath.Join(projectDir, "config", "nested.yml"),
-	} {
-		if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(""), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	foundPath, err := findProjectSettingsFile(projectDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if foundPath != preferredPath {
-		t.Fatalf("settings path = %q, want %q", foundPath, preferredPath)
-	}
-}
-
-func TestFindProjectSettingsFileRequiresUniqueFallback(t *testing.T) {
-	projectDir := t.TempDir()
-	for _, path := range []string{
-		filepath.Join(projectDir, "first.yaml"),
-		filepath.Join(projectDir, "nested", "second.yml"),
-	} {
-		if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(""), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if _, err := findProjectSettingsFile(projectDir); err == nil {
-		t.Fatal("expected multiple YAML files to be rejected")
-	}
-}
-
-func TestFindProjectSettingsFileStopsAfterTwoDirectoryLevels(t *testing.T) {
-	projectDir := t.TempDir()
-	deepSettingsPath := filepath.Join(projectDir, "one", "two", "three", "settings.yaml")
-	if err := os.MkdirAll(filepath.Dir(deepSettingsPath), 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(deepSettingsPath, []byte(""), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := findProjectSettingsFile(projectDir); err == nil {
-		t.Fatal("expected YAML files deeper than two levels to be ignored")
-	}
-}
-
-func TestLoadProjectFolderMigratesSettingsToMetadataDirectory(t *testing.T) {
+func TestLoadProjectFromDirectoryUsesDefaultSettingsFile(t *testing.T) {
 	projectDir := t.TempDir()
 	inputDir := filepath.Join(projectDir, "input")
 	if err := os.MkdirAll(inputDir, 0750); err != nil {
@@ -202,25 +139,21 @@ func TestLoadProjectFolderMigratesSettingsToMetadataDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	settings := &ProjectSettings{
-		SettingsFile:   filepath.Join(projectDir, "legacy.yaml"),
-		InputDirectory: inputDir,
-		Superpixel:     SuperpixelSettings{SpAlgorithmId: "slic"},
-	}
-	if err := SaveProjectSettings(settings); err != nil {
+	settings, err := NewProjectSettings(projectDir, inputDir, SuperpixelSettings{SpAlgorithmId: "slic"})
+	if err != nil {
 		t.Fatal(err)
+	}
+	wantSettingsPath := filepath.Join(projectDir, DefaultConfigFileName)
+	if settings.SettingsFile != wantSettingsPath {
+		t.Fatalf("settings path = %q, want %q", settings.SettingsFile, wantSettingsPath)
 	}
 
 	loaded := LoadProjectSettings(projectDir)
 	if loaded.Err != nil {
 		t.Fatal(loaded.Err)
 	}
-	wantSettingsPath := filepath.Join(projectDir, ProjectMetadataDirectoryName, DefaultConfigFileName)
 	if loaded.SettingsFile != wantSettingsPath {
-		t.Fatalf("settings path = %q, want %q", loaded.SettingsFile, wantSettingsPath)
-	}
-	if _, err := os.Stat(wantSettingsPath); err != nil {
-		t.Fatalf("metadata settings file was not created: %v", err)
+		t.Fatalf("loaded settings path = %q, want %q", loaded.SettingsFile, wantSettingsPath)
 	}
 }
 
@@ -228,7 +161,7 @@ func TestLoadSavedImageStateIgnoresLegacyRootMask(t *testing.T) {
 	outputDir := t.TempDir()
 	imagePath := filepath.Join(outputDir, "input.png")
 	state := &AppState{
-		Settings:   &ProjectSettings{SettingsFile: filepath.Join(outputDir, ProjectMetadataDirectoryName, DefaultConfigFileName)},
+		Settings:   &ProjectSettings{SettingsFile: filepath.Join(outputDir, DefaultConfigFileName)},
 		ImageFiles: []string{imagePath},
 	}
 	if err := SavePngImage(state.maskPathForIndex(0), image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
@@ -345,18 +278,26 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 		loadedState.Settings.SmoothAmount != 0.25 {
 		t.Fatalf("image settings were not restored: %+v", loadedState.Settings)
 	}
+	if loadedState.SelectionModified {
+		t.Fatal("restored selection should not be marked as modified")
+	}
 	loadedState.SelectionMask.SetValueAt(0, 0, true)
+	loadedState.SelectionModified = true
 	if err := loadedState.RevertToSavedMask(); err != nil {
 		t.Fatal(err)
 	}
 	if countMaskPixels(loadedState.SelectionMask) != 1 || !loadedState.SelectionMask.PositiveAt(8, 8) {
 		t.Fatal("reverting did not restore the unprocessed mask from disk")
 	}
+	if loadedState.SelectionModified {
+		t.Fatal("reverting should clear the modified flag")
+	}
 	loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] = loadedProject.Superpixel.SpAlgorithmParameters["count"]
 	loadedState.Settings.ShrinkGrowAmount = loadedProject.ShrinkGrowAmount
 	loadedState.Settings.SmoothAmount = loadedProject.SmoothAmount
 	loadedState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadedProject.ShrinkGrowAmount)
 	loadedState.SmoothAmount.Value = loadedProject.SmoothAmount
+	loadedState.SelectionModified = true
 	if err := loadedState.RevertToSavedMask(); err != nil {
 		t.Fatal(err)
 	}
@@ -365,16 +306,33 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 		loadedState.Settings.SmoothAmount != 0.25 {
 		t.Fatal("reverting did not restore saved image settings")
 	}
+
+	// Navigating away from an unmodified restored image must not write anything.
 	if err := loadedState.loadImageAtIndex(1); err != nil {
 		t.Fatal(err)
 	}
 	if !loadedState.SelectionMask.IsEmpty() {
 		t.Fatal("image without metadata should start with a blank selection")
 	}
+	if loadedState.SelectionModified {
+		t.Fatal("blank selection should not be marked as modified")
+	}
 	if loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] != loadedProject.Superpixel.SpAlgorithmParameters["count"] ||
 		loadedState.Settings.ShrinkGrowAmount != loadedProject.ShrinkGrowAmount ||
 		loadedState.Settings.SmoothAmount != loadedProject.SmoothAmount {
 		t.Fatalf("image without metadata did not use project defaults: %+v", loadedState.Settings)
+	}
+
+	// A user change marks the selection as modified and navigation then saves it.
+	loadedState.SetSpSelected(0, true)
+	if !loadedState.SelectionModified {
+		t.Fatal("changing the selection should mark it as modified")
+	}
+	if err := loadedState.loadImageAtIndex(0); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, found, err := loadedState.loadSavedImageState(1); err != nil || !found {
+		t.Fatalf("modified image should have been saved on navigation (found=%v, err=%v)", found, err)
 	}
 }
 

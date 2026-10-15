@@ -71,8 +71,8 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 // loadImageAtIndex saves the current mask (if any), then loads the image and its saved selection.
 func (appState *AppState) loadImageAtIndex(i int) error {
 
-	// Save the current mask, if a selection is made
-	if appState.ActiveImage != nil && appState.SelectionMade() {
+	// Save the current mask only if the user actually changed the selection.
+	if appState.ActiveImage != nil && appState.SelectionModified {
 		appState.SaveCurrentMask(false, false)
 	}
 
@@ -109,6 +109,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		appState.RebuildEditors()
 	}
 	appState.ActiveImageHasMetadata = found
+	appState.SelectionModified = false
 
 	if err := appState.RecalculateSuperpixels(false); err != nil {
 		return err
@@ -202,6 +203,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 		appState.ActiveImageHasMetadata = true
 		appState.ActiveImageMetadata = metadata
 		appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+		appState.SelectionModified = false
 
 		if recalculateOutline {
 			appState.SelectionPathSpec = rendering.CalculateOutline(mask, 0)
@@ -281,6 +283,7 @@ func (appState *AppState) RevertToSavedMask() error {
 	}
 	appState.SelectionMask = savedSelection
 	appState.ReprocessSelection()
+	appState.SelectionModified = false
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}

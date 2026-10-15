@@ -35,13 +35,16 @@ func triggerNewProject(appState *core.AppState) {
 	}()
 }
 
-// Prompts the user to pick an existing project directory.
+// Prompts the user to pick an existing project's settings file.
 // Must be called from a background goroutine.
 // Returns nil if the user canceled the dialog.
 func showOpenProjectDialogs() *core.ProjectSettings {
 	path, err := zenity.SelectFile(
-		zenity.Title("Open Project Folder"),
-		zenity.Directory(),
+		zenity.Title("Open Project Settings File"),
+		zenity.FileFilter{
+			Name:     "YAML config",
+			Patterns: []string{"*.yaml", "*.yml"},
+		},
 	)
 	if err != nil {
 		if err == zenity.ErrCanceled {

@@ -30,23 +30,26 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	targetBbox.AddPoint(x+appState.ManualFixBrushRadius, y+appState.ManualFixBrushRadius)
 	targetBounds := targetBbox.Bounds().Intersect(appState.SelectionMask.Bounds())
 
+	changed := false
 	for py := targetBounds.Min.Y; py < targetBounds.Max.Y; py++ {
 		for px := targetBounds.Min.X; px < targetBounds.Max.X; px++ {
 			dx := px - x
 			dy := py - y
-			if dx*dx+dy*dy <= radius2 {
-				if add {
-					appState.SelectionMask.SetValueAt(px, py, true)
-				} else {
-					appState.SelectionMask.SetValueAt(px, py, false)
-				}
+			if dx*dx+dy*dy <= radius2 && appState.SelectionMask.PositiveAt(px, py) != add {
+				appState.SelectionMask.SetValueAt(px, py, add)
+				changed = true
 			}
 		}
+	}
+
+	if !changed {
+		return
 	}
 
 	// Defer the expensive mask rebuild so multiple brush stamps within one frame only trigger
 	// a single ReprocessSelection at the start of the next frame.
 	appState.SelectionMaskDirty = true
+	appState.SelectionModified = true
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}

@@ -9,11 +9,13 @@ import (
 // AppTheme defines the colors and styles used throughout the application.
 // It encapsulates the Gio material theme and adds its own stuff on top.
 type AppTheme struct {
-	GioTheme              material.Theme
-	HoverOutlineColor     color.NRGBA
-	HoverHaloColor        color.NRGBA
-	SelectionOutlineColor color.NRGBA
-	SelectionHaloColor    color.NRGBA
+	GioTheme                   material.Theme
+	HoverOutlineColor          color.NRGBA
+	HoverHaloColor             color.NRGBA
+	SelectionOutlineColor      color.NRGBA
+	SelectionHaloColor         color.NRGBA
+	SavedSelectionOutlineColor color.NRGBA
+	SavedSelectionHaloColor    color.NRGBA
 
 	SelectionStrokeWidth float32
 	SelectionHaloWidth   float32
@@ -50,6 +52,9 @@ var Theme = &AppTheme{
 
 	SelectionOutlineColor: color.NRGBA{R: 255, G: 200, B: 0, A: 255},
 	SelectionHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
+
+	SavedSelectionOutlineColor: color.NRGBA{R: 255, G: 140, B: 0, A: 255},
+	SavedSelectionHaloColor:    color.NRGBA{R: 0, G: 0, B: 0, A: 255},
 
 	// Stroke widths
 	SelectionStrokeWidth: 1,

@@ -40,7 +40,13 @@ type AppState struct {
 	SelectionMask *superpixel_map.Mask
 
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
-	SelectionMaskDirty     bool
+	SelectionMaskDirty bool
+
+	// SelectionModified marks that the selection was changed by the user since it was
+	// loaded from disk (or last saved). Drives the outline color, auto-save on
+	// navigation, and whether "Revert to saved mask" does anything.
+	SelectionModified bool
+
 	ActiveImageHasMetadata bool
 	ActiveImageMetadata    ImageMetadata
 

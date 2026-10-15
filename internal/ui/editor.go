@@ -29,6 +29,9 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 			}
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
+					if v != appState.Settings.Superpixel.SpAlgorithmParameters[param] {
+						appState.SelectionModified = true
+					}
 					appState.Settings.Superpixel.SpAlgorithmParameters[param] = v
 					log.Printf("Set %s to %v\n", param, v)
 
@@ -41,12 +44,19 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 	// Handle Shrink/Grow and Smooth slider changes.
 	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
 	if appState.ShrinkGrowAmount.Update(gtx) {
-		appState.Settings.ShrinkGrowAmount = core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		newValue := core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		if newValue != appState.Settings.ShrinkGrowAmount {
+			appState.SelectionModified = true
+		}
+		appState.Settings.ShrinkGrowAmount = newValue
 		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 	}
 	smoothWasDragging := appState.SmoothAmount.Dragging()
 	if appState.SmoothAmount.Update(gtx) {
+		if appState.SmoothAmount.Value != appState.Settings.SmoothAmount {
+			appState.SelectionModified = true
+		}
 		appState.Settings.SmoothAmount = appState.SmoothAmount.Value
 		appState.ReprocessSelection()
 		appState.Window.Invalidate()

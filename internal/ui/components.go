@@ -53,8 +53,13 @@ func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dime
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
-				return drawBigButton(gtx, &appState.RevertSavedMaskButton, appState.Theme, "Revert to saved mask", 14)
+				buttonGtx := gtx
+				if appState.SelectionModified {
+					HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
+				} else {
+					buttonGtx = gtx.Disabled()
+				}
+				return drawBigButton(buttonGtx, &appState.RevertSavedMaskButton, appState.Theme, "Revert to saved mask", 14)
 			}),
 		)
 	})

@@ -17,7 +17,11 @@ func (appState *AppState) ClearSelection(showToast bool) {
 	if appState.SelectionMask == nil {
 		return
 	}
+	wasEmpty := appState.SelectionMask.IsEmpty()
 	appState.SelectionMask.Clear()
+	if !wasEmpty {
+		appState.SelectionModified = true
+	}
 	appState.SelectionMaskDirty = true
 	appState.ReprocessSelection()
 	appState.Window.Invalidate()
@@ -55,6 +59,7 @@ func (appState *AppState) SetSpSelected(label uint32, selected bool) bool {
 	}
 	if changed {
 		appState.SelectionMaskDirty = true
+		appState.SelectionModified = true
 	}
 	return changed
 }
@@ -69,6 +74,7 @@ func (appState *AppState) FloodFillSelectFromPoint(x, y int) bool {
 	changed := superpixel_utils.FloodFillMaskFromPoint(appState.SelectionMask, x, y)
 	if changed {
 		appState.SelectionMaskDirty = true
+		appState.SelectionModified = true
 	}
 	return changed
 }
@@ -83,6 +89,7 @@ func (appState *AppState) AutoFloodFillSelection() bool {
 	changed := superpixel_utils.FillEnclosedMaskRegions(appState.SelectionMask)
 	if changed {
 		appState.SelectionMaskDirty = true
+		appState.SelectionModified = true
 	}
 	return changed
 }

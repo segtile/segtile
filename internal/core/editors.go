@@ -81,6 +81,9 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 	if !slices.Contains(superpixel.ListAlgorithms(), id) {
 		return fmt.Errorf("Unknown superpixel algorithm: %s", id)
 	}
+	if appState.Settings.Superpixel.SpAlgorithmId != id {
+		appState.SelectionModified = true
+	}
 	appState.Settings.Superpixel.SpAlgorithmId = id
 
 	// Load the right set of parameters
