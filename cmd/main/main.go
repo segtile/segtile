@@ -95,7 +95,7 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 			// New context for this frame
 			gtx := app.NewContext(&ops, e)
 
-			// Rebuild the selection mask at most once per frame if brush strokes are pending
+			// Rebuild the processed selection mask if brush strokes have modified it
 			if appState.SelectionMaskDirty {
 				appState.ReprocessSelection()
 			}

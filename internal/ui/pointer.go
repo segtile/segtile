@@ -40,7 +40,7 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// No image loaded — skip all image-space pointer logic.
+		// No image loaded, skip all image-space pointer logic.
 		if appState.ActiveImage == nil {
 			continue
 		}
