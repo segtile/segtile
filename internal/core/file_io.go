@@ -7,26 +7,6 @@ import (
 	"strings"
 )
 
-func createAndOpen(filePath string) *os.File {
-
-	// Ensure the file exists
-	_, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		// Create the file if it does not exist
-		_, err := os.Create(filePath)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	// Open the file for reading and writing
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
-	if err != nil {
-		panic(err)
-	}
-	return file
-}
-
 func ListFiles(dir string, imagesOnly bool) ([]string, error) {
 
 	// Read all files

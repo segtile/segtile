@@ -36,7 +36,7 @@ func drawProjectLoadError(gtx layout.Context, appState *core.AppState) layout.Di
 }
 
 func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	if !appState.ActiveImageHasMetadata {
+	if appState.ActiveImageMetadata == nil {
 		return layout.Dimensions{}
 	}
 
@@ -54,7 +54,7 @@ func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dime
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				buttonGtx := gtx
-				if appState.SelectionModified {
+				if appState.SelectionDiffersVersionOnDisk {
 					HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
 				} else {
 					buttonGtx = gtx.Disabled()

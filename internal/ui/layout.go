@@ -173,7 +173,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 								if appState.RenderSelectionOutlines {
 									outlineColor := appState.Theme.SelectionOutlineColor
 									haloColor := appState.Theme.SelectionHaloColor
-									if appState.ActiveImageHasMetadata && !appState.SelectionModified {
+									if appState.ActiveImageMetadata != nil && !appState.SelectionDiffersVersionOnDisk {
 										outlineColor = appState.Theme.SavedSelectionOutlineColor
 										haloColor = appState.Theme.SavedSelectionHaloColor
 									}

@@ -71,8 +71,8 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 func (appState *AppState) loadImageAtIndex(i int) error {
 
 	// Save the current mask only if the user actually changed the selection.
-	if appState.ActiveImage != nil && appState.SelectionModified {
-		appState.SaveCurrentMask(false, false)
+	if appState.ActiveImage != nil && appState.SelectionDiffersVersionOnDisk {
+		appState.SaveCurrentMask(false)
 	}
 
 	// Update the current image and start with a fresh, empty selection.
@@ -86,19 +86,19 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
 	}
-	hadActiveImageMetadata := appState.ActiveImageHasMetadata
-	appState.ActiveImageMetadata = ImageMetadata{}
+	hadActiveImageMetadata := appState.ActiveImageMetadata != nil
+	appState.ActiveImageMetadata = nil
 	if found {
-		appState.ActiveImageMetadata = metadata
-		appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
-		appState.Settings.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+		appState.ActiveImageMetadata = &metadata
+		appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
+		appState.Settings.Superpixel = metadata.Superpixel.Clone()
 		appState.Settings.SmoothAmount = metadata.SmoothAmount
 		appState.Settings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
 		appState.SmoothAmount.Value = metadata.SmoothAmount
 		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
 	} else if hadActiveImageMetadata && appState.ProjectSettingsDefaults != nil {
 		defaults := appState.ProjectSettingsDefaults
-		appState.Settings.Superpixel = cloneProjectSettings(defaults).Superpixel
+		appState.Settings.Superpixel = defaults.Clone().Superpixel
 		appState.Settings.SmoothAmount = defaults.SmoothAmount
 		appState.Settings.ShrinkGrowAmount = defaults.ShrinkGrowAmount
 		appState.SmoothAmount.Value = defaults.SmoothAmount
@@ -107,8 +107,7 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	if found || (hadActiveImageMetadata && appState.ProjectSettingsDefaults != nil) {
 		appState.RebuildEditors()
 	}
-	appState.ActiveImageHasMetadata = found
-	appState.SelectionModified = false
+	appState.SelectionDiffersVersionOnDisk = false
 
 	if err := appState.RecalculateSuperpixels(false); err != nil {
 		return err
@@ -144,27 +143,33 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 }
 
 // SaveCurrentMask writes the processed mask to the project root and the editable state to .meta.
-func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline bool) {
+func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 
 	appState.ReprocessSelection()
 
 	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
 
-		// Apply postprocessing to the selection mask before saving.
-		// Selection smoothing can cause the current processed selection mask
-		mask := appState.ProcessedSelectionMask
-		if mask == nil {
-			mask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
+		// Safety fallback in case map is somehow nil
+		if appState.ProcessedSelectionMask == nil {
+			appState.ProcessedSelectionMask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 		}
 
+		// Determine output paths for the processed mask, selection mask, and metadata.
 		outPath := appState.maskPathForIndex(appState.ImageFilesIndex)
 		selectionPath := appState.selectionMaskPathForIndex(appState.ImageFilesIndex)
 		metadataPath := appState.imageMetadataPathForIndex(appState.ImageFilesIndex)
+
+		// Get the current user for annotator metadata.
+		userName := "unknown"
 		currentUser, err := user.Current()
 		if err != nil {
+			// If we cannot determine the current user, report an error and stick with "unknown" as the annotator.
 			appState.reportMaskSaveError(metadataPath, fmt.Errorf("could not determine annotator: %w", err))
-			return
+		} else {
+			userName = currentUser.Username
 		}
+
+		// Ensure the directories for the output files exist.
 		if err := os.MkdirAll(filepath.Dir(outPath), 0750); err != nil {
 			appState.reportMaskSaveError(outPath, err)
 			return
@@ -173,17 +178,20 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			appState.reportMaskSaveError(selectionPath, err)
 			return
 		}
-		if err := SavePngImage(outPath, mask.ToImageGray16()); err != nil {
+		if err := SavePngImage(outPath, appState.ProcessedSelectionMask.ToImageGray16()); err != nil {
 			appState.reportMaskSaveError(outPath, err)
 			return
 		}
+
+		// Save the selection mask to its designated path.
 		if err := SavePngImage(selectionPath, appState.SelectionMask.ToImageGray16()); err != nil {
 			appState.reportMaskSaveError(selectionPath, err)
 			return
 		}
 
-		metadata := ImageMetadata{
-			Annotator:        currentUser.Username,
+		// Save the metadata to its designated path.
+		metadata := &ImageMetadata{
+			Annotator:        userName,
 			Superpixel:       appState.Settings.Superpixel,
 			SmoothAmount:     appState.SmoothAmount.Value,
 			ShrinkGrowAmount: SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value),
@@ -197,14 +205,13 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool, recalculateOutline b
 			appState.reportMaskSaveError(metadataPath, err)
 			return
 		}
-		appState.ActiveImageHasMetadata = true
-		appState.ActiveImageMetadata = metadata
-		appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
-		appState.SelectionModified = false
 
-		if recalculateOutline {
-			appState.SelectionPathSpec = CalculateOutline(mask, 0)
-		}
+		// Update the application state to reflect the newly saved metadata and masks.
+		appState.ActiveImageMetadata = metadata
+		appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
+		appState.SelectionDiffersVersionOnDisk = false
+
+		appState.ReprocessSelectionOutline()
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeSuccess, fmt.Sprintf("Saved %s", filepath.Base(outPath)), 500*time.Millisecond)
 	}
 
@@ -232,7 +239,7 @@ func (appState *AppState) loadSavedImageState(i int) (ImageMetadata, *superpixel
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		return ImageMetadata{}, nil, false, fmt.Errorf("could not parse %s: %w", filepath.Base(metadataPath), err)
 	}
-	if err := metadata.Superpixel.normalizeSuperpixelSettings(); err != nil {
+	if err := metadata.Superpixel.normalize(); err != nil {
 		return ImageMetadata{}, nil, false, fmt.Errorf("invalid superpixel metadata: %w", err)
 	}
 
@@ -274,7 +281,7 @@ func (appState *AppState) importLegacyMask(i int) (ImageMetadata, *superpixel_ma
 
 	metadata := ImageMetadata{
 		Annotator:  "unknown",
-		Superpixel: cloneSuperpixelSettings(appState.Settings.Superpixel),
+		Superpixel: appState.Settings.Superpixel.Clone(),
 	}
 
 	selectionPath := appState.selectionMaskPathForIndex(i)
@@ -312,14 +319,13 @@ func (appState *AppState) RevertToSavedMask() error {
 		return fmt.Errorf("saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds())
 	}
 
-	appState.Settings.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+	appState.Settings.Superpixel = metadata.Superpixel.Clone()
 	appState.Settings.SmoothAmount = metadata.SmoothAmount
 	appState.Settings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
 	appState.SmoothAmount.Value = metadata.SmoothAmount
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
-	appState.ActiveImageHasMetadata = true
-	appState.ActiveImageMetadata = metadata
-	appState.ActiveImageMetadata.Superpixel = cloneSuperpixelSettings(metadata.Superpixel)
+	appState.ActiveImageMetadata = &metadata
+	appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
 	appState.RebuildEditors()
 
 	appState.SelectionMask = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
@@ -328,7 +334,7 @@ func (appState *AppState) RevertToSavedMask() error {
 	}
 	appState.SelectionMask = savedSelection
 	appState.ReprocessSelection()
-	appState.SelectionModified = false
+	appState.SelectionDiffersVersionOnDisk = false
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}

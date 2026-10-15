@@ -20,7 +20,7 @@ func (appState *AppState) RebuildEditors() {
 		return
 	}
 
-	if err := appState.Settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
+	if err := appState.Settings.Superpixel.normalize(); err != nil {
 		log.Printf("Failed to normalize superpixel settings: %v", err)
 		return
 	}
@@ -82,7 +82,7 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 		return fmt.Errorf("Unknown superpixel algorithm: %s", id)
 	}
 	if appState.Settings.Superpixel.SpAlgorithmId != id {
-		appState.SelectionModified = true
+		appState.SelectionDiffersVersionOnDisk = true
 	}
 	appState.Settings.Superpixel.SpAlgorithmId = id
 

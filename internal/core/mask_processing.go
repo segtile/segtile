@@ -48,7 +48,7 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	// Defer the expensive mask rebuild so multiple brush stamps within one frame only trigger
 	// a single ReprocessSelection at the start of the next frame.
 	appState.SelectionMaskDirty = true
-	appState.SelectionModified = true
+	appState.SelectionDiffersVersionOnDisk = true
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}

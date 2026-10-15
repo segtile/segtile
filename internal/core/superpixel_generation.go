@@ -36,7 +36,7 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 		if !snapped.Equals(appState.SelectionMask) {
 			appState.SelectionMask = snapped
 			appState.SelectionMaskDirty = true
-			appState.SelectionModified = true
+			appState.SelectionDiffersVersionOnDisk = true
 		}
 	}
 

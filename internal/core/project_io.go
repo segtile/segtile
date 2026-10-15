@@ -18,14 +18,14 @@ const defaultSpAlgorithmId = "slic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	SettingsFile              string             `yaml:"-"` // Don't store the path to the file in itself.
-	InputDirectory            string             `yaml:"input_directory"`
-	Superpixel                SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill       bool               `yaml:"auto_flood_fill"`
-	UpdateSelectionOnSpChange bool               `yaml:"update_selection_on_sp_change"`
-	ShrinkGrowAmount          float32            `yaml:"shrink_grow_amount"`
-	SmoothAmount              float32            `yaml:"smooth_amount"`
-	Err                       error              `yaml:"-"` // Don't store the error
+	SettingsFile              string              `yaml:"-"` // Don't store the path to the file in itself.
+	InputDirectory            string              `yaml:"input_directory"`
+	Superpixel                *SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill       bool                `yaml:"auto_flood_fill"`
+	UpdateSelectionOnSpChange bool                `yaml:"update_selection_on_sp_change"`
+	ShrinkGrowAmount          float32             `yaml:"shrink_grow_amount"`
+	SmoothAmount              float32             `yaml:"smooth_amount"`
+	Err                       error               `yaml:"-"` // Don't store the error
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
@@ -36,23 +36,23 @@ type SuperpixelSettings struct {
 
 // ImageMetadata stores metadata for an individual image within the project.
 type ImageMetadata struct {
-	Annotator        string             `json:"annotator"`
-	Superpixel       SuperpixelSettings `json:"superpixel"`
-	SmoothAmount     float32            `json:"smooth_amount"`
-	ShrinkGrowAmount float32            `json:"shrink_grow_amount"`
+	Annotator        string              `json:"annotator"`
+	Superpixel       *SuperpixelSettings `json:"superpixel"`
+	SmoothAmount     float32             `json:"smooth_amount"`
+	ShrinkGrowAmount float32             `json:"shrink_grow_amount"`
 }
 
-func NewSuperpixelSettings() SuperpixelSettings {
+func NewSuperpixelSettings() *SuperpixelSettings {
 	defaultParameters, _ := superpixel.GetDefaultParameterValues(defaultSpAlgorithmId)
-	return SuperpixelSettings{
+	return &SuperpixelSettings{
 		SpAlgorithmId:         defaultSpAlgorithmId,
 		SpAlgorithmParameters: defaultParameters,
 	}
 }
 
-// normalizeSuperpixelSettings ensures that the SuperpixelSettings are consistent and complete.
+// normalize ensures that the SuperpixelSettings are consistent and complete.
 // It fills in default values for missing parameters and removes any unknown parameters.
-func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
+func (settings *SuperpixelSettings) normalize() error {
 
 	// Get information about the intended parameters for the algorithm
 	parameterInfo, err := superpixel.ListParameterInfo(settings.SpAlgorithmId)
@@ -133,7 +133,7 @@ func LoadProjectSettings(settingsYamlPath string) *ProjectSettings {
 	}
 
 	// Normalize the parsed SP settings before returning the final project settings.
-	err = settings.Superpixel.normalizeSuperpixelSettings()
+	err = settings.Superpixel.normalize()
 	if err != nil {
 		return &ProjectSettings{Err: err}
 	}
@@ -143,7 +143,7 @@ func LoadProjectSettings(settingsYamlPath string) *ProjectSettings {
 
 // SaveProjectSettings marshals cfg and writes it to the settings file
 // creating the directory if it does not exist.
-func SaveProjectSettings(settings *ProjectSettings) error {
+func (settings *ProjectSettings) Persist() error {
 
 	if settings.SettingsFile == "" {
 		return &SettingsSaveError{path: "", err: fmt.Errorf("settings file path is not set")}
@@ -165,17 +165,18 @@ func SaveProjectSettings(settings *ProjectSettings) error {
 	return nil
 }
 
-func cloneProjectSettings(settings *ProjectSettings) *ProjectSettings {
+func (settings *ProjectSettings) Clone() *ProjectSettings {
 	if settings == nil {
 		return nil
 	}
 	cloned := *settings
-	cloned.Superpixel = cloneSuperpixelSettings(settings.Superpixel)
+	cloned.Superpixel = settings.Superpixel.Clone()
 	return &cloned
 }
 
-func cloneSuperpixelSettings(settings SuperpixelSettings) SuperpixelSettings {
-	cloned := settings
+func (settings *SuperpixelSettings) Clone() *SuperpixelSettings {
+	cloned := &SuperpixelSettings{}
+	cloned.SpAlgorithmId = settings.SpAlgorithmId
 	cloned.SpAlgorithmParameters = make(map[string]float64, len(settings.SpAlgorithmParameters))
 	for id, value := range settings.SpAlgorithmParameters {
 		cloned.SpAlgorithmParameters[id] = value
@@ -184,22 +185,22 @@ func cloneSuperpixelSettings(settings SuperpixelSettings) SuperpixelSettings {
 }
 
 func (appState *AppState) SaveProjectSettings() error {
-	if err := SaveProjectSettings(appState.Settings); err != nil {
+	if err := appState.Settings.Persist(); err != nil {
 		return err
 	}
-	appState.ProjectSettingsDefaults = cloneProjectSettings(appState.Settings)
+	appState.ProjectSettingsDefaults = appState.Settings.Clone()
 	return nil
 }
 
 // NewProjectSettings creates a new ProjectSettings with the given directories and superpixel settings, saves it to disk and returns the result.
-func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
+func NewProjectSettings(outputDir, inputDir string, spSettings *SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
 		SettingsFile:     filepath.Join(outputDir, DefaultConfigFileName),
 		InputDirectory:   inputDir,
 		Superpixel:       spSettings,
 		ShrinkGrowAmount: 0,
 	}
-	if err := SaveProjectSettings(cfg); err != nil {
+	if err := cfg.Persist(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -235,15 +236,15 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	// Save the old image before loading the new project, but only if it was actually changed.
 	if appState.ActiveImage != nil {
-		if appState.SelectionModified {
-			appState.SaveCurrentMask(false, true)
+		if appState.SelectionDiffersVersionOnDisk {
+			appState.SaveCurrentMask(false)
 		}
 		appState.ActiveImage = nil
 	}
 
 	// Apply the new settings
 	appState.Settings = settings
-	appState.ProjectSettingsDefaults = cloneProjectSettings(settings)
+	appState.ProjectSettingsDefaults = settings.Clone()
 	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
 	appState.UpdateSelectionOnSpChange.Value = settings.UpdateSelectionOnSpChange
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)

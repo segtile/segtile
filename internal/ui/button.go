@@ -95,7 +95,7 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 
 	if button == &appState.SaveButton {
 		if appState.SelectionMade() || showSaveEmptyMaskWarning() {
-			appState.SaveCurrentMask(true, true)
+			appState.SaveCurrentMask(true)
 		}
 
 		return
@@ -105,7 +105,7 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		appState.ShrinkGrowAmount.Value = 0.5
 		newValue := core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
 		if newValue != appState.Settings.ShrinkGrowAmount {
-			appState.SelectionModified = true
+			appState.SelectionDiffersVersionOnDisk = true
 		}
 		appState.Settings.ShrinkGrowAmount = newValue
 		appState.ReprocessSelection()
@@ -119,7 +119,7 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 	if button == &appState.SmoothAmountReset {
 		appState.SmoothAmount.Value = 0
 		if appState.Settings.SmoothAmount != 0 {
-			appState.SelectionModified = true
+			appState.SelectionDiffersVersionOnDisk = true
 		}
 		appState.Settings.SmoothAmount = 0
 		appState.ReprocessSelection()

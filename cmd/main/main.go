@@ -69,14 +69,15 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 		case app.DestroyEvent:
 
 			// Save the current mask before exiting, if it was actually changed.
-			if appState.SelectionModified {
-				appState.SaveCurrentMask(false, false)
+			if appState.SelectionDiffersVersionOnDisk {
+				appState.SaveCurrentMask(false)
 			}
 
 			return e.Err
 		case app.FrameEvent:
 			frameStart := time.Now()
-			// Apply loaded projects
+
+			// Apply a project if is has finished loading
 			select {
 			case result := <-appState.ProjectLoadResult:
 				appState.ApplyProjectSettings(result)

@@ -42,13 +42,13 @@ type AppState struct {
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
 	SelectionMaskDirty bool
 
-	// SelectionModified marks that the selection was changed by the user since it was
+	// SelectionDiffersVersionOnDisk marks that the selection was changed by the user since it was
 	// loaded from disk (or last saved). Drives the outline color, auto-save on
 	// navigation, and whether "Revert to saved mask" does anything.
-	SelectionModified bool
+	SelectionDiffersVersionOnDisk bool
 
-	ActiveImageHasMetadata bool
-	ActiveImageMetadata    ImageMetadata
+	// ActiveImageMetadata is the saved metadata of the active image, or nil if none exists.
+	ActiveImageMetadata *ImageMetadata
 
 	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
 	LastPaintedSpLabel int
