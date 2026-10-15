@@ -157,23 +157,51 @@ func TestLoadProjectFromDirectoryUsesDefaultSettingsFile(t *testing.T) {
 	}
 }
 
-func TestLoadSavedImageStateIgnoresLegacyRootMask(t *testing.T) {
+func TestLoadSavedImageStateImportsLegacyRootMask(t *testing.T) {
 	outputDir := t.TempDir()
 	imagePath := filepath.Join(outputDir, "input.png")
-	state := &AppState{
-		Settings:   &ProjectSettings{SettingsFile: filepath.Join(outputDir, DefaultConfigFileName)},
-		ImageFiles: []string{imagePath},
-	}
-	if err := SavePngImage(state.maskPathForIndex(0), image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
-		t.Fatal(err)
-	}
-
-	_, _, found, err := state.loadSavedImageState(0)
+	parameters, err := superpixel.GetDefaultParameterValues("slic")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if found {
-		t.Fatal("legacy root mask should not be restored without .meta selection and JSON files")
+	state := &AppState{
+		Settings: &ProjectSettings{
+			SettingsFile: filepath.Join(outputDir, DefaultConfigFileName),
+			Superpixel:   SuperpixelSettings{SpAlgorithmId: "slic", SpAlgorithmParameters: parameters},
+		},
+		ImageFiles: []string{imagePath},
+	}
+
+	// A final mask exists in the output directory, but nothing in .meta.
+	legacyMask := superpixel_map.NewMask(2, 2)
+	legacyMask.SetValueAt(1, 1, true)
+	if err := SavePngImage(state.maskPathForIndex(0), legacyMask.ToImageGray16()); err != nil {
+		t.Fatal(err)
+	}
+
+	metadata, selection, found, err := state.loadSavedImageState(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !found {
+		t.Fatal("expected legacy root mask to be imported")
+	}
+	if !selection.PositiveAt(1, 1) || countMaskPixels(selection) != 1 {
+		t.Fatal("imported selection does not match the legacy mask")
+	}
+	if metadata.SmoothAmount != 0 || metadata.ShrinkGrowAmount != 0 {
+		t.Fatalf("imported metadata should have zero grow/shrink/smooth, got %+v", metadata)
+	}
+	if metadata.Superpixel.SpAlgorithmId != "slic" {
+		t.Fatalf("imported metadata should keep current SP settings, got %+v", metadata.Superpixel)
+	}
+
+	// The import must have materialized the .meta files so future loads are regular.
+	if _, err := os.Stat(state.selectionMaskPathForIndex(0)); err != nil {
+		t.Fatalf("selection was not copied to .meta: %v", err)
+	}
+	if _, err := os.Stat(state.imageMetadataPathForIndex(0)); err != nil {
+		t.Fatalf("metadata was not written to .meta: %v", err)
 	}
 }
 

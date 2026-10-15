@@ -222,7 +222,7 @@ func (appState *AppState) loadSavedImageState(i int) (ImageMetadata, *superpixel
 	metadataMissing := os.IsNotExist(metadataErr)
 	selectionMissing := os.IsNotExist(selectionErr)
 	if metadataMissing && selectionMissing {
-		return ImageMetadata{}, nil, false, nil
+		return appState.importLegacyMask(i)
 	}
 	if metadataErr != nil {
 		return ImageMetadata{}, nil, false, metadataErr
@@ -249,6 +249,54 @@ func (appState *AppState) loadSavedImageState(i int) (ImageMetadata, *superpixel
 		return ImageMetadata{}, nil, false, fmt.Errorf("could not decode %s: %w", filepath.Base(selectionPath), err)
 	}
 	return metadata, superpixel_map.NewMaskFromImage(selectionImage), true, nil
+}
+
+// importLegacyMask handles images that have a final mask in the output directory but no
+// metadata in .meta: the mask is adopted pixel-identically as the unprocessed selection
+// and copied to .meta, with Grow/Shrink/Smooth set to 0 so it is reproduced as-is.
+// The current superpixel settings are kept.
+func (appState *AppState) importLegacyMask(i int) (ImageMetadata, *superpixel_map.Mask, bool, error) {
+	maskPath := appState.maskPathForIndex(i)
+	if _, err := os.Stat(maskPath); err != nil {
+		if os.IsNotExist(err) {
+			return ImageMetadata{}, nil, false, nil
+		}
+		return ImageMetadata{}, nil, false, err
+	}
+
+	maskFile, err := os.Open(maskPath)
+	if err != nil {
+		return ImageMetadata{}, nil, false, err
+	}
+	defer maskFile.Close()
+	maskImage, _, err := image.Decode(maskFile)
+	if err != nil {
+		return ImageMetadata{}, nil, false, fmt.Errorf("could not decode %s: %w", filepath.Base(maskPath), err)
+	}
+	selection := superpixel_map.NewMaskFromImage(maskImage)
+
+	metadata := ImageMetadata{
+		Annotator:  "unknown",
+		Superpixel: cloneSuperpixelSettings(appState.Settings.Superpixel),
+	}
+
+	selectionPath := appState.selectionMaskPathForIndex(i)
+	metadataPath := appState.imageMetadataPathForIndex(i)
+	if err := os.MkdirAll(filepath.Dir(selectionPath), 0750); err != nil {
+		return ImageMetadata{}, nil, false, err
+	}
+	if err := SavePngImage(selectionPath, selection.ToImageGray16()); err != nil {
+		return ImageMetadata{}, nil, false, err
+	}
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return ImageMetadata{}, nil, false, err
+	}
+	if err := os.WriteFile(metadataPath, data, 0600); err != nil {
+		return ImageMetadata{}, nil, false, err
+	}
+
+	return metadata, selection, true, nil
 }
 
 func (appState *AppState) RevertToSavedMask() error {
