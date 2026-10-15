@@ -22,7 +22,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 	}
 
 	// Determine if a project is loaded
-	hasActiveProject := appState.Settings != nil && appState.Settings.Err == nil
+	hasActiveProject := appState.ActiveSettings != nil && appState.ActiveSettings.Err == nil
 	isLoadingProject := appState.LoadingState.CurrentlyLoadingProject
 
 	// We set up a clipping area that covers the entire window.
@@ -173,7 +173,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 								if appState.RenderSelectionOutlines {
 									outlineColor := appState.Theme.SelectionOutlineColor
 									haloColor := appState.Theme.SelectionHaloColor
-									if appState.ActiveImageMetadata != nil && !appState.SelectionDiffersVersionOnDisk {
+									if appState.ActiveImageMetadata != nil && !appState.SelectionMaskDiffersVersionOnDisk {
 										outlineColor = appState.Theme.SavedSelectionOutlineColor
 										haloColor = appState.Theme.SavedSelectionHaloColor
 									}

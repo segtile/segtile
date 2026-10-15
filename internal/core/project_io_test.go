@@ -19,15 +19,15 @@ import (
 
 func TestApplyManualFixAt_ClipsBrushToImageBounds(t *testing.T) {
 	state := &AppState{
-		ActiveImage:   image.NewNRGBA(image.Rect(0, 0, 4, 4)),
-		SelectionMask: superpixel_map.NewMask(4, 4),
-		UiState:       UiState{ManualFixBrushRadius: 2},
+		ActiveImage:      image.NewNRGBA(image.Rect(0, 0, 4, 4)),
+		SelectionMaskRaw: superpixel_map.NewMask(4, 4),
+		UiState:          UiState{ManualFixBrushRadius: 2},
 	}
 
 	state.ApplyManualFixAt(0, 0, true)
 
 	selected := 0
-	for _, value := range state.SelectionMask.Mask {
+	for _, value := range state.SelectionMaskRaw.Mask {
 		if value {
 			selected++
 		}
@@ -165,7 +165,7 @@ func TestLoadSavedImageStateImportsLegacyRootMask(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := &AppState{
-		Settings: &ProjectSettings{
+		ActiveSettings: &ProjectSettings{
 			SettingsFile: filepath.Join(outputDir, DefaultConfigFileName),
 			Superpixel:   &SuperpixelSettings{SpAlgorithmId: "slic", SpAlgorithmParameters: parameters},
 		},
@@ -233,21 +233,21 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	}
 
 	saveState := &AppState{
-		Settings:      projectSettings,
-		ImageFiles:    []string{imagePath},
-		ActiveImage:   image.NewNRGBA(image.Rect(0, 0, 16, 16)),
-		SelectionMask: superpixel_map.NewMask(16, 16),
-		ActiveSp:      superpixel.NewSpResult(superpixel_map.NewLabelMap(16, 16)),
+		ActiveSettings:   projectSettings,
+		ImageFiles:       []string{imagePath},
+		ActiveImage:      image.NewNRGBA(image.Rect(0, 0, 16, 16)),
+		SelectionMaskRaw: superpixel_map.NewMask(16, 16),
+		ActiveSp:         superpixel.NewSpResult(superpixel_map.NewLabelMap(16, 16)),
 		UiState: UiState{
 			ShrinkGrowAmount:        widget.Float{Value: 1},
 			SmoothAmount:            widget.Float{Value: 0.25},
 			SmoothSelectionOutlines: true,
 		},
 	}
-	saveState.SelectionMask.SetValueAt(8, 8, true)
-	saveState.Settings.Superpixel.SpAlgorithmParameters["count"] = 2
-	saveState.Settings.ShrinkGrowAmount = 1
-	saveState.Settings.SmoothAmount = 0.25
+	saveState.SelectionMaskRaw.SetValueAt(8, 8, true)
+	saveState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] = 2
+	saveState.ActiveSettings.ShrinkGrowAmount = 1
+	saveState.ActiveSettings.SmoothAmount = 0.25
 	saveState.SaveCurrentMask(true)
 
 	finalPath := saveState.maskPathForIndex(0)
@@ -287,9 +287,9 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 		t.Fatal(loadedProject.Err)
 	}
 	loadedState := &AppState{
-		Settings:                loadedProject.Clone(),
-		ProjectSettingsDefaults: loadedProject.Clone(),
-		ImageFiles:              []string{imagePath, secondImagePath},
+		ActiveSettings:  loadedProject.Clone(),
+		DefaultSettings: loadedProject.Clone(),
+		ImageFiles:      []string{imagePath, secondImagePath},
 		UiState: UiState{
 			ShrinkGrowAmount: widget.Float{Value: 0.5},
 			SmoothAmount:     widget.Float{Value: 0},
@@ -298,40 +298,40 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	if err := loadedState.loadImageAtIndex(0); err != nil {
 		t.Fatal(err)
 	}
-	if countMaskPixels(loadedState.SelectionMask) != 1 || !loadedState.SelectionMask.PositiveAt(8, 8) {
+	if countMaskPixels(loadedState.SelectionMaskRaw) != 1 || !loadedState.SelectionMaskRaw.PositiveAt(8, 8) {
 		t.Fatal("restored selection did not match the saved unprocessed selection")
 	}
-	if loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
-		loadedState.Settings.ShrinkGrowAmount != 1 ||
-		loadedState.Settings.SmoothAmount != 0.25 {
-		t.Fatalf("image settings were not restored: %+v", loadedState.Settings)
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
+		loadedState.ActiveSettings.ShrinkGrowAmount != 1 ||
+		loadedState.ActiveSettings.SmoothAmount != 0.25 {
+		t.Fatalf("image settings were not restored: %+v", loadedState.ActiveSettings)
 	}
-	if loadedState.SelectionDiffersVersionOnDisk {
+	if loadedState.SelectionMaskDiffersVersionOnDisk {
 		t.Fatal("restored selection should not be marked as modified")
 	}
-	loadedState.SelectionMask.SetValueAt(0, 0, true)
-	loadedState.SelectionDiffersVersionOnDisk = true
+	loadedState.SelectionMaskRaw.SetValueAt(0, 0, true)
+	loadedState.SelectionMaskDiffersVersionOnDisk = true
 	if err := loadedState.RevertToSavedMask(); err != nil {
 		t.Fatal(err)
 	}
-	if countMaskPixels(loadedState.SelectionMask) != 1 || !loadedState.SelectionMask.PositiveAt(8, 8) {
+	if countMaskPixels(loadedState.SelectionMaskRaw) != 1 || !loadedState.SelectionMaskRaw.PositiveAt(8, 8) {
 		t.Fatal("reverting did not restore the unprocessed mask from disk")
 	}
-	if loadedState.SelectionDiffersVersionOnDisk {
+	if loadedState.SelectionMaskDiffersVersionOnDisk {
 		t.Fatal("reverting should clear the modified flag")
 	}
-	loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] = loadedProject.Superpixel.SpAlgorithmParameters["count"]
-	loadedState.Settings.ShrinkGrowAmount = loadedProject.ShrinkGrowAmount
-	loadedState.Settings.SmoothAmount = loadedProject.SmoothAmount
+	loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] = loadedProject.Superpixel.SpAlgorithmParameters["count"]
+	loadedState.ActiveSettings.ShrinkGrowAmount = loadedProject.ShrinkGrowAmount
+	loadedState.ActiveSettings.SmoothAmount = loadedProject.SmoothAmount
 	loadedState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadedProject.ShrinkGrowAmount)
 	loadedState.SmoothAmount.Value = loadedProject.SmoothAmount
-	loadedState.SelectionDiffersVersionOnDisk = true
+	loadedState.SelectionMaskDiffersVersionOnDisk = true
 	if err := loadedState.RevertToSavedMask(); err != nil {
 		t.Fatal(err)
 	}
-	if loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
-		loadedState.Settings.ShrinkGrowAmount != 1 ||
-		loadedState.Settings.SmoothAmount != 0.25 {
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
+		loadedState.ActiveSettings.ShrinkGrowAmount != 1 ||
+		loadedState.ActiveSettings.SmoothAmount != 0.25 {
 		t.Fatal("reverting did not restore saved image settings")
 	}
 
@@ -339,21 +339,21 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	if err := loadedState.loadImageAtIndex(1); err != nil {
 		t.Fatal(err)
 	}
-	if !loadedState.SelectionMask.IsEmpty() {
+	if !loadedState.SelectionMaskRaw.IsEmpty() {
 		t.Fatal("image without metadata should start with a blank selection")
 	}
-	if loadedState.SelectionDiffersVersionOnDisk {
+	if loadedState.SelectionMaskDiffersVersionOnDisk {
 		t.Fatal("blank selection should not be marked as modified")
 	}
-	if loadedState.Settings.Superpixel.SpAlgorithmParameters["count"] != loadedProject.Superpixel.SpAlgorithmParameters["count"] ||
-		loadedState.Settings.ShrinkGrowAmount != loadedProject.ShrinkGrowAmount ||
-		loadedState.Settings.SmoothAmount != loadedProject.SmoothAmount {
-		t.Fatalf("image without metadata did not use project defaults: %+v", loadedState.Settings)
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != loadedProject.Superpixel.SpAlgorithmParameters["count"] ||
+		loadedState.ActiveSettings.ShrinkGrowAmount != loadedProject.ShrinkGrowAmount ||
+		loadedState.ActiveSettings.SmoothAmount != loadedProject.SmoothAmount {
+		t.Fatalf("image without metadata did not use project defaults: %+v", loadedState.ActiveSettings)
 	}
 
 	// A user change marks the selection as modified and navigation then saves it.
 	loadedState.SetSpSelected(0, true)
-	if !loadedState.SelectionDiffersVersionOnDisk {
+	if !loadedState.SelectionMaskDiffersVersionOnDisk {
 		t.Fatal("changing the selection should mark it as modified")
 	}
 	if err := loadedState.loadImageAtIndex(0); err != nil {

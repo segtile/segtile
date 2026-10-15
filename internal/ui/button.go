@@ -104,10 +104,10 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 	if button == &appState.ShrinkGrowAmountReset {
 		appState.ShrinkGrowAmount.Value = 0.5
 		newValue := core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
-		if newValue != appState.Settings.ShrinkGrowAmount {
-			appState.SelectionDiffersVersionOnDisk = true
+		if newValue != appState.ActiveSettings.ShrinkGrowAmount {
+			appState.SelectionMaskDiffersVersionOnDisk = true
 		}
-		appState.Settings.ShrinkGrowAmount = newValue
+		appState.ActiveSettings.ShrinkGrowAmount = newValue
 		appState.ReprocessSelection()
 		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
@@ -118,10 +118,10 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 
 	if button == &appState.SmoothAmountReset {
 		appState.SmoothAmount.Value = 0
-		if appState.Settings.SmoothAmount != 0 {
-			appState.SelectionDiffersVersionOnDisk = true
+		if appState.ActiveSettings.SmoothAmount != 0 {
+			appState.SelectionMaskDiffersVersionOnDisk = true
 		}
-		appState.Settings.SmoothAmount = 0
+		appState.ActiveSettings.SmoothAmount = 0
 		appState.ReprocessSelection()
 		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)

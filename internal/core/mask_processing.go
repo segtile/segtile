@@ -13,7 +13,7 @@ const smoothMaxFactor = 0.05
 func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 
 	// Early return if there is no image
-	if appState.ActiveImage == nil || appState.SelectionMask == nil {
+	if appState.ActiveImage == nil || appState.SelectionMaskRaw == nil {
 		return
 	}
 
@@ -27,15 +27,15 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	targetBbox := superpixel_utils.BoundingBox{}
 	targetBbox.AddPoint(x-appState.ManualFixBrushRadius, y-appState.ManualFixBrushRadius)
 	targetBbox.AddPoint(x+appState.ManualFixBrushRadius, y+appState.ManualFixBrushRadius)
-	targetBounds := targetBbox.Bounds().Intersect(appState.SelectionMask.Bounds())
+	targetBounds := targetBbox.Bounds().Intersect(appState.SelectionMaskRaw.Bounds())
 
 	changed := false
 	for py := targetBounds.Min.Y; py < targetBounds.Max.Y; py++ {
 		for px := targetBounds.Min.X; px < targetBounds.Max.X; px++ {
 			dx := px - x
 			dy := py - y
-			if dx*dx+dy*dy <= radius2 && appState.SelectionMask.PositiveAt(px, py) != add {
-				appState.SelectionMask.SetValueAt(px, py, add)
+			if dx*dx+dy*dy <= radius2 && appState.SelectionMaskRaw.PositiveAt(px, py) != add {
+				appState.SelectionMaskRaw.SetValueAt(px, py, add)
 				changed = true
 			}
 		}
@@ -48,7 +48,7 @@ func (appState *AppState) ApplyManualFixAt(x int, y int, add bool) {
 	// Defer the expensive mask rebuild so multiple brush stamps within one frame only trigger
 	// a single ReprocessSelection at the start of the next frame.
 	appState.SelectionMaskDirty = true
-	appState.SelectionDiffersVersionOnDisk = true
+	appState.SelectionMaskDiffersVersionOnDisk = true
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}
@@ -71,16 +71,16 @@ func (appState *AppState) ReprocessSelection() {
 	}
 
 	// If there is a non-empty selection mask, apply postprocessing to it.
-	if appState.SelectionMask != nil && !appState.SelectionMask.IsEmpty() {
+	if appState.SelectionMaskRaw != nil && !appState.SelectionMaskRaw.IsEmpty() {
 		//processed := applyPostprocessing(appState.SelectionMask, appState.ShrinkGrowAmount.Value, appState.SmoothAmount.Value)
 
 		// Prepare the parameters for postprocessing.
-		width := float32(appState.SelectionMask.Width)
+		width := float32(appState.SelectionMaskRaw.Width)
 		shrinkGrowRadius := int(SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value) * width * shrinkGrowMaxFactor)
 		smoothRadius := int(appState.SmoothAmount.Value * width * smoothMaxFactor)
 
 		// Prepare the new processed selection mask.
-		processed := appState.SelectionMask.Clone()
+		processed := appState.SelectionMaskRaw.Clone()
 
 		// Run the post-processing steps
 		superpixel_utils.GrowShrink(processed, shrinkGrowRadius)

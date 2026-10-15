@@ -79,9 +79,9 @@ func (appState *AppState) OptimizeSpParameters(ctx context.Context, progressIndi
 		optimizerName,
 		samples,
 		"labeling_calibration_score",
-		appState.Settings.Superpixel.SpAlgorithmId,
+		appState.ActiveSettings.Superpixel.SpAlgorithmId,
 		parametersToOptimize,
-		appState.Settings.Superpixel.SpAlgorithmParameters,
+		appState.ActiveSettings.Superpixel.SpAlgorithmParameters,
 		optimizerParams,
 		progressIndicator,
 	)
@@ -124,8 +124,8 @@ func (appState *AppState) ApplyOptimizationResult(result superpixel_optimizer.Sp
 		// Apply the algorithm and parameters to the app state, rebuild editors, and recalculate superpixels.
 		log.Printf("Optimization completed: score=%.4f, algorithm=%s, params=%v", result.Score, result.Algorithm, result.Parameters)
 
-		appState.Settings.Superpixel.SpAlgorithmId = result.Algorithm
-		appState.Settings.Superpixel.SpAlgorithmParameters = result.Parameters
+		appState.ActiveSettings.Superpixel.SpAlgorithmId = result.Algorithm
+		appState.ActiveSettings.Superpixel.SpAlgorithmParameters = result.Parameters
 		appState.RebuildEditors()
 
 		for paramName, newValue := range result.Parameters {

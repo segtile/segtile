@@ -29,10 +29,10 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 			}
 			if _, ok := ev.(widget.SubmitEvent); ok {
 				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
-					if v != appState.Settings.Superpixel.SpAlgorithmParameters[param] {
-						appState.SelectionDiffersVersionOnDisk = true
+					if v != appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] {
+						appState.SelectionMaskDiffersVersionOnDisk = true
 					}
-					appState.Settings.Superpixel.SpAlgorithmParameters[param] = v
+					appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] = v
 					log.Printf("Set %s to %v\n", param, v)
 
 					recalculate = true
@@ -45,19 +45,19 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 	shrinkGrowWasDragging := appState.ShrinkGrowAmount.Dragging()
 	if appState.ShrinkGrowAmount.Update(gtx) {
 		newValue := core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
-		if newValue != appState.Settings.ShrinkGrowAmount {
-			appState.SelectionDiffersVersionOnDisk = true
+		if newValue != appState.ActiveSettings.ShrinkGrowAmount {
+			appState.SelectionMaskDiffersVersionOnDisk = true
 		}
-		appState.Settings.ShrinkGrowAmount = newValue
+		appState.ActiveSettings.ShrinkGrowAmount = newValue
 		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 	}
 	smoothWasDragging := appState.SmoothAmount.Dragging()
 	if appState.SmoothAmount.Update(gtx) {
-		if appState.SmoothAmount.Value != appState.Settings.SmoothAmount {
-			appState.SelectionDiffersVersionOnDisk = true
+		if appState.SmoothAmount.Value != appState.ActiveSettings.SmoothAmount {
+			appState.SelectionMaskDiffersVersionOnDisk = true
 		}
-		appState.Settings.SmoothAmount = appState.SmoothAmount.Value
+		appState.ActiveSettings.SmoothAmount = appState.SmoothAmount.Value
 		appState.ReprocessSelection()
 		appState.Window.Invalidate()
 	}
@@ -86,7 +86,7 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 
 	// Persist the auto flood fill setting whenever it is toggled.
 	if appState.EnableAutoFloodFill.Update(gtx) {
-		appState.Settings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
+		appState.ActiveSettings.EnableAutoFloodFill = appState.EnableAutoFloodFill.Value
 		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
@@ -94,7 +94,7 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 
 	// Persist the keep-selection setting whenever it is toggled.
 	if appState.UpdateSelectionOnSpChange.Update(gtx) {
-		appState.Settings.UpdateSelectionOnSpChange = appState.UpdateSelectionOnSpChange.Value
+		appState.ActiveSettings.UpdateSelectionOnSpChange = appState.UpdateSelectionOnSpChange.Value
 		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}

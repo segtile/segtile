@@ -185,10 +185,10 @@ func (settings *SuperpixelSettings) Clone() *SuperpixelSettings {
 }
 
 func (appState *AppState) SaveProjectSettings() error {
-	if err := appState.Settings.Persist(); err != nil {
+	if err := appState.ActiveSettings.Persist(); err != nil {
 		return err
 	}
-	appState.ProjectSettingsDefaults = appState.Settings.Clone()
+	appState.DefaultSettings = appState.ActiveSettings.Clone()
 	return nil
 }
 
@@ -224,9 +224,9 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	if settings.Err != nil {
 		log.Printf("Failed to open project: %v", settings.Err)
-		if appState.Settings == nil {
+		if appState.ActiveSettings == nil {
 			// No project was loaded before, so surface the error on the create/open project screen.
-			appState.Settings = settings
+			appState.ActiveSettings = settings
 		} else {
 			// A project is already loaded; keep it and just notify about the failed attempt.
 			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, settings.Err.Error(), 5*time.Second)
@@ -236,15 +236,15 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	// Save the old image before loading the new project, but only if it was actually changed.
 	if appState.ActiveImage != nil {
-		if appState.SelectionDiffersVersionOnDisk {
+		if appState.SelectionMaskDiffersVersionOnDisk {
 			appState.SaveCurrentMask(false)
 		}
 		appState.ActiveImage = nil
 	}
 
 	// Apply the new settings
-	appState.Settings = settings
-	appState.ProjectSettingsDefaults = settings.Clone()
+	appState.ActiveSettings = settings
+	appState.DefaultSettings = settings.Clone()
 	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
 	appState.UpdateSelectionOnSpChange.Value = settings.UpdateSelectionOnSpChange
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)
@@ -269,6 +269,6 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	}
 
 	appState.ImageFiles = imageFiles
-	appState.ImageFilesIndex = 0
+	appState.ActiveImageIndex = 0
 	appState.loadImageAtIndex(0)
 }

@@ -25,11 +25,11 @@ import (
 // shown under the New/Open Project buttons on the start screen.
 func drawProjectLoadError(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 
-	if appState.Settings == nil || appState.Settings.Err == nil {
+	if appState.ActiveSettings == nil || appState.ActiveSettings.Err == nil {
 		return layout.Dimensions{}
 	}
 
-	label := material.Body2(&appState.Theme.GioTheme, appState.Settings.Err.Error())
+	label := material.Body2(&appState.Theme.GioTheme, appState.ActiveSettings.Err.Error())
 	label.Color = color.NRGBA{R: 220, G: 80, B: 80, A: 255}
 	label.Alignment = text.Start
 	return label.Layout(gtx)
@@ -54,7 +54,7 @@ func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dime
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				buttonGtx := gtx
-				if appState.SelectionDiffersVersionOnDisk {
+				if appState.SelectionMaskDiffersVersionOnDisk {
 					HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
 				} else {
 					buttonGtx = gtx.Disabled()
@@ -191,7 +191,7 @@ func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimen
 					return layout.Dimensions{}
 				}
 				counter := fmt.Sprintf("%d / %d",
-					appState.ImageFilesIndex+1,
+					appState.ActiveImageIndex+1,
 					len(appState.ImageFiles),
 				)
 				lbl := material.Caption(&appState.Theme.GioTheme, counter)
@@ -202,7 +202,7 @@ func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimen
 				if len(appState.ImageFiles) == 0 {
 					return layout.Dimensions{}
 				}
-				lbl := material.Body2(&appState.Theme.GioTheme, filepath.Base(appState.ImageFiles[appState.ImageFilesIndex]))
+				lbl := material.Body2(&appState.Theme.GioTheme, filepath.Base(appState.ImageFiles[appState.ActiveImageIndex]))
 				lbl.Color = appState.Theme.GioTheme.ContrastFg
 				return lbl.Layout(gtx)
 			}),
@@ -216,7 +216,7 @@ func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimen
 
 func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Superpixel", appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
-		if appState.Settings == nil {
+		if appState.ActiveSettings == nil {
 			return layout.Dimensions{}
 		}
 		HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
@@ -236,9 +236,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
 							layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
 
-								superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.Settings.Superpixel.SpAlgorithmId)
+								superpixelTitle, _, _, err := superpixel.GetAlgorithmInfo(appState.ActiveSettings.Superpixel.SpAlgorithmId)
 								if err != nil {
-									superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.Settings.Superpixel.SpAlgorithmId)
+									superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.ActiveSettings.Superpixel.SpAlgorithmId)
 								}
 
 								label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
@@ -373,8 +373,8 @@ func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Di
 }
 
 func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	atFirstImage := appState.ImageFilesIndex == 0
-	atLastImage := appState.ImageFilesIndex == len(appState.ImageFiles)-1
+	atFirstImage := appState.ActiveImageIndex == 0
+	atLastImage := appState.ActiveImageIndex == len(appState.ImageFiles)-1
 
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

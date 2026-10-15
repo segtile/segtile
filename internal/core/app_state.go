@@ -27,31 +27,28 @@ type AppState struct {
 	LoadingState
 
 	// Project
-	Settings                *ProjectSettings
-	ProjectSettingsDefaults *ProjectSettings
-	ImageFiles              []string
-	ImageFilesIndex         int
+	ActiveSettings   *ProjectSettings
+	DefaultSettings  *ProjectSettings
+	ImageFiles       []string
+	ActiveImageIndex int
 
 	// Bitmaps and Superpixel
 	ActiveImage *image.NRGBA
 	ActiveSp    superpixel.SpResult
 
+	// ActiveImageMetadata is the saved metadata of the active image, or nil if none exists.
+	ActiveImageMetadata *ImageMetadata
+
 	// Selection
-	SelectionMask *superpixel_map.Mask
+	SelectionMaskRaw *superpixel_map.Mask
 
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
 	SelectionMaskDirty bool
 
-	// SelectionDiffersVersionOnDisk marks that the selection was changed by the user since it was
+	// SelectionMaskDiffersVersionOnDisk marks that the selection was changed by the user since it was
 	// loaded from disk (or last saved). Drives the outline color, auto-save on
 	// navigation, and whether "Revert to saved mask" does anything.
-	SelectionDiffersVersionOnDisk bool
-
-	// ActiveImageMetadata is the saved metadata of the active image, or nil if none exists.
-	ActiveImageMetadata *ImageMetadata
-
-	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
-	LastPaintedSpLabel int
+	SelectionMaskDiffersVersionOnDisk bool
 }
 
 // UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
@@ -165,6 +162,9 @@ type CacheState struct {
 	// ProcessedSelectionMask is the current selection's mask after Shrink/Grow and Smooth are
 	// applied; it is what actually gets saved to disk and is shown by the (processed) yellow outline.
 	ProcessedSelectionMask *superpixel_map.Mask
+
+	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
+	LastPaintedSpLabel int
 }
 
 // LoadingState holds the state of background loading and optimization operations.
@@ -189,7 +189,9 @@ func NewAppState() *AppState {
 			MiscSection:             SidebarSection{Open: true},
 			ManualFixBrushRadius:    16,
 		},
-		LastPaintedSpLabel: -1,
+		CacheState: CacheState{
+			LastPaintedSpLabel: -1,
+		},
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan *ProjectSettings, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),

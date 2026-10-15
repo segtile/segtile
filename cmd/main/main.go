@@ -69,7 +69,7 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 		case app.DestroyEvent:
 
 			// Save the current mask before exiting, if it was actually changed.
-			if appState.SelectionDiffersVersionOnDisk {
+			if appState.SelectionMaskDiffersVersionOnDisk {
 				appState.SaveCurrentMask(false)
 			}
 

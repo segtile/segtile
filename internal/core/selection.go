@@ -22,13 +22,13 @@ func (appState *AppState) SelectionMade() bool {
 }
 
 func (appState *AppState) ClearSelection(showToast bool) {
-	if appState.SelectionMask == nil {
+	if appState.SelectionMaskRaw == nil {
 		return
 	}
-	wasEmpty := appState.SelectionMask.IsEmpty()
-	appState.SelectionMask.Clear()
+	wasEmpty := appState.SelectionMaskRaw.IsEmpty()
+	appState.SelectionMaskRaw.Clear()
 	if !wasEmpty {
-		appState.SelectionDiffersVersionOnDisk = true
+		appState.SelectionMaskDiffersVersionOnDisk = true
 	}
 	appState.SelectionMaskDirty = true
 	appState.ReprocessSelection()
@@ -42,7 +42,7 @@ func (appState *AppState) ClearSelection(showToast bool) {
 // into the selection mask. Returns true if any pixel was changed.
 func (appState *AppState) SetSpSelected(label uint32, selected bool) bool {
 
-	if appState.ActiveSp.LabelMap == nil || appState.SelectionMask == nil {
+	if appState.ActiveSp.LabelMap == nil || appState.SelectionMaskRaw == nil {
 		return false
 	}
 
@@ -59,15 +59,15 @@ func (appState *AppState) SetSpSelected(label uint32, selected bool) bool {
 
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			if appState.ActiveSp.LabelMap.ValueAt(x, y) == label && (appState.SelectionMask.PositiveAt(x, y) != (target != 0)) {
-				appState.SelectionMask.SetValueAt(x, y, selected)
+			if appState.ActiveSp.LabelMap.ValueAt(x, y) == label && (appState.SelectionMaskRaw.PositiveAt(x, y) != (target != 0)) {
+				appState.SelectionMaskRaw.SetValueAt(x, y, selected)
 				changed = true
 			}
 		}
 	}
 	if changed {
 		appState.SelectionMaskDirty = true
-		appState.SelectionDiffersVersionOnDisk = true
+		appState.SelectionMaskDiffersVersionOnDisk = true
 	}
 	return changed
 }
@@ -76,13 +76,13 @@ func (appState *AppState) SetSpSelected(label uint32, selected bool) bool {
 // containing the point (x, y). Works directly on the selection mask, so brush strokes
 // are respected pixel-accurately. Returns true if any pixel was changed.
 func (appState *AppState) FloodFillSelectFromPoint(x, y int) bool {
-	if appState.SelectionMask == nil {
+	if appState.SelectionMaskRaw == nil {
 		return false
 	}
-	changed := superpixel_utils.FloodFillMaskFromPoint(appState.SelectionMask, x, y)
+	changed := superpixel_utils.FloodFillMaskFromPoint(appState.SelectionMaskRaw, x, y)
 	if changed {
 		appState.SelectionMaskDirty = true
-		appState.SelectionDiffersVersionOnDisk = true
+		appState.SelectionMaskDiffersVersionOnDisk = true
 	}
 	return changed
 }
@@ -91,13 +91,13 @@ func (appState *AppState) FloodFillSelectFromPoint(x, y int) bool {
 // (i.e. not connected to the image border via unselected pixels). Works directly on the
 // selection mask. Returns true if any pixel was changed.
 func (appState *AppState) AutoFloodFillSelection() bool {
-	if appState.SelectionMask == nil {
+	if appState.SelectionMaskRaw == nil {
 		return false
 	}
-	changed := superpixel_utils.FillEnclosedMaskRegions(appState.SelectionMask)
+	changed := superpixel_utils.FillEnclosedMaskRegions(appState.SelectionMaskRaw)
 	if changed {
 		appState.SelectionMaskDirty = true
-		appState.SelectionDiffersVersionOnDisk = true
+		appState.SelectionMaskDiffersVersionOnDisk = true
 	}
 	return changed
 }
