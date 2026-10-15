@@ -73,10 +73,6 @@ func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, 
 		return superpixel.SpResult{}, errors.New("Initial perturbation neighborhood radius can not be negative.")
 	}
 
-	if iterations < 1 {
-		return superpixel.SpResult{}, errors.New("Iterations must be at least 1.")
-	}
-
 	if img == nil {
 		return superpixel.SpResult{}, errors.New("Image is nil.")
 	}
