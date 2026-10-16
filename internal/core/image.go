@@ -147,7 +147,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 
 	appState.ReprocessSelection()
 
-	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || evenIfEmpty) {
+	if appState.ActiveSp.SpCount != 0 && (appState.SelectionMade() || appState.SelectionMaskDiffersVersionOnDisk || evenIfEmpty) {
 
 		// Safety fallback in case map is somehow nil
 		if appState.ProcessedSelectionMask == nil {
