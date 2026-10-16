@@ -70,10 +70,10 @@ func distanceToBoundary(mask *superpixel_map.Mask) *superpixel_map.LabelMap {
 
 // GrowShrink dilates (radius > 0) or erodes (radius < 0) a binary mask by the given number of pixels.
 // The operation is performed in-place on the input mask.
-// Radius <= 0 leaves the mask unchanged.
+// Radius == 0 leaves the mask unchanged.
 func GrowShrink(mask *superpixel_map.Mask, radius int) {
 
-	if radius <= 0 {
+	if radius == 0 {
 		return
 	}
 
