@@ -25,6 +25,9 @@ type AppTheme struct {
 // MinStrokeWidth is the minimum outline stroke width; the UI sliders cannot go below it.
 const MinStrokeWidth = 0.2
 
+// OutlineColorCount is the number of editable outline colors (hover, selection, saved selection).
+const OutlineColorCount = 3
+
 // haloColor is the static color used for all halo outlines.
 var haloColor = color.NRGBA{R: 0, G: 0, B: 0, A: 200}
 
@@ -36,6 +39,12 @@ func (t *AppTheme) SavedSelectionHaloColor() color.NRGBA { return haloColor }
 // Halo widths are 75% of their stroke width.
 func (t *AppTheme) SelectionHaloWidth() float32 { return t.SelectionStrokeWidth * 0.75 }
 func (t *AppTheme) HoverHaloWidth() float32     { return t.HoverStrokeWidth * 0.75 }
+
+// OutlineColors returns pointers to the editable outline colors in a stable order:
+// hover, selection, saved selection.
+func (t *AppTheme) OutlineColors() [OutlineColorCount]*color.NRGBA {
+	return [OutlineColorCount]*color.NRGBA{&t.HoverOutlineColor, &t.SelectionOutlineColor, &t.SavedSelectionOutlineColor}
+}
 
 // Clone returns a deep copy of the theme.
 func (t *AppTheme) Clone() *AppTheme {
@@ -74,27 +83,18 @@ func (t *AppTheme) Normalize() {
 	}
 }
 
-// FormatHexColor formats a color as "#RRGGBB" for display in the theme editors.
-func FormatHexColor(c color.NRGBA) string {
-	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+// FormatColorChannel formats one RGBA channel for display in the theme editors.
+func FormatColorChannel(v uint8) string {
+	return strconv.Itoa(int(v))
 }
 
-// ParseHexColor parses a color in "#RRGGBB" or "RRGGBB" format.
-func ParseHexColor(s string) (color.NRGBA, error) {
-	s = strings.TrimPrefix(strings.TrimSpace(s), "#")
-	if len(s) != 6 {
-		return color.NRGBA{}, fmt.Errorf("invalid color %q: expected 6 hex digits (RRGGBB)", s)
-	}
-	value, err := strconv.ParseUint(s, 16, 32)
+// ParseColorChannel parses one color channel value (0-255).
+func ParseColorChannel(s string) (uint8, error) {
+	value, err := strconv.ParseUint(strings.TrimSpace(s), 10, 8)
 	if err != nil {
-		return color.NRGBA{}, fmt.Errorf("invalid color %q: %w", s, err)
+		return 0, fmt.Errorf("invalid color channel %q: expected 0-255", s)
 	}
-	return color.NRGBA{
-		R: uint8(value >> 16),
-		G: uint8(value >> 8),
-		B: uint8(value),
-		A: 255,
-	}, nil
+	return uint8(value), nil
 }
 
 // Menu bar

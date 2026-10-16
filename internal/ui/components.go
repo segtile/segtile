@@ -384,12 +384,14 @@ func drawColorSwatch(gtx layout.Context, c color.NRGBA) layout.Dimensions {
 func drawThemeSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Theme", appState.ThemeSection.Open, &appState.ThemeSection.Button, func(gtx layout.Context) layout.Dimensions {
 		theme := appState.Theme()
+		outlineColors := theme.OutlineColors()
+		channelLabels := [3]string{"R", "G", "B"}
 
-		colorRow := func(label string, editor *widget.Editor, swatch color.NRGBA) layout.FlexChild {
+		colorRow := func(label string, colorIndex int) layout.FlexChild {
 			return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				children := []layout.FlexChild{
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return drawColorSwatch(gtx, swatch)
+						return drawColorSwatch(gtx, *outlineColors[colorIndex])
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -397,13 +399,32 @@ func drawThemeSection(gtx layout.Context, appState *core.AppState) layout.Dimens
 						lbl.Color = theme.GioTheme.Palette.Fg
 						return lbl.Layout(gtx)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min.X = gtx.Dp(64)
-						editorStyle := material.Editor(&theme.GioTheme, editor, "#RRGGBB")
-						editorStyle.Color = theme.GioTheme.Palette.Fg
-						return editorStyle.Layout(gtx)
-					}),
-				)
+				}
+				for channelIndex := range appState.ThemeColorEditors[colorIndex] {
+					channelIndex := channelIndex
+					editor := &appState.ThemeColorEditors[colorIndex][channelIndex]
+					children = append(children,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Caption(&theme.GioTheme, channelLabels[channelIndex])
+									lbl.Color = theme.GioTheme.Palette.Fg
+									return lbl.Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									gtx.Constraints.Min.X = gtx.Dp(28)
+									gtx.Constraints.Max.X = gtx.Dp(32)
+									editorStyle := material.Editor(&theme.GioTheme, editor, "0")
+									editorStyle.Color = theme.GioTheme.Palette.Fg
+									return editorStyle.Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+							)
+						}),
+					)
+				}
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, children...)
 			})
 		}
 
@@ -426,9 +447,9 @@ func drawThemeSection(gtx layout.Context, appState *core.AppState) layout.Dimens
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Label(&theme.GioTheme, unit.Sp(12), "Outline Colors").Layout(gtx)
 			}),
-			colorRow("Hover", &appState.ThemeHoverColorEditor, theme.HoverOutlineColor),
-			colorRow("Selection", &appState.ThemeSelectionColorEditor, theme.SelectionOutlineColor),
-			colorRow("Saved selection", &appState.ThemeSavedSelectionColorEditor, theme.SavedSelectionOutlineColor),
+			colorRow("Hover", 0),
+			colorRow("Selection", 1),
+			colorRow("Saved selection", 2),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Label(&theme.GioTheme, unit.Sp(12), "Stroke Width").Layout(gtx)

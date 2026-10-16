@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"image/color"
 	"log"
 	"strconv"
 
@@ -114,30 +113,28 @@ func HandleThemeEditors(appState *core.AppState, gtx layout.Context) {
 	}
 	theme := appState.ActiveSettings.Theme
 
-	// Handle outline color editor submissions.
-	colorEditors := []struct {
-		editor  *widget.Editor
-		current color.NRGBA
-		apply   func(color.NRGBA)
-	}{
-		{&appState.ThemeHoverColorEditor, theme.HoverOutlineColor, func(c color.NRGBA) { theme.HoverOutlineColor = c }},
-		{&appState.ThemeSelectionColorEditor, theme.SelectionOutlineColor, func(c color.NRGBA) { theme.SelectionOutlineColor = c }},
-		{&appState.ThemeSavedSelectionColorEditor, theme.SavedSelectionOutlineColor, func(c color.NRGBA) { theme.SavedSelectionOutlineColor = c }},
-	}
+	// Handle outline color channel submissions.
+	themeColors := theme.OutlineColors()
 	colorChanged := false
-	for _, ce := range colorEditors {
-		for {
-			ev, ok := ce.editor.Update(gtx)
-			if !ok {
-				break
-			}
-			if _, ok := ev.(widget.SubmitEvent); ok {
-				if c, err := app_theme.ParseHexColor(ce.editor.Text()); err == nil {
-					ce.apply(c)
-					colorChanged = true
-				} else {
-					// Invalid input: revert the editor to the current color.
-					ce.editor.SetText(app_theme.FormatHexColor(ce.current))
+	for colorIndex, c := range themeColors {
+		channels := [3]*uint8{&c.R, &c.G, &c.B}
+		for channelIndex, channel := range channels {
+			editor := &appState.ThemeColorEditors[colorIndex][channelIndex]
+			for {
+				ev, ok := editor.Update(gtx)
+				if !ok {
+					break
+				}
+				if _, ok := ev.(widget.SubmitEvent); ok {
+					if v, err := app_theme.ParseColorChannel(editor.Text()); err == nil {
+						if v != *channel {
+							*channel = v
+							colorChanged = true
+						}
+					} else {
+						// Invalid input: revert the editor to the current value.
+						editor.SetText(app_theme.FormatColorChannel(*channel))
+					}
 				}
 			}
 		}

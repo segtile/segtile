@@ -67,11 +67,10 @@ type UiState struct {
 	ThemeSection      SidebarSection
 
 	// Theme editors
-	ThemeHoverColorEditor          widget.Editor
-	ThemeSelectionColorEditor      widget.Editor
-	ThemeSavedSelectionColorEditor widget.Editor
-	ThemeSelectionWidthSlider      widget.Float
-	ThemeHoverWidthSlider          widget.Float
+	// One R, G and B editor per outline color (hover, selection, saved selection).
+	ThemeColorEditors         [app_theme.OutlineColorCount][3]widget.Editor
+	ThemeSelectionWidthSlider widget.Float
+	ThemeHoverWidthSlider     widget.Float
 
 	// Superpixel Editors
 	SuperpixelParameterEditors []SuperpixelParameterEditor
@@ -220,9 +219,11 @@ func NewAppState() *AppState {
 
 	// Initialize the theme editors with default values.
 	// They are synced to the project's theme whenever a project is loaded.
-	appState.ThemeHoverColorEditor = widget.Editor{SingleLine: true, Submit: true, Filter: "#0123456789abcdefABCDEF", Alignment: text.End}
-	appState.ThemeSelectionColorEditor = widget.Editor{SingleLine: true, Submit: true, Filter: "#0123456789abcdefABCDEF", Alignment: text.End}
-	appState.ThemeSavedSelectionColorEditor = widget.Editor{SingleLine: true, Submit: true, Filter: "#0123456789abcdefABCDEF", Alignment: text.End}
+	for colorIndex := range appState.ThemeColorEditors {
+		for channelIndex := range appState.ThemeColorEditors[colorIndex] {
+			appState.ThemeColorEditors[colorIndex][channelIndex] = widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789", Alignment: text.End}
+		}
+	}
 	appState.SyncThemeEditors()
 
 	appState.RebuildEditors()

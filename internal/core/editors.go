@@ -89,9 +89,12 @@ func SliderToStrokeWidth(sliderValue float32) float32 {
 // SyncThemeEditors updates the theme editors to reflect the current theme.
 func (appState *AppState) SyncThemeEditors() {
 	theme := appState.Theme()
-	appState.ThemeHoverColorEditor.SetText(app_theme.FormatHexColor(theme.HoverOutlineColor))
-	appState.ThemeSelectionColorEditor.SetText(app_theme.FormatHexColor(theme.SelectionOutlineColor))
-	appState.ThemeSavedSelectionColorEditor.SetText(app_theme.FormatHexColor(theme.SavedSelectionOutlineColor))
+	for colorIndex, c := range theme.OutlineColors() {
+		channels := [3]uint8{c.R, c.G, c.B}
+		for channelIndex, v := range channels {
+			appState.ThemeColorEditors[colorIndex][channelIndex].SetText(app_theme.FormatColorChannel(v))
+		}
+	}
 	appState.ThemeSelectionWidthSlider.Value = StrokeWidthToSlider(theme.SelectionStrokeWidth)
 	appState.ThemeHoverWidthSlider.Value = StrokeWidthToSlider(theme.HoverStrokeWidth)
 }
