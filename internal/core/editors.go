@@ -7,6 +7,7 @@ import (
 
 	"gioui.org/text"
 	"gioui.org/widget"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
@@ -69,6 +70,30 @@ func (appState *AppState) SyncEditors() error {
 	}
 
 	return nil
+}
+
+// maxStrokeWidth is the maximum outline stroke width selectable via the theme sliders.
+const maxStrokeWidth = 5.0
+
+// StrokeWidthToSlider maps an outline stroke width (in pixels) to a 0..1 slider value.
+func StrokeWidthToSlider(width float32) float32 {
+	return (width - app_theme.MinStrokeWidth) / (maxStrokeWidth - app_theme.MinStrokeWidth)
+}
+
+// SliderToStrokeWidth maps a 0..1 slider value to an outline stroke width (in pixels).
+// The slider cannot go below app_theme.MinStrokeWidth.
+func SliderToStrokeWidth(sliderValue float32) float32 {
+	return app_theme.MinStrokeWidth + sliderValue*(maxStrokeWidth-app_theme.MinStrokeWidth)
+}
+
+// SyncThemeEditors updates the theme editors to reflect the current theme.
+func (appState *AppState) SyncThemeEditors() {
+	theme := appState.Theme()
+	appState.ThemeHoverColorEditor.SetText(app_theme.FormatHexColor(theme.HoverOutlineColor))
+	appState.ThemeSelectionColorEditor.SetText(app_theme.FormatHexColor(theme.SelectionOutlineColor))
+	appState.ThemeSavedSelectionColorEditor.SetText(app_theme.FormatHexColor(theme.SavedSelectionOutlineColor))
+	appState.ThemeSelectionWidthSlider.Value = StrokeWidthToSlider(theme.SelectionStrokeWidth)
+	appState.ThemeHoverWidthSlider.Value = StrokeWidthToSlider(theme.HoverStrokeWidth)
 }
 
 func (appState *AppState) UiLocked() bool {

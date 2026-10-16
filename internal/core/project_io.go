@@ -9,6 +9,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/reiver/go-giotoast"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
@@ -18,14 +19,15 @@ const defaultSpAlgorithmId = "slic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	SettingsFile              string              `yaml:"-"` // Don't store the path to the file in itself.
-	InputDirectory            string              `yaml:"input_directory"`
-	Superpixel                *SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill       bool                `yaml:"auto_flood_fill"`
-	UpdateSelectionOnSpChange bool                `yaml:"update_selection_on_sp_change"`
-	ShrinkGrowAmount          float32             `yaml:"shrink_grow_amount"`
-	SmoothAmount              float32             `yaml:"smooth_amount"`
-	Err                       error               `yaml:"-"` // Don't store the error
+	SettingsFile              string                `yaml:"-"` // Don't store the path to the file in itself.
+	InputDirectory            string                `yaml:"input_directory"`
+	Superpixel                *SuperpixelSettings   `yaml:"superpixel"`
+	Theme                     *app_theme.AppTheme   `yaml:"theme"`
+	EnableAutoFloodFill       bool                  `yaml:"auto_flood_fill"`
+	UpdateSelectionOnSpChange bool                  `yaml:"update_selection_on_sp_change"`
+	ShrinkGrowAmount          float32               `yaml:"shrink_grow_amount"`
+	SmoothAmount              float32               `yaml:"smooth_amount"`
+	Err                       error                 `yaml:"-"` // Don't store the error
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
@@ -138,6 +140,13 @@ func LoadProjectSettings(settingsYamlPath string) *ProjectSettings {
 		return &ProjectSettings{Err: err}
 	}
 
+	// Fill in the theme with default values if the settings file has no (complete) theme section.
+	if settings.Theme == nil {
+		settings.Theme = app_theme.Default()
+	} else {
+		settings.Theme.Normalize()
+	}
+
 	return &settings
 }
 
@@ -171,6 +180,7 @@ func (settings *ProjectSettings) Clone() *ProjectSettings {
 	}
 	cloned := *settings
 	cloned.Superpixel = settings.Superpixel.Clone()
+	cloned.Theme = settings.Theme.Clone()
 	return &cloned
 }
 
@@ -198,6 +208,7 @@ func NewProjectSettings(outputDir, inputDir string, spSettings *SuperpixelSettin
 		SettingsFile:     filepath.Join(outputDir, DefaultConfigFileName),
 		InputDirectory:   inputDir,
 		Superpixel:       spSettings,
+		Theme:            app_theme.Default(),
 		ShrinkGrowAmount: 0,
 	}
 	if err := cfg.Persist(); err != nil {
@@ -252,6 +263,7 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	// Rebuild editors
 	appState.RebuildEditors()
+	appState.SyncThemeEditors()
 
 	// List all image files in the input directory
 	imageFiles, err := ListFiles(settings.InputDirectory, true)

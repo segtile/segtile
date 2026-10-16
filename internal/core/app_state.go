@@ -10,6 +10,7 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
@@ -51,7 +52,7 @@ type AppState struct {
 	SelectionMaskDiffersVersionOnDisk bool
 }
 
-// UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
+// UiState holds the state of the user interface, including window, buttons, and other UI elements.
 type UiState struct {
 
 	// UI state
@@ -59,13 +60,18 @@ type UiState struct {
 	Toasts    giotoast.Queue
 	CanvasTag bool
 
-	// Theme
-	Theme *app_theme.AppTheme
-
 	// Sidebar sections
 	ImagesSection     SidebarSection
 	SuperpixelSection SidebarSection
 	MiscSection       SidebarSection
+	ThemeSection      SidebarSection
+
+	// Theme editors
+	ThemeHoverColorEditor          widget.Editor
+	ThemeSelectionColorEditor      widget.Editor
+	ThemeSavedSelectionColorEditor widget.Editor
+	ThemeSelectionWidthSlider      widget.Float
+	ThemeHoverWidthSlider          widget.Float
 
 	// Superpixel Editors
 	SuperpixelParameterEditors []SuperpixelParameterEditor
@@ -182,11 +188,11 @@ func NewAppState() *AppState {
 		UiState: UiState{
 			RenderSelectionOutlines: true,
 			SmoothSelectionOutlines: true,
-			Theme:                   app_theme.Theme,
 			FitToWindow:             true,
 			ImagesSection:           SidebarSection{Open: true},
 			SuperpixelSection:       SidebarSection{Open: true},
 			MiscSection:             SidebarSection{Open: true},
+			ThemeSection:            SidebarSection{Open: true},
 			ManualFixBrushRadius:    16,
 		},
 		CacheState: CacheState{
@@ -212,7 +218,26 @@ func NewAppState() *AppState {
 		})
 	}
 
+	// Initialize the theme editors with default values.
+	// They are synced to the project's theme whenever a project is loaded.
+	appState.ThemeHoverColorEditor = widget.Editor{SingleLine: true, Submit: true, Filter: "#0123456789abcdefABCDEF", Alignment: text.End}
+	appState.ThemeSelectionColorEditor = widget.Editor{SingleLine: true, Submit: true, Filter: "#0123456789abcdefABCDEF", Alignment: text.End}
+	appState.ThemeSavedSelectionColorEditor = widget.Editor{SingleLine: true, Submit: true, Filter: "#0123456789abcdefABCDEF", Alignment: text.End}
+	appState.SyncThemeEditors()
+
 	appState.RebuildEditors()
 
 	return appState
+}
+
+// fallbackTheme is used to render UI chrome when no project is loaded.
+var fallbackTheme = app_theme.Default()
+
+// Theme returns the theme of the active project, or a fallback default theme
+// when no project is loaded.
+func (appState *AppState) Theme() *app_theme.AppTheme {
+	if appState.ActiveSettings != nil && appState.ActiveSettings.Theme != nil {
+		return appState.ActiveSettings.Theme
+	}
+	return fallbackTheme
 }

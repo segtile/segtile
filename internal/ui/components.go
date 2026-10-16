@@ -29,7 +29,7 @@ func drawProjectLoadError(gtx layout.Context, appState *core.AppState) layout.Di
 		return layout.Dimensions{}
 	}
 
-	label := material.Body2(&appState.Theme.GioTheme, appState.ActiveSettings.Err.Error())
+	label := material.Body2(&appState.Theme().GioTheme, appState.ActiveSettings.Err.Error())
 	label.Color = color.NRGBA{R: 220, G: 80, B: 80, A: 255}
 	label.Alignment = text.Start
 	return label.Layout(gtx)
@@ -47,8 +47,8 @@ func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dime
 	return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				label := material.Body2(&appState.Theme.GioTheme, "Annotator: "+annotator)
-				label.Color = appState.Theme.GioTheme.Palette.Fg
+				label := material.Body2(&appState.Theme().GioTheme, "Annotator: "+annotator)
+				label.Color = appState.Theme().GioTheme.Palette.Fg
 				return label.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
@@ -59,7 +59,7 @@ func drawSavedImageInfo(gtx layout.Context, appState *core.AppState) layout.Dime
 				} else {
 					buttonGtx = gtx.Disabled()
 				}
-				return drawBigButton(buttonGtx, &appState.RevertSavedMaskButton, appState.Theme, "Revert to saved mask", 14)
+				return drawBigButton(buttonGtx, &appState.RevertSavedMaskButton, appState.Theme(), "Revert to saved mask", 14)
 			}),
 		)
 	})
@@ -168,7 +168,7 @@ func drawSidebarSection(gtx layout.Context, appState *core.AppState, title strin
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return drawSidebarSectionHeader(gtx, button, appState.Theme, title, open)
+			return drawSidebarSectionHeader(gtx, button, appState.Theme(), title, open)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !open {
@@ -194,16 +194,16 @@ func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimen
 					appState.ActiveImageIndex+1,
 					len(appState.ImageFiles),
 				)
-				lbl := material.Caption(&appState.Theme.GioTheme, counter)
-				lbl.Color = appState.Theme.GioTheme.ContrastFg
+				lbl := material.Caption(&appState.Theme().GioTheme, counter)
+				lbl.Color = appState.Theme().GioTheme.ContrastFg
 				return lbl.Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if len(appState.ImageFiles) == 0 {
 					return layout.Dimensions{}
 				}
-				lbl := material.Body2(&appState.Theme.GioTheme, filepath.Base(appState.ImageFiles[appState.ActiveImageIndex]))
-				lbl.Color = appState.Theme.GioTheme.ContrastFg
+				lbl := material.Body2(&appState.Theme().GioTheme, filepath.Base(appState.ImageFiles[appState.ActiveImageIndex]))
+				lbl.Color = appState.Theme().GioTheme.ContrastFg
 				return lbl.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
@@ -241,12 +241,12 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 									superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.ActiveSettings.Superpixel.SpAlgorithmId)
 								}
 
-								label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
-								label.Color = appState.Theme.GioTheme.Palette.Fg
+								label := material.Body1(&appState.Theme().GioTheme, superpixelTitle)
+								label.Color = appState.Theme().GioTheme.Palette.Fg
 								return label.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme, app_theme.IconChangeAlgorithm, "Change Superpixel Algorithm", false)
+								return drawIconButton(gtx, &appState.ChangeSpAlgorithmButton, appState.Theme(), app_theme.IconChangeAlgorithm, "Change Superpixel Algorithm", false)
 							}),
 						)
 					}),
@@ -263,7 +263,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								HandleUiButtonClick(appState, gtx, button)
-								return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
+								return component.MenuItem(&appState.Theme().GioTheme, button, title).Layout(gtx)
 							}))
 						}
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -288,20 +288,20 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								checkboxStyle := material.CheckBox(&appState.Theme.GioTheme, checkbox, "")
-								checkboxStyle.IconColor = appState.Theme.GioTheme.Palette.Fg
+								checkboxStyle := material.CheckBox(&appState.Theme().GioTheme, checkbox, "")
+								checkboxStyle.IconColor = appState.Theme().GioTheme.Palette.Fg
 								checkboxStyle.Size = unit.Dp(16)
 								return checkboxStyle.Layout(gtx)
 							}),
 							layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-								label := material.Body1(&appState.Theme.GioTheme, title)
-								label.Color = appState.Theme.GioTheme.Palette.Fg
+								label := material.Body1(&appState.Theme().GioTheme, title)
+								label.Color = appState.Theme().GioTheme.Palette.Fg
 								return label.Layout(gtx)
 							}),
 
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
-								editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
+								editorStyle := material.Editor(&appState.Theme().GioTheme, editor, "value")
+								editorStyle.Color = appState.Theme().GioTheme.Palette.Fg
 								return editorStyle.Layout(gtx)
 							}),
 						)
@@ -316,7 +316,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 			children = append(children,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
-					return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme, app_theme.IconOptimize, "Suggest Parameters")
+					return drawMenuBarButton(gtx, &appState.OptimizeButton, appState.Theme(), app_theme.IconOptimize, "Suggest Parameters")
 				}),
 			)
 		}
@@ -329,38 +329,38 @@ func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Di
 	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
+				return material.CheckBox(&appState.Theme().GioTheme, &appState.EnableAutoFloodFill, "Enable Auto Flood Fill").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.CheckBox(&appState.Theme.GioTheme, &appState.UpdateSelectionOnSpChange, "Snap selection when SP change").Layout(gtx)
+				return material.CheckBox(&appState.Theme().GioTheme, &appState.UpdateSelectionOnSpChange, "Snap selection when SP change").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Shrink / Grow").Layout(gtx)
+				return material.Label(&appState.Theme().GioTheme, unit.Sp(12), "Shrink / Grow").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Slider(&appState.Theme.GioTheme, &appState.ShrinkGrowAmount).Layout(gtx)
+						return material.Slider(&appState.Theme().GioTheme, &appState.ShrinkGrowAmount).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						HandleUiButtonClick(appState, gtx, &appState.ShrinkGrowAmountReset)
-						return drawIconButton(gtx, &appState.ShrinkGrowAmountReset, appState.Theme, app_theme.IconAvReplay, "Reset Shrink/Grow", false)
+						return drawIconButton(gtx, &appState.ShrinkGrowAmountReset, appState.Theme(), app_theme.IconAvReplay, "Reset Shrink/Grow", false)
 					}),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Label(&appState.Theme.GioTheme, unit.Sp(12), "Smooth").Layout(gtx)
+				return material.Label(&appState.Theme().GioTheme, unit.Sp(12), "Smooth").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Slider(&appState.Theme.GioTheme, &appState.SmoothAmount).Layout(gtx)
+						return material.Slider(&appState.Theme().GioTheme, &appState.SmoothAmount).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						HandleUiButtonClick(appState, gtx, &appState.SmoothAmountReset)
-						return drawIconButton(gtx, &appState.SmoothAmountReset, appState.Theme, app_theme.IconAvReplay, "Reset Smooth", false)
+						return drawIconButton(gtx, &appState.SmoothAmountReset, appState.Theme(), app_theme.IconAvReplay, "Reset Smooth", false)
 					}),
 				)
 			}),
@@ -368,6 +368,73 @@ func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Di
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			children...,
+		)
+	})
+}
+
+// drawColorSwatch renders a small filled square previewing a color.
+func drawColorSwatch(gtx layout.Context, c color.NRGBA) layout.Dimensions {
+	size := gtx.Dp(unit.Dp(14))
+	paint.FillShape(gtx.Ops, c, clip.Rect{Max: image.Pt(size, size)}.Op())
+	return layout.Dimensions{Size: image.Pt(size, size)}
+}
+
+// drawThemeSection renders the collapsible "Theme" sidebar section with editors
+// for the outline colors and stroke widths.
+func drawThemeSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Theme", appState.ThemeSection.Open, &appState.ThemeSection.Button, func(gtx layout.Context) layout.Dimensions {
+		theme := appState.Theme()
+
+		colorRow := func(label string, editor *widget.Editor, swatch color.NRGBA) layout.FlexChild {
+			return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return drawColorSwatch(gtx, swatch)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body2(&theme.GioTheme, label)
+						lbl.Color = theme.GioTheme.Palette.Fg
+						return lbl.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Min.X = gtx.Dp(64)
+						editorStyle := material.Editor(&theme.GioTheme, editor, "#RRGGBB")
+						editorStyle.Color = theme.GioTheme.Palette.Fg
+						return editorStyle.Layout(gtx)
+					}),
+				)
+			})
+		}
+
+		sliderRow := func(label string, slider *widget.Float) layout.FlexChild {
+			return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body2(&theme.GioTheme, label)
+						lbl.Color = theme.GioTheme.Palette.Fg
+						return lbl.Layout(gtx)
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Slider(&theme.GioTheme, slider).Layout(gtx)
+					}),
+				)
+			})
+		}
+
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Label(&theme.GioTheme, unit.Sp(12), "Outline Colors").Layout(gtx)
+			}),
+			colorRow("Hover", &appState.ThemeHoverColorEditor, theme.HoverOutlineColor),
+			colorRow("Selection", &appState.ThemeSelectionColorEditor, theme.SelectionOutlineColor),
+			colorRow("Saved selection", &appState.ThemeSavedSelectionColorEditor, theme.SavedSelectionOutlineColor),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Label(&theme.GioTheme, unit.Sp(12), "Stroke Width").Layout(gtx)
+			}),
+			sliderRow("Selection", &appState.ThemeSelectionWidthSlider),
+			sliderRow("Hover", &appState.ThemeHoverWidthSlider),
 		)
 	})
 }
@@ -383,7 +450,7 @@ func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) lay
 			} else {
 				HandleUiButtonClick(appState, gtx, &appState.FirstButton)
 			}
-			return drawIconButton(gtx, &appState.FirstButton, appState.Theme, app_theme.IconFirst, "First", true)
+			return drawIconButton(gtx, &appState.FirstButton, appState.Theme(), app_theme.IconFirst, "First", true)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -392,7 +459,7 @@ func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) lay
 			} else {
 				HandleUiButtonClick(appState, gtx, &appState.PrevUnlabeledButton)
 			}
-			return drawIconButton(gtx, &appState.PrevUnlabeledButton, appState.Theme, app_theme.IconPrevUnlabeled, "Previous Unlabeled", true)
+			return drawIconButton(gtx, &appState.PrevUnlabeledButton, appState.Theme(), app_theme.IconPrevUnlabeled, "Previous Unlabeled", true)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -401,7 +468,7 @@ func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) lay
 			} else {
 				HandleUiButtonClick(appState, gtx, &appState.PrevButton)
 			}
-			return drawIconButton(gtx, &appState.PrevButton, appState.Theme, app_theme.IconPrev, "Previous", true)
+			return drawIconButton(gtx, &appState.PrevButton, appState.Theme(), app_theme.IconPrev, "Previous", true)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -411,7 +478,7 @@ func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) lay
 			} else {
 				HandleUiButtonClick(appState, gtx, &appState.NextButton)
 			}
-			return drawIconButton(gtx, &appState.NextButton, appState.Theme, app_theme.IconNext, "Next", true)
+			return drawIconButton(gtx, &appState.NextButton, appState.Theme(), app_theme.IconNext, "Next", true)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -420,7 +487,7 @@ func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) lay
 			} else {
 				HandleUiButtonClick(appState, gtx, &appState.NextUnlabeledButton)
 			}
-			return drawIconButton(gtx, &appState.NextUnlabeledButton, appState.Theme, app_theme.IconNextUnlabeled, "Next Unlabeled", true)
+			return drawIconButton(gtx, &appState.NextUnlabeledButton, appState.Theme(), app_theme.IconNextUnlabeled, "Next Unlabeled", true)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -429,7 +496,7 @@ func drawImageNavigationButtons(gtx layout.Context, appState *core.AppState) lay
 			} else {
 				HandleUiButtonClick(appState, gtx, &appState.LastButton)
 			}
-			return drawIconButton(gtx, &appState.LastButton, appState.Theme, app_theme.IconLast, "Last", true)
+			return drawIconButton(gtx, &appState.LastButton, appState.Theme(), app_theme.IconLast, "Last", true)
 		}),
 	)
 }

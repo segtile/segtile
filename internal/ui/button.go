@@ -35,6 +35,11 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		return
 	}
 
+	if button == &appState.ThemeSection.Button {
+		appState.ThemeSection.Open = !appState.ThemeSection.Open
+		return
+	}
+
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 		return

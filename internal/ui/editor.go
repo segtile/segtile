@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"image/color"
 	"log"
 	"strconv"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 )
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
@@ -100,4 +102,68 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 		}
 	}
 
+	HandleThemeEditors(appState, gtx)
+
+}
+
+// HandleThemeEditors processes the theme section's color editors and stroke width sliders
+// and persists changes to the project settings.
+func HandleThemeEditors(appState *core.AppState, gtx layout.Context) {
+	if appState.ActiveSettings == nil || appState.ActiveSettings.Theme == nil {
+		return
+	}
+	theme := appState.ActiveSettings.Theme
+
+	// Handle outline color editor submissions.
+	colorEditors := []struct {
+		editor  *widget.Editor
+		current color.NRGBA
+		apply   func(color.NRGBA)
+	}{
+		{&appState.ThemeHoverColorEditor, theme.HoverOutlineColor, func(c color.NRGBA) { theme.HoverOutlineColor = c }},
+		{&appState.ThemeSelectionColorEditor, theme.SelectionOutlineColor, func(c color.NRGBA) { theme.SelectionOutlineColor = c }},
+		{&appState.ThemeSavedSelectionColorEditor, theme.SavedSelectionOutlineColor, func(c color.NRGBA) { theme.SavedSelectionOutlineColor = c }},
+	}
+	colorChanged := false
+	for _, ce := range colorEditors {
+		for {
+			ev, ok := ce.editor.Update(gtx)
+			if !ok {
+				break
+			}
+			if _, ok := ev.(widget.SubmitEvent); ok {
+				if c, err := app_theme.ParseHexColor(ce.editor.Text()); err == nil {
+					ce.apply(c)
+					colorChanged = true
+				} else {
+					// Invalid input: revert the editor to the current color.
+					ce.editor.SetText(app_theme.FormatHexColor(ce.current))
+				}
+			}
+		}
+	}
+	if colorChanged {
+		if err := appState.SaveProjectSettings(); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
+		appState.Window.Invalidate()
+	}
+
+	// Handle stroke width slider changes; persist when the user lets go.
+	selectionWidthWasDragging := appState.ThemeSelectionWidthSlider.Dragging()
+	if appState.ThemeSelectionWidthSlider.Update(gtx) {
+		theme.SelectionStrokeWidth = core.SliderToStrokeWidth(appState.ThemeSelectionWidthSlider.Value)
+		appState.Window.Invalidate()
+	}
+	hoverWidthWasDragging := appState.ThemeHoverWidthSlider.Dragging()
+	if appState.ThemeHoverWidthSlider.Update(gtx) {
+		theme.HoverStrokeWidth = core.SliderToStrokeWidth(appState.ThemeHoverWidthSlider.Value)
+		appState.Window.Invalidate()
+	}
+	if (selectionWidthWasDragging && !appState.ThemeSelectionWidthSlider.Dragging()) ||
+		(hoverWidthWasDragging && !appState.ThemeHoverWidthSlider.Dragging()) {
+		if err := appState.SaveProjectSettings(); err != nil {
+			log.Println("Warning: could not save config:", err)
+		}
+	}
 }
