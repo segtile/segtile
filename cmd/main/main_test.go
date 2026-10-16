@@ -7,13 +7,13 @@ import (
 	"gioui.org/app"
 	"gioui.org/io/system"
 	"gioui.org/unit"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
 func TestEmptyOpenClose(t *testing.T) {
 	appWindow := new(app.Window)
 	appWindow.Option(app.Size(unit.Dp(600), unit.Dp(600)))
-	appState := app_config.NewAppState()
+	appState := core.NewAppState()
 	appState.Window = appWindow
 
 	done := make(chan struct{})

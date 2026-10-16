@@ -10,11 +10,11 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 )
 
-func Layout(appState *app_config.AppState, gtx layout.Context) {
+func Layout(appState *core.AppState, gtx layout.Context) {
 
 	// Disable the entire UI if a background operation owns project state.
 	if appState.UiLocked() {
@@ -22,7 +22,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 	}
 
 	// Determine if a project is loaded
-	hasActiveProject := appState.Settings != nil && appState.Settings.Err == nil
+	hasActiveProject := appState.ActiveSettings != nil && appState.ActiveSettings.Err == nil
 	isLoadingProject := appState.LoadingState.CurrentlyLoadingProject
 
 	// We set up a clipping area that covers the entire window.
@@ -98,7 +98,7 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								}),
 								layout.Flexed(1, layout.Spacer{Height: unit.Dp(12)}.Layout),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return drawExistingMaskWarning(gtx, appState)
+									return drawSavedImageInfo(gtx, appState)
 								}),
 							)
 						}),
@@ -171,10 +171,13 @@ func Layout(appState *app_config.AppState, gtx layout.Context) {
 								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, appState.Theme.HoverHaloColor, appState.Theme.HoverHaloWidth)
 
 								if appState.RenderSelectionOutlines {
-									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, appState.Theme.SelectionOutlineColor, appState.Theme.SelectionStrokeWidth, appState.Theme.SelectionHaloColor, appState.Theme.SelectionHaloWidth)
-									if appState.AwaitingMaskDecision {
-										drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.ExistingMaskPathSpec, appState.Theme.ExistingMaskOutlineColor, appState.Theme.ExistingMaskStrokeWidth, appState.Theme.ExistingMaskHaloColor, appState.Theme.ExistingMaskHaloWidth)
+									outlineColor := appState.Theme.SelectionOutlineColor
+									haloColor := appState.Theme.SelectionHaloColor
+									if appState.ActiveImageMetadata != nil && !appState.SelectionMaskDiffersVersionOnDisk {
+										outlineColor = appState.Theme.SavedSelectionOutlineColor
+										haloColor = appState.Theme.SavedSelectionHaloColor
 									}
+									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, outlineColor, appState.Theme.SelectionStrokeWidth, haloColor, appState.Theme.SelectionHaloWidth)
 								}
 							}
 

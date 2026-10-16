@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"fmt"
@@ -9,43 +9,50 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 )
 
 const DefaultConfigFileName = "settings.yaml"
-const defaultSpAlgorithmId = "snic"
+const ProjectMetadataDirectoryName = ".meta"
+const defaultSpAlgorithmId = "slic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
-	SettingsFile              string             `yaml:"-"` // The path to the settings file itself, not persisted in the yaml.
-	InputDirectory            string             `yaml:"input_directory"`
-	Superpixel                SuperpixelSettings `yaml:"superpixel"`
-	EnableAutoFloodFill       bool               `yaml:"auto_flood_fill"`
-	UpdateSelectionOnSpChange bool               `yaml:"update_selection_on_sp_change"`
-	ShrinkGrowAmount          float32            `yaml:"shrink_grow_amount"`
-	SmoothAmount              float32            `yaml:"smooth_amount"`
-	Err                       error              `yaml:"-"` // The error is also not persisted to disk.
+	SettingsFile              string              `yaml:"-"` // Don't store the path to the file in itself.
+	InputDirectory            string              `yaml:"input_directory"`
+	Superpixel                *SuperpixelSettings `yaml:"superpixel"`
+	EnableAutoFloodFill       bool                `yaml:"auto_flood_fill"`
+	UpdateSelectionOnSpChange bool                `yaml:"update_selection_on_sp_change"`
+	ShrinkGrowAmount          float32             `yaml:"shrink_grow_amount"`
+	SmoothAmount              float32             `yaml:"smooth_amount"`
+	Err                       error               `yaml:"-"` // Don't store the error
 }
 
 // SuperpixelSettings stores the algorithm name and its parameters.
-// This is used for yaml persistence.
 type SuperpixelSettings struct {
-	SpAlgorithmId         string             `yaml:"algorithm"`
-	SpAlgorithmParameters map[string]float64 `yaml:"parameters"`
+	SpAlgorithmId         string             `yaml:"algorithm" json:"algorithm"`
+	SpAlgorithmParameters map[string]float64 `yaml:"parameters" json:"parameters"`
 }
 
-func NewSuperpixelSettings() SuperpixelSettings {
+// ImageMetadata stores metadata for an individual image within the project.
+type ImageMetadata struct {
+	Annotator        string              `json:"annotator"`
+	Superpixel       *SuperpixelSettings `json:"superpixel"`
+	SmoothAmount     float32             `json:"smooth_amount"`
+	ShrinkGrowAmount float32             `json:"shrink_grow_amount"`
+}
+
+func NewSuperpixelSettings() *SuperpixelSettings {
 	defaultParameters, _ := superpixel.GetDefaultParameterValues(defaultSpAlgorithmId)
-	return SuperpixelSettings{
+	return &SuperpixelSettings{
 		SpAlgorithmId:         defaultSpAlgorithmId,
 		SpAlgorithmParameters: defaultParameters,
 	}
 }
 
-// normalizeSuperpixelSettings ensures that the SuperpixelSettings are consistent and complete.
+// normalize ensures that the SuperpixelSettings are consistent and complete.
 // It fills in default values for missing parameters and removes any unknown parameters.
-func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
+func (settings *SuperpixelSettings) normalize() error {
 
 	// Get information about the intended parameters for the algorithm
 	parameterInfo, err := superpixel.ListParameterInfo(settings.SpAlgorithmId)
@@ -77,52 +84,47 @@ func (settings *SuperpixelSettings) normalizeSuperpixelSettings() error {
 }
 
 // LoadProjectSettings reads and unmarshals a config file from the given path.
-// This can be either a direct path to a settings yaml file or the path to a directory,
-// in which case it will look for a settings yaml file within that directory.
-func LoadProjectSettings(settingsPath string) *ProjectSettings {
+func LoadProjectSettings(settingsYamlPath string) *ProjectSettings {
 
-	// Check if the given path exists and whether it is a file or directory
-	stat, err := os.Stat(settingsPath)
+	// Ensure the path is clean
+	settingsYamlPath = filepath.Clean(settingsYamlPath)
+
+	// Check if the given path exists
+	stat, err := os.Stat(settingsYamlPath)
 	if err != nil {
-		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsYamlPath, err: err}}
 	}
 
-	// If the path is a directory, append the default config file name
+	// If the path is a directory,
 	if stat.IsDir() {
-		settingsPath = filepath.Join(settingsPath, DefaultConfigFileName)
+		settingsYamlPath = filepath.Join(settingsYamlPath, DefaultConfigFileName)
 	}
 
-	// Then try reading the settings
-	data, err := os.ReadFile(filepath.Clean(settingsPath))
+	// Then try reading the settings file
+	data, err := os.ReadFile(settingsYamlPath)
 	if err != nil {
-		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsPath, err: err}}
+		return &ProjectSettings{Err: &SettingsFileReadError{path: settingsYamlPath, err: err}}
 	}
 
-	// Parse yaml
 	var settings ProjectSettings
-	if err := yaml.Unmarshal(data, &settings); err != nil {
+	err = yaml.Unmarshal(data, &settings)
+	if err != nil {
 		return &ProjectSettings{Err: &SettingsFileYamlParseError{err: err}}
 	}
 
-	// Store the settings file path
-	settings.SettingsFile = settingsPath
+	// Resolve relative input paths against the settings file that was selected.
+	settings.SettingsFile = settingsYamlPath
 
-	// Test if the input directory exists
-	if _, err := os.Stat(settings.InputDirectory); err != nil {
-
-		// If it can not be read, try treating it as a relative path from the directory of the settings file
+	if !filepath.IsAbs(settings.InputDirectory) {
 		settings.InputDirectory = filepath.Join(filepath.Dir(settings.SettingsFile), settings.InputDirectory)
-
-		if _, err = os.Stat(settings.InputDirectory); err != nil {
-
-			// If this also fails, return an error indicating that the input directory could not be found.
-			return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
-		}
-
+	}
+	_, err = os.Stat(settings.InputDirectory)
+	if err != nil {
+		return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
 	}
 
 	// Test if the input directory contains any images
-	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	imageFiles, err := ListFiles(settings.InputDirectory, true)
 	if err != nil {
 		return &ProjectSettings{Err: &SettingsInputDirectoryError{path: settings.InputDirectory, err: err}}
 	}
@@ -130,7 +132,9 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 		return &ProjectSettings{Err: &SettingsNoImagesInInputDirectoryError{path: settings.InputDirectory}}
 	}
 
-	if err := settings.Superpixel.normalizeSuperpixelSettings(); err != nil {
+	// Normalize the parsed SP settings before returning the final project settings.
+	err = settings.Superpixel.normalize()
+	if err != nil {
 		return &ProjectSettings{Err: err}
 	}
 
@@ -139,7 +143,7 @@ func LoadProjectSettings(settingsPath string) *ProjectSettings {
 
 // SaveProjectSettings marshals cfg and writes it to the settings file
 // creating the directory if it does not exist.
-func SaveProjectSettings(settings *ProjectSettings) error {
+func (settings *ProjectSettings) Persist() error {
 
 	if settings.SettingsFile == "" {
 		return &SettingsSaveError{path: "", err: fmt.Errorf("settings file path is not set")}
@@ -161,18 +165,51 @@ func SaveProjectSettings(settings *ProjectSettings) error {
 	return nil
 }
 
+func (settings *ProjectSettings) Clone() *ProjectSettings {
+	if settings == nil {
+		return nil
+	}
+	cloned := *settings
+	cloned.Superpixel = settings.Superpixel.Clone()
+	return &cloned
+}
+
+func (settings *SuperpixelSettings) Clone() *SuperpixelSettings {
+	cloned := &SuperpixelSettings{}
+	cloned.SpAlgorithmId = settings.SpAlgorithmId
+	cloned.SpAlgorithmParameters = make(map[string]float64, len(settings.SpAlgorithmParameters))
+	for id, value := range settings.SpAlgorithmParameters {
+		cloned.SpAlgorithmParameters[id] = value
+	}
+	return cloned
+}
+
+func (appState *AppState) SaveProjectSettings() error {
+	if err := appState.ActiveSettings.Persist(); err != nil {
+		return err
+	}
+	appState.DefaultSettings = appState.ActiveSettings.Clone()
+	return nil
+}
+
 // NewProjectSettings creates a new ProjectSettings with the given directories and superpixel settings, saves it to disk and returns the result.
-func NewProjectSettings(outputDir, inputDir string, spSettings SuperpixelSettings) (*ProjectSettings, error) {
+func NewProjectSettings(outputDir, inputDir string, spSettings *SuperpixelSettings) (*ProjectSettings, error) {
 	cfg := &ProjectSettings{
 		SettingsFile:     filepath.Join(outputDir, DefaultConfigFileName),
 		InputDirectory:   inputDir,
 		Superpixel:       spSettings,
 		ShrinkGrowAmount: 0,
 	}
-	if err := SaveProjectSettings(cfg); err != nil {
+	if err := cfg.Persist(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// projectOutputDirectory is the directory containing the settings file; final masks and
+// the .meta metadata directory both live there.
+func projectOutputDirectory(settings *ProjectSettings) string {
+	return filepath.Dir(settings.SettingsFile)
 }
 
 // ApplyProjectSettings processes a result returned by a background dialog goroutine.
@@ -187,9 +224,9 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	if settings.Err != nil {
 		log.Printf("Failed to open project: %v", settings.Err)
-		if appState.Settings == nil {
+		if appState.ActiveSettings == nil {
 			// No project was loaded before, so surface the error on the create/open project screen.
-			appState.Settings = settings
+			appState.ActiveSettings = settings
 		} else {
 			// A project is already loaded; keep it and just notify about the failed attempt.
 			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, settings.Err.Error(), 5*time.Second)
@@ -197,14 +234,17 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 		return
 	}
 
-	// Save the old image before loading the new project
+	// Save the old image before loading the new project, but only if it was actually changed.
 	if appState.ActiveImage != nil {
-		appState.SaveCurrentMask(false, true)
+		if appState.SelectionMaskDiffersVersionOnDisk {
+			appState.SaveCurrentMask(false)
+		}
 		appState.ActiveImage = nil
 	}
 
 	// Apply the new settings
-	appState.Settings = settings
+	appState.ActiveSettings = settings
+	appState.DefaultSettings = settings.Clone()
 	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
 	appState.UpdateSelectionOnSpChange.Value = settings.UpdateSelectionOnSpChange
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)
@@ -214,7 +254,7 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	appState.RebuildEditors()
 
 	// List all image files in the input directory
-	imageFiles, err := io_utils.ListFiles(settings.InputDirectory, true)
+	imageFiles, err := ListFiles(settings.InputDirectory, true)
 	if err != nil {
 		log.Printf("Could not list input directory %q: %v", settings.InputDirectory, err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 5*time.Second)
@@ -229,23 +269,6 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	}
 
 	appState.ImageFiles = imageFiles
-	appState.ImageFilesIndex = 0
+	appState.ActiveImageIndex = 0
 	appState.loadImageAtIndex(0)
-}
-
-// RecreateExistingMaskFromDisk resolves the pending existing-mask decision by adopting the
-// on-disk mask pixel-identically as the active selection mask, so the user can keep editing it.
-func (appState *AppState) RecreateExistingMaskFromDisk() {
-	appState.AwaitingMaskDecision = false
-	if appState.ActiveImageExistingMask != nil {
-		if appState.ActiveImage == nil || appState.ActiveImageExistingMask.Bounds() != appState.ActiveImage.Bounds() {
-			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "The existing mask's dimensions do not match the image.", 3*time.Second)
-		} else {
-			// Adopt the on-disk mask as the active selection without any superpixel approximation.
-			appState.SelectionMask = appState.ActiveImageExistingMask.Clone()
-			appState.SelectionMaskDirty = true
-			appState.ReprocessSelection()
-		}
-	}
-	appState.Window.Invalidate()
 }

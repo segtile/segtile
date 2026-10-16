@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"fmt"
@@ -27,27 +27,28 @@ type AppState struct {
 	LoadingState
 
 	// Project
-	Settings        *ProjectSettings
-	ImageFiles      []string
-	ImageFilesIndex int
+	ActiveSettings   *ProjectSettings
+	DefaultSettings  *ProjectSettings
+	ImageFiles       []string
+	ActiveImageIndex int
 
 	// Bitmaps and Superpixel
-	ActiveImage             *image.NRGBA
-	ActiveImageExistingMask *superpixel_map.Mask
-	ActiveSp                superpixel.SpResult
+	ActiveImage *image.NRGBA
+	ActiveSp    superpixel.SpResult
+
+	// ActiveImageMetadata is the saved metadata of the active image, or nil if none exists.
+	ActiveImageMetadata *ImageMetadata
 
 	// Selection
-	SelectionMask *superpixel_map.Mask
+	SelectionMaskRaw *superpixel_map.Mask
 
 	// SelectionMaskDirty marks that SelectionMask was modified since the last ReprocessSelection() call.
 	SelectionMaskDirty bool
 
-	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
-	LastPaintedSpLabel int
-
-	// AwaitingMaskDecision is true when an on-disk mask was found for the current image and the
-	// user has not yet chosen to start from scratch or edit it.
-	AwaitingMaskDecision bool
+	// SelectionMaskDiffersVersionOnDisk marks that the selection was changed by the user since it was
+	// loaded from disk (or last saved). Drives the outline color, auto-save on
+	// navigation, and whether "Revert to saved mask" does anything.
+	SelectionMaskDiffersVersionOnDisk bool
 }
 
 // UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.
@@ -74,9 +75,7 @@ type UiState struct {
 	ShrinkGrowAmountReset widget.Clickable
 	SmoothAmount          widget.Float
 	SmoothAmountReset     widget.Clickable
-
-	// Existing-mask decision popover
-	EditExistingMaskButton widget.Clickable
+	RevertSavedMaskButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable
@@ -156,14 +155,16 @@ type SuperpixelParameterEditor struct {
 
 // CacheState holds cached rendering data (rebuilt when selection or image transform changes, not every frame)
 type CacheState struct {
-	ImgBaseOp            paint.ImageOp
-	SelectionPathSpec    clip.PathSpec
-	HoverPathSpec        clip.PathSpec
-	ExistingMaskPathSpec clip.PathSpec
+	ImgBaseOp         paint.ImageOp
+	SelectionPathSpec clip.PathSpec
+	HoverPathSpec     clip.PathSpec
 
 	// ProcessedSelectionMask is the current selection's mask after Shrink/Grow and Smooth are
 	// applied; it is what actually gets saved to disk and is shown by the (processed) yellow outline.
 	ProcessedSelectionMask *superpixel_map.Mask
+
+	// LastPaintedSpLabel is the last superpixel label toggled during the current select/deselect stroke.
+	LastPaintedSpLabel int
 }
 
 // LoadingState holds the state of background loading and optimization operations.
@@ -188,7 +189,9 @@ func NewAppState() *AppState {
 			MiscSection:             SidebarSection{Open: true},
 			ManualFixBrushRadius:    16,
 		},
-		LastPaintedSpLabel: -1,
+		CacheState: CacheState{
+			LastPaintedSpLabel: -1,
+		},
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan *ProjectSettings, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),

@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/struffel/annotation-tool/internal/io_utils"
 	"github.com/struffel/annotation-tool/pkg/progress"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
@@ -42,11 +41,11 @@ func collectGTSamples(appState *AppState, maxImageCount int) []superpixel_optimi
 		if _, err := os.Stat(maskPath); err != nil {
 			continue
 		}
-		loadedMask := superpixel_map.NewMaskFromImage(io_utils.LoadImage(maskPath))
+		loadedMask := superpixel_map.NewMaskFromImage(LoadImage(maskPath))
 		if loadedMask.IsEmpty() {
 			continue
 		}
-		img := io_utils.LoadImage(appState.ImageFiles[i])
+		img := LoadImage(appState.ImageFiles[i])
 		samples = append(samples, superpixel_optimizer.SpOptimizerInputPair{Image: img, GroundTruth: loadedMask})
 	}
 
@@ -80,9 +79,9 @@ func (appState *AppState) OptimizeSpParameters(ctx context.Context, progressIndi
 		optimizerName,
 		samples,
 		"labeling_calibration_score",
-		appState.Settings.Superpixel.SpAlgorithmId,
+		appState.ActiveSettings.Superpixel.SpAlgorithmId,
 		parametersToOptimize,
-		appState.Settings.Superpixel.SpAlgorithmParameters,
+		appState.ActiveSettings.Superpixel.SpAlgorithmParameters,
 		optimizerParams,
 		progressIndicator,
 	)
@@ -125,8 +124,8 @@ func (appState *AppState) ApplyOptimizationResult(result superpixel_optimizer.Sp
 		// Apply the algorithm and parameters to the app state, rebuild editors, and recalculate superpixels.
 		log.Printf("Optimization completed: score=%.4f, algorithm=%s, params=%v", result.Score, result.Algorithm, result.Parameters)
 
-		appState.Settings.Superpixel.SpAlgorithmId = result.Algorithm
-		appState.Settings.Superpixel.SpAlgorithmParameters = result.Parameters
+		appState.ActiveSettings.Superpixel.SpAlgorithmId = result.Algorithm
+		appState.ActiveSettings.Superpixel.SpAlgorithmParameters = result.Parameters
 		appState.RebuildEditors()
 
 		for paramName, newValue := range result.Parameters {

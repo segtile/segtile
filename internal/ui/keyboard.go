@@ -3,10 +3,10 @@ package ui
 import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
-func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
+func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 	if appState.CurrentlyOptimizing {
 		return
 	}
@@ -17,6 +17,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "R", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameLeftArrow},
@@ -62,7 +63,7 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 		// [S]ave mask
 		if ke.State == key.Press && ke.Name == "S" {
 			if appState.SelectionMade() || showSaveEmptyMaskWarning() {
-				appState.SaveCurrentMask(true, true)
+				appState.SaveCurrentMask(true)
 			}
 			continue
 		}
@@ -81,20 +82,18 @@ func HandleKeyboard(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// Shift: Disable smoothing of selection outline (while held)
-		/*if ke.Name == key.NameShift {
+		// [R]aw mask: Disable smoothing of selection outline (while held)
+		if ke.Name == "R" {
 			if ke.State == key.Press {
 				appState.SmoothSelectionOutlines = false
-				appState.ReprocessSelection()
-				log.Println("Disable smoothing of selection outline")
+				appState.ReprocessSelectionOutline()
 				appState.Window.Invalidate()
 			} else if ke.State == key.Release {
 				appState.SmoothSelectionOutlines = true
-				appState.ReprocessSelection()
-				log.Println("Enable smoothing of selection outline")
+				appState.ReprocessSelectionOutline()
 				appState.Window.Invalidate()
 			}
-		}*/
+		}
 
 		// Space: next image, Shift+Space: previous image
 		// Alternatively: Left/Right arrow keys

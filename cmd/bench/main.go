@@ -15,7 +15,7 @@ import (
 	_ "golang.org/x/image/tiff"
 
 	"github.com/struffel/annotation-tool/internal/cli"
-	"github.com/struffel/annotation-tool/internal/io_utils"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/utils"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
@@ -125,13 +125,13 @@ func main() {
 	}
 
 	// Read image directory and GT mask directory
-	images, err := io_utils.ListFiles(os.Args[1], true)
+	images, err := core.ListFiles(os.Args[1], true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing image files: %v\n", err)
 		os.Exit(1)
 	}
 
-	masks, err := io_utils.ListFiles(os.Args[2], true)
+	masks, err := core.ListFiles(os.Args[2], true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error listing mask files: %v\n", err)
 		os.Exit(1)
@@ -211,8 +211,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Processing image %d/%d: %s with mask %s\n", index_img+1, len(images), images[index_img], masks[index_img])
 
 		// Load images
-		img := io_utils.ToNRGBA(io_utils.LoadImage(images[index_img]))
-		groundTruthMask := superpixel_map.NewMaskFromImage(io_utils.ToGray16(io_utils.LoadImage(masks[index_img])))
+		img := core.ToNRGBA(core.LoadImage(images[index_img]))
+		groundTruthMask := superpixel_map.NewMaskFromImage(core.ToGray16(core.LoadImage(masks[index_img])))
 
 		// Ensure that the image and mask have the same dimensions
 		if img.Bounds() != groundTruthMask.Bounds() {

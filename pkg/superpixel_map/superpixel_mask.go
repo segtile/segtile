@@ -59,7 +59,26 @@ func (m *Mask) SetValueAtSafely(x, y int, value bool) bool {
 	return true
 }
 
+// Equals reports whether both masks have identical dimensions and pixel values.
+func (m *Mask) Equals(other *Mask) bool {
+	if m == nil || other == nil {
+		return m == other
+	}
+	if m.Width != other.Width || m.Height != other.Height {
+		return false
+	}
+	for i := range m.Mask {
+		if m.Mask[i] != other.Mask[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *Mask) IsEmpty() bool {
+	if m.Mask == nil {
+		return true
+	}
 	for i := range m.Mask {
 		if m.Mask[i] {
 			return false
@@ -69,6 +88,10 @@ func (m *Mask) IsEmpty() bool {
 }
 
 func (m *Mask) Clear() {
+	if m.Mask == nil {
+		m.Mask = make([]bool, m.Width*m.Height)
+		return
+	}
 	for i := range m.Mask {
 		m.Mask[i] = false
 	}

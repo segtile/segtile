@@ -1,4 +1,4 @@
-package app_config
+package core
 
 import (
 	"fmt"
@@ -16,9 +16,9 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 
 	// Re-run the core of the superpixel algorithm
 	newResult, err := superpixel.Run(
-		appState.Settings.Superpixel.SpAlgorithmId,
+		appState.ActiveSettings.Superpixel.SpAlgorithmId,
 		appState.ActiveImage,
-		appState.Settings.Superpixel.SpAlgorithmParameters)
+		appState.ActiveSettings.Superpixel.SpAlgorithmParameters)
 	if err != nil {
 		return err
 	}
@@ -30,10 +30,14 @@ func (appState *AppState) RecalculateSuperpixels(showToast bool) error {
 	appState.HoverCached = false
 
 	// Snap the existing selection mask to the new superpixel segmentation or keep it as-is.
-	if appState.UpdateSelectionOnSpChange.Value && appState.SelectionMask != nil && appState.SelectionMask.Bounds() == appState.ActiveImage.Bounds() {
-		newSpSelection := appState.ActiveSp.SelectFromMask(appState.SelectionMask, 0.5)
-		appState.SelectionMask = appState.ActiveSp.SelectionToMask(newSpSelection)
-		appState.SelectionMaskDirty = true
+	if appState.UpdateSelectionOnSpChange.Value && appState.SelectionMaskRaw != nil && appState.SelectionMaskRaw.Bounds() == appState.ActiveImage.Bounds() {
+		newSpSelection := appState.ActiveSp.SelectFromMask(appState.SelectionMaskRaw, 0.5)
+		snapped := appState.ActiveSp.SelectionToMask(newSpSelection)
+		if !snapped.Equals(appState.SelectionMaskRaw) {
+			appState.SelectionMaskRaw = snapped
+			appState.SelectionMaskDirty = true
+			appState.SelectionMaskDiffersVersionOnDisk = true
+		}
 	}
 
 	// The label map changed, so any tracked superpixel labels are stale.

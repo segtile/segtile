@@ -9,11 +9,10 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/app_config"
-	"github.com/struffel/annotation-tool/internal/rendering"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
-func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
+func HandlePointer(appState *core.AppState, gtx layout.Context) {
 
 	if appState.UiLocked() {
 		return
@@ -41,14 +40,14 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// No image loaded — skip all image-space pointer logic.
+		// No image loaded, skip all image-space pointer logic.
 		if appState.ActiveImage == nil {
 			continue
 		}
 
 		if pe.Kind == pointer.Leave || pe.Kind == pointer.Cancel {
 			appState.InImageBounds = false
-			appState.HoverPathSpec = rendering.GetEmptySelectionOutline()
+			appState.HoverPathSpec = core.GetEmptySelectionOutline()
 			appState.HoverCached = false
 			appState.StrokeAnchorValid = false
 			appState.LastPaintedSpLabel = -1
@@ -164,7 +163,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 					appState.Toasts.ShowType(gtx.Now, giotoast.TypeInfo, "Auto-flood-fill has filled the selection.", 1500*time.Millisecond)
 				}
 			}
-			appState.ReprocessSelectionIfChanged()
+			if appState.SelectionMaskDirty {
+				appState.ReprocessSelection()
+			}
 			// A fresh press must re-evaluate the superpixel under the cursor.
 			appState.LastPaintedSpLabel = -1
 			appState.StrokeAnchorValid = false
@@ -223,15 +224,9 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 			}
 
 			if inputMade {
-				// A click while a mask decision is pending implicitly means "start from scratch".
-				if appState.AwaitingMaskDecision {
-					appState.AwaitingMaskDecision = false
-					appState.ActiveImageExistingMask = nil
-					appState.ExistingMaskPathSpec = rendering.GetEmptySelectionOutline()
-					appState.Window.Invalidate()
+				if appState.SelectionMaskDirty {
+					appState.ReprocessSelection()
 				}
-
-				appState.ReprocessSelectionIfChanged()
 				appState.Window.Invalidate()
 			}
 		}
@@ -241,7 +236,7 @@ func HandlePointer(appState *app_config.AppState, gtx layout.Context) {
 // strokeFrom returns the image-space point that the current stroke should be
 // interpolated from: the position where the stroke last applied paint during a
 // drag, or the pointer position itself for a fresh press (a single point).
-func strokeFrom(appState *app_config.AppState, pe pointer.Event) f32.Point {
+func strokeFrom(appState *core.AppState, pe pointer.Event) f32.Point {
 	if pe.Kind == pointer.Drag && appState.StrokeAnchorValid {
 		return appState.StrokeAnchor
 	}

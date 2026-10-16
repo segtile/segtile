@@ -13,7 +13,7 @@ import (
 	_ "golang.org/x/image/tiff"
 
 	"github.com/struffel/annotation-tool/internal/cli"
-	"github.com/struffel/annotation-tool/internal/io_utils"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
@@ -26,7 +26,7 @@ import (
 )
 
 func renderSegmentationBorders(img image.Image, labelMap *superpixel_map.LabelMap, borderColor colorful.Color) *image.NRGBA {
-	segmentation := io_utils.CopyImage(img)
+	segmentation := core.CopyImage(img)
 	for _, point := range superpixel_utils.BoundaryPoints(labelMap, true) {
 		segmentation.Set(point.X, point.Y, borderColor)
 	}
@@ -73,14 +73,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	img := io_utils.LoadImage(imagePath)
+	img := core.LoadImage(imagePath)
 	result, err := superpixel.Run(algorithmName, img, parameters)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error running superpixel algorithm: %v\n", err)
 		os.Exit(1)
 	}
 
-	//io_utils.SaveImage(labelMapOutPath, result.LabelMap)
-	io_utils.SaveImage(segmentationOutPath, renderSegmentationBorders(img, result.LabelMap, borderColor))
+	core.SavePngImage(segmentationOutPath, renderSegmentationBorders(img, result.LabelMap, borderColor))
 
 }

@@ -9,7 +9,7 @@ import (
 	"gioui.org/app"
 	"gioui.org/op"
 	"gioui.org/unit"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/ui"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
@@ -38,16 +38,15 @@ func main() {
 			app.Size(unit.Dp(1200), unit.Dp(800)),
 		)
 
-		appState := app_config.NewAppState()
+		appState := core.NewAppState()
 		appState.Window = appWindow
 
 		// If a config was provided on the CLI, load the project immediately.
 		if len(os.Args) >= 2 {
 			configPath := os.Args[1]
-			go func() {
-				result := app_config.LoadProjectSettings(configPath)
-				appState.ProjectLoadResult <- result
-			}()
+			appState.CurrentlyLoadingProject = true
+			result := core.LoadProjectSettings(configPath)
+			appState.ProjectLoadResult <- result
 		}
 
 		// Main app loop
@@ -61,7 +60,7 @@ func main() {
 	app.Main()
 }
 
-func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error {
+func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 
 	var ops op.Ops
 
@@ -69,13 +68,16 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 		switch e := appWindow.Event().(type) {
 		case app.DestroyEvent:
 
-			// Save the current mask before exiting.
-			appState.SaveCurrentMask(false, false)
+			// Save the current mask before exiting, if it was actually changed.
+			if appState.SelectionMaskDiffersVersionOnDisk {
+				appState.SaveCurrentMask(false)
+			}
 
 			return e.Err
 		case app.FrameEvent:
 			frameStart := time.Now()
-			// Apply loaded projects
+
+			// Apply a project if is has finished loading
 			select {
 			case result := <-appState.ProjectLoadResult:
 				appState.ApplyProjectSettings(result)
@@ -93,8 +95,10 @@ func applicationLoop(appState *app_config.AppState, appWindow *app.Window) error
 			// New context for this frame
 			gtx := app.NewContext(&ops, e)
 
-			// Rebuild the selection mask at most once per frame if brush strokes are pending
-			appState.FlushPendingManualFixes()
+			// Rebuild the processed selection mask if brush strokes have modified it
+			if appState.SelectionMaskDirty {
+				appState.ReprocessSelection()
+			}
 
 			// Handle interactions
 			ui.HandlePointer(appState, gtx)

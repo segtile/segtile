@@ -2,14 +2,16 @@ package ui
 
 import (
 	"log"
+	"time"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/internal/app_config"
+	"github.com/reiver/go-giotoast"
+	"github.com/struffel/annotation-tool/internal/core"
 )
 
 // Next/Prev handling, both for buttons and keyboard shortcuts
-func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, button *widget.Clickable) {
+func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *widget.Clickable) {
 
 	if !button.Clicked(gtx) {
 		return
@@ -38,8 +40,11 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 		return
 	}
 
-	if button == &appState.EditExistingMaskButton {
-		appState.RecreateExistingMaskFromDisk()
+	if button == &appState.RevertSavedMaskButton {
+		if err := appState.RevertToSavedMask(); err != nil {
+			log.Printf("Failed to revert to saved mask: %v", err)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		}
 		return
 	}
 
@@ -90,7 +95,7 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.SaveButton {
 		if appState.SelectionMade() || showSaveEmptyMaskWarning() {
-			appState.SaveCurrentMask(true, true)
+			appState.SaveCurrentMask(true)
 		}
 
 		return
@@ -98,9 +103,13 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.ShrinkGrowAmountReset {
 		appState.ShrinkGrowAmount.Value = 0.5
-		appState.Settings.ShrinkGrowAmount = app_config.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		newValue := core.SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value)
+		if newValue != appState.ActiveSettings.ShrinkGrowAmount {
+			appState.SelectionMaskDiffersVersionOnDisk = true
+		}
+		appState.ActiveSettings.ShrinkGrowAmount = newValue
 		appState.ReprocessSelection()
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 		appState.Window.Invalidate()
@@ -109,9 +118,12 @@ func HandleUiButtonClick(appState *app_config.AppState, gtx layout.Context, butt
 
 	if button == &appState.SmoothAmountReset {
 		appState.SmoothAmount.Value = 0
-		appState.Settings.SmoothAmount = 0
+		if appState.ActiveSettings.SmoothAmount != 0 {
+			appState.SelectionMaskDiffersVersionOnDisk = true
+		}
+		appState.ActiveSettings.SmoothAmount = 0
 		appState.ReprocessSelection()
-		if err := app_config.SaveProjectSettings(appState.Settings); err != nil {
+		if err := appState.SaveProjectSettings(); err != nil {
 			log.Println("Warning: could not save config:", err)
 		}
 		appState.Window.Invalidate()
