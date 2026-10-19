@@ -28,6 +28,18 @@
 			"args": [
 				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\BreastUltrasound\\settings.yaml"
 			]
+		},{
+			"name": "Ultrasound Breast (EVAL)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${workspaceFolder}/cmd/main",
+			"args": [
+				"--evaluation",
+				"--eval-threshold",
+				"0.85",
+				"\\\\lennart\\Sync\\MasterThesisData\\Projects\\BreastUltrasound-Eval\\settings.yaml"
+			]
 		},
 		{
 			"name": "Retina",
