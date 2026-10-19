@@ -60,8 +60,8 @@ func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// [S]ave mask
-		if ke.State == key.Press && ke.Name == "S" {
+		// [S]ave mask (disabled in evaluation mode: nothing is ever saved)
+		if ke.State == key.Press && ke.Name == "S" && appState.Eval == nil {
 			if appState.SelectionMade() || showSaveEmptyMaskWarning() {
 				appState.SaveCurrentMask(true)
 			}

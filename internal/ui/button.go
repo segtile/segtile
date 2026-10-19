@@ -49,7 +49,13 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 	}
 
 	if button == &appState.PrevUnlabeledButton {
-		appState.LoadPreviousUnlabeledImage()
+		// In evaluation mode every image has a mask on disk (the ground truth),
+		// so "unlabeled" navigation would never find anything; fall back to plain navigation.
+		if appState.Eval != nil {
+			appState.LoadPreviousImage()
+		} else {
+			appState.LoadPreviousUnlabeledImage()
+		}
 		return
 	}
 
@@ -59,7 +65,11 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 	}
 
 	if button == &appState.NextUnlabeledButton {
-		appState.LoadNextUnlabeledImage()
+		if appState.Eval != nil {
+			appState.LoadNextImage()
+		} else {
+			appState.LoadNextUnlabeledImage()
+		}
 		return
 	}
 
@@ -79,6 +89,12 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 	}
 
 	if button == &appState.OptimizeButton {
+		// Optimizing superpixels against the masks on disk would tune them towards
+		// the ground truth, which defeats the purpose of the evaluation.
+		if appState.Eval != nil {
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Optimization is disabled in evaluation mode.", 2*time.Second)
+			return
+		}
 		triggerOptimization(appState)
 		return
 	}
@@ -94,6 +110,10 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 	}
 
 	if button == &appState.SaveButton {
+		// Evaluation mode never saves anything.
+		if appState.Eval != nil {
+			return
+		}
 		if appState.SelectionMade() || showSaveEmptyMaskWarning() {
 			appState.SaveCurrentMask(true)
 		}

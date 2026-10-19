@@ -72,8 +72,12 @@ func (appState *AppState) LoadPreviousUnlabeledImage() {
 // loadImageAtIndex saves the current mask (if any), then loads the image and its saved selection.
 func (appState *AppState) loadImageAtIndex(i int) error {
 
-	// Save the current mask only if the user actually changed the selection.
-	if appState.ActiveImage != nil && appState.SelectionMaskDiffersVersionOnDisk {
+	if appState.Eval != nil {
+		// Evaluation mode: record the timing of the image that is being left
+		// and never save anything.
+		appState.Eval.EndImage()
+	} else if appState.ActiveImage != nil && appState.SelectionMaskDiffersVersionOnDisk {
+		// Save the current mask only if the user actually changed the selection.
 		appState.SaveCurrentMask(false)
 	}
 
@@ -83,31 +87,50 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 	appState.ProcessedSelectionMask = nil
 	appState.LastPaintedSpLabel = -1
 
-	metadata, savedSelection, found, err := appState.loadSavedImageState(i)
-	if err != nil {
-		log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
-		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
-	}
-	hadActiveImageMetadata := appState.ActiveImageMetadata != nil
-	appState.ActiveImageMetadata = nil
-	if found {
-		appState.ActiveImageMetadata = &metadata
-		appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
-		appState.ActiveSettings.Superpixel = metadata.Superpixel.Clone()
-		appState.ActiveSettings.SmoothAmount = metadata.SmoothAmount
-		appState.ActiveSettings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
-		appState.SmoothAmount.Value = metadata.SmoothAmount
-		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
-	} else if hadActiveImageMetadata && appState.DefaultSettings != nil {
-		defaults := appState.DefaultSettings
-		appState.ActiveSettings.Superpixel = defaults.Clone().Superpixel
-		appState.ActiveSettings.SmoothAmount = defaults.SmoothAmount
-		appState.ActiveSettings.ShrinkGrowAmount = defaults.ShrinkGrowAmount
-		appState.SmoothAmount.Value = defaults.SmoothAmount
-		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(defaults.ShrinkGrowAmount)
-	}
-	if found || (hadActiveImageMetadata && appState.DefaultSettings != nil) {
-		appState.RebuildEditors()
+	var gtMask *superpixel_map.Mask
+	var savedSelection *superpixel_map.Mask
+	found := false
+	if appState.Eval != nil {
+		// Evaluation mode: the final mask on disk is ground truth, not saved
+		// state. The selection always starts empty and per-image metadata is
+		// ignored so all images use the same project-default settings.
+		appState.ActiveImageMetadata = nil
+		gt, err := appState.loadGroundTruthMask(i)
+		if err != nil {
+			log.Printf("Failed to load ground truth for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("No usable ground truth for %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
+		} else {
+			gtMask = gt
+		}
+	} else {
+		metadata, loadedSelection, loadedFound, err := appState.loadSavedImageState(i)
+		if err != nil {
+			log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
+			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
+		}
+		hadActiveImageMetadata := appState.ActiveImageMetadata != nil
+		appState.ActiveImageMetadata = nil
+		found = loadedFound
+		savedSelection = loadedSelection
+		if found {
+			appState.ActiveImageMetadata = &metadata
+			appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
+			appState.ActiveSettings.Superpixel = metadata.Superpixel.Clone()
+			appState.ActiveSettings.SmoothAmount = metadata.SmoothAmount
+			appState.ActiveSettings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
+			appState.SmoothAmount.Value = metadata.SmoothAmount
+			appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
+		} else if hadActiveImageMetadata && appState.DefaultSettings != nil {
+			defaults := appState.DefaultSettings
+			appState.ActiveSettings.Superpixel = defaults.Clone().Superpixel
+			appState.ActiveSettings.SmoothAmount = defaults.SmoothAmount
+			appState.ActiveSettings.ShrinkGrowAmount = defaults.ShrinkGrowAmount
+			appState.SmoothAmount.Value = defaults.SmoothAmount
+			appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(defaults.ShrinkGrowAmount)
+		}
+		if found || (hadActiveImageMetadata && appState.DefaultSettings != nil) {
+			appState.RebuildEditors()
+		}
 	}
 	appState.SelectionMaskDiffersVersionOnDisk = false
 
@@ -140,12 +163,36 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		appState.Window.Invalidate()
 	}
 
+	if appState.Eval != nil {
+		appState.Eval.BeginImage(i, appState.ImageFiles[i], appState.ActiveImage, gtMask)
+		appState.SetManualFixMode(appState.EvalManualOnly())
+	}
+
 	return nil
 
 }
 
+// loadGroundTruthMask loads the final mask of image i from the project output
+// directory for use as ground truth in evaluation mode.
+func (appState *AppState) loadGroundTruthMask(i int) (*superpixel_map.Mask, error) {
+	maskPath := appState.maskPathForIndex(i)
+	if _, err := os.Stat(maskPath); err != nil {
+		return nil, err
+	}
+	mask := superpixel_map.NewMaskFromImage(LoadImage(maskPath))
+	if mask.Bounds() != appState.ActiveImage.Bounds() {
+		return nil, fmt.Errorf("ground truth dimensions %v do not match image dimensions %v", mask.Bounds(), appState.ActiveImage.Bounds())
+	}
+	return mask, nil
+}
+
 // SaveCurrentMask writes the processed mask to the project root and the editable state to .meta.
 func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
+
+	// Evaluation mode never saves anything; the masks on disk are the ground truth.
+	if appState.Eval != nil {
+		return
+	}
 
 	appState.ReprocessSelection()
 

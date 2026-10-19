@@ -235,8 +235,11 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 	}
 
 	// Save the old image before loading the new project, but only if it was actually changed.
+	// In evaluation mode nothing is saved; the running timer is stopped instead.
 	if appState.ActiveImage != nil {
-		if appState.SelectionMaskDiffersVersionOnDisk {
+		if appState.Eval != nil {
+			appState.Eval.EndImage()
+		} else if appState.SelectionMaskDiffersVersionOnDisk {
 			appState.SaveCurrentMask(false)
 		}
 		appState.ActiveImage = nil

@@ -106,9 +106,15 @@ func (appState *AppState) SetManualFixMode(enabled bool) {
 	if appState.ManualFixMode == enabled {
 		return
 	}
+	// In evaluation mode, manual-only images cannot leave manual fix mode.
+	if !enabled && appState.EvalManualOnly() {
+		return
+	}
 	appState.ManualFixMode = enabled
 	appState.RefreshHoverPreview()
-	appState.Window.Invalidate()
+	if appState.Window != nil {
+		appState.Window.Invalidate()
+	}
 }
 
 func (appState *AppState) RefreshHoverPreview() {

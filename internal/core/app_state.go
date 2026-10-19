@@ -11,6 +11,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
+	"github.com/struffel/annotation-tool/internal/evaluation"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
@@ -49,6 +50,21 @@ type AppState struct {
 	// loaded from disk (or last saved). Drives the outline color, auto-save on
 	// navigation, and whether "Revert to saved mask" does anything.
 	SelectionMaskDiffersVersionOnDisk bool
+
+	// Eval is non-nil when evaluation mode is active: masks on disk are treated as
+	// ground truth, nothing is saved, and annotation time is measured.
+	Eval *evaluation.State
+}
+
+// EvaluationActive reports whether evaluation mode is enabled.
+func (appState *AppState) EvaluationActive() bool {
+	return appState.Eval != nil
+}
+
+// EvalManualOnly reports whether the current image is locked to manual fixes
+// because of the evaluation mode's interleaving rule.
+func (appState *AppState) EvalManualOnly() bool {
+	return appState.Eval != nil && appState.Eval.CurrentMode() == evaluation.ModeManual
 }
 
 // UiState holds the state of the user interface, including window, theme, buttons, and other UI elements.

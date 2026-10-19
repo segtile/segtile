@@ -94,5 +94,11 @@ func (appState *AppState) ReprocessSelection() {
 
 	appState.ReprocessSelectionOutline()
 	appState.SelectionMaskDirty = false
+
+	// In evaluation mode, re-score the processed selection against the ground truth.
+	if appState.Eval != nil {
+		appState.Eval.UpdateDice(appState.ProcessedSelectionMask)
+	}
+
 	log.Println("Reprocessed Selection")
 }

@@ -71,8 +71,13 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 		// Handle manual fix mode
 		if appState.ManualFixMode && appState.ActiveImage != nil {
 
-			// Scroll event (change radius)
+			// Scroll event: plain scroll zooms, Ctrl+scroll changes the brush radius.
 			if pe.Kind == pointer.Scroll {
+
+				if !pe.Modifiers.Contain(key.ModCtrl) {
+					zoomCanvas(appState, pe)
+					continue
+				}
 
 				// Determine the new radius of the selection brush
 				if pe.Scroll.Y > 0 {
@@ -116,18 +121,7 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 
 		// Handle scroll (zoom)
 		if pe.Kind == pointer.Scroll {
-			// Use fixed 10% per notch regardless of raw scroll magnitude
-			var zoomFactor float32
-			if pe.Scroll.Y > 0 {
-				zoomFactor = 1 / 1.1
-			} else {
-				zoomFactor = 1.1
-			}
-			appState.ViewOffset.X = pe.Position.X - (pe.Position.X-appState.ViewOffset.X)*zoomFactor
-			appState.ViewOffset.Y = pe.Position.Y - (pe.Position.Y-appState.ViewOffset.Y)*zoomFactor
-			appState.ViewScale *= zoomFactor
-			appState.FitToWindow = false
-			appState.Window.Invalidate()
+			zoomCanvas(appState, pe)
 			continue
 		}
 
@@ -231,6 +225,22 @@ func HandlePointer(appState *core.AppState, gtx layout.Context) {
 			}
 		}
 	}
+}
+
+// zoomCanvas zooms the canvas around the pointer position by one scroll notch.
+func zoomCanvas(appState *core.AppState, pe pointer.Event) {
+	// Use fixed 10% per notch regardless of raw scroll magnitude
+	var zoomFactor float32
+	if pe.Scroll.Y > 0 {
+		zoomFactor = 1 / 1.1
+	} else {
+		zoomFactor = 1.1
+	}
+	appState.ViewOffset.X = pe.Position.X - (pe.Position.X-appState.ViewOffset.X)*zoomFactor
+	appState.ViewOffset.Y = pe.Position.Y - (pe.Position.Y-appState.ViewOffset.Y)*zoomFactor
+	appState.ViewScale *= zoomFactor
+	appState.FitToWindow = false
+	appState.Window.Invalidate()
 }
 
 // strokeFrom returns the image-space point that the current stroke should be

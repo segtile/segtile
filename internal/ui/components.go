@@ -219,6 +219,10 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 		if appState.ActiveSettings == nil {
 			return layout.Dimensions{}
 		}
+		// Manual-only evaluation images must not benefit from superpixel settings.
+		if appState.EvalManualOnly() {
+			gtx = gtx.Disabled()
+		}
 		HandleUiButtonClick(appState, gtx, &appState.ChangeSpAlgorithmButton)
 		if appState.SpAlgorithmMenuOpen {
 			for i := range appState.SpAlgorithmMenuEntries {
