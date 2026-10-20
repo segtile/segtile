@@ -1,4 +1,4 @@
-package density_score
+package granularity_match_score
 
 import (
 	"math"

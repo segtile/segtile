@@ -31,9 +31,8 @@ import (
 
 	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/average_boundary_distance"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/circularity"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
+	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/granularity_match_score"
 
-	// _ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score_legacy"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/dice_coefficient"
 	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
 

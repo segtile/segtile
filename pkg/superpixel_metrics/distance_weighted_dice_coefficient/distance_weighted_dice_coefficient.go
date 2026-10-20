@@ -40,36 +40,37 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score fl
 	distanceMap := superpixel_utils.DistanceToNextBoundaryPixel(groundTruth)
 
 	// Tally up the weighted F1 score
-	var intersectionPixels, unionPixels, distancePenalty, pixelPenalty, gtPixels int
+	var intersectionPixels, sumPixels, distancePenalty, gtPixels int
 	var avgBorderDistance float64
+
 	for y := 0; y < groundTruth.Bounds().Dy(); y++ {
 		for x := 0; x < groundTruth.Bounds().Dx(); x++ {
 
 			// Read the maps
-			gtValue := groundTruth.Uint32At(x, y)
-			approxValue := maskApproximated.Uint32At(x, y)
+			gtMaskValue := groundTruth.PositiveAt(x, y)
+			approxMaskValue := maskApproximated.PositiveAt(x, y)
 			distance := int(distanceMap.ValueAt(x, y))
 
-			// Tally up area and average squared distance
-			if gtValue > 0 {
+			// Tally up area and average distance
+			if gtMaskValue {
 				gtPixels++
-				avgBorderDistance += float64(distance /* * distance*/)
+				avgBorderDistance += float64(distance)
 			}
 
 			// Test for a mismatch
-			if (gtValue > 0) != (approxValue > 0) {
+			if gtMaskValue != approxMaskValue {
 
 				// Use the distance to the nearest boundary pixel as a weight for the union
-				distancePenalty += distance /* * distance */
-				pixelPenalty++
+				distancePenalty += distance
+				sumPixels += 1
 
 				continue
 			}
 
-			// Test for a match
-			if gtValue > 0 && approxValue > 0 {
+			// Test for a positive match (Both masks are true)
+			if gtMaskValue && approxMaskValue {
 				intersectionPixels++
-				unionPixels += 2
+				sumPixels += 2
 
 				continue
 			}
@@ -77,12 +78,16 @@ func Run(result superpixel.SpResult, groundTruth *superpixel_map.Mask) (score fl
 		}
 	}
 
-	if unionPixels == 0 || gtPixels == 0 {
+	if sumPixels == 0 || gtPixels == 0 {
 		return 0, nil
 	}
 
 	avgBorderDistance = float64(avgBorderDistance) / float64(gtPixels)
-	distancePenalty = int(float64(distancePenalty) / avgBorderDistance)
+	if avgBorderDistance == 0 {
+		distancePenalty = 0
+	} else {
+		distancePenalty = int(float64(distancePenalty) / avgBorderDistance)
+	}
 
-	return float64(2*intersectionPixels) / float64(unionPixels+pixelPenalty+distancePenalty), nil
+	return float64(2*intersectionPixels) / float64(sumPixels+distancePenalty), nil
 }

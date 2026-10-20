@@ -130,7 +130,7 @@ func (m *SpResult) SelectFromMask(mask *superpixel_map.Mask, threshold float64) 
 	spPixelCount, spOverlapCount := m.computeOverlapCounts(mask)
 	selection := make([]bool, m.SpCount)
 	for spLabel := 0; spLabel < m.SpCount; spLabel++ {
-		if spPixelCount[spLabel] > 0 && float64(spOverlapCount[spLabel])/float64(spPixelCount[spLabel]) >= threshold {
+		if spPixelCount[spLabel] > 0 && float64(spOverlapCount[spLabel])/float64(spPixelCount[spLabel]) > threshold {
 			selection[spLabel] = true
 		}
 	}
