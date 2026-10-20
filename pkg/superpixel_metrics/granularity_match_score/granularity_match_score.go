@@ -1,4 +1,4 @@
-package density_score
+package granularity_match_score
 
 import (
 	"fmt"
@@ -24,9 +24,9 @@ func init() {
 		},
 	}
 	superpixel_metrics.RegisterSpMetric(
-		"density_score",
-		"Density Score",
-		"Computes the density score of the superpixel segmentation.",
+		"granularity_match_score",
+		"Granularity Match Score",
+		"Computes the granularity match score of the superpixel segmentation.",
 		1.0,
 		runWithParams,
 		parameterInfo,

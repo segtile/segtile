@@ -6,8 +6,8 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel"
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
+	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/granularity_match_score"
 	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
 )
 
@@ -29,7 +29,7 @@ func runWithParams(result superpixel.SpResult, img image.Image, groundTruth *sup
 
 func Run(result superpixel.SpResult, img image.Image, groundTruth *superpixel_map.Mask) (score float64, err error) {
 
-	densityScore, _ := density_score.Run(result, groundTruth)
+	densityScore, _ := granularity_match_score.Run(result, groundTruth)
 	dwdc, _ := distance_weighted_dice_coefficient.Run(result, groundTruth)
 	regularityScore, _ := regularity_score.Run(result, groundTruth)
 
