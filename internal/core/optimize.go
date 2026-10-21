@@ -134,6 +134,11 @@ func (appState *AppState) ApplyOptimizationResult(result superpixel_optimizer.Sp
 		if err := appState.RecalculateSuperpixels(true); err != nil {
 			log.Printf("Failed to recalculate superpixels: %v", err)
 		}
+
+		// Persist the optimized settings as the project default
+		if err := appState.SaveProjectSettings(); err != nil {
+			log.Printf("Warning: could not save config: %v", err)
+		}
 	}
 
 	appState.Window.Invalidate()

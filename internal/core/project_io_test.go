@@ -205,6 +205,71 @@ func TestLoadSavedImageStateImportsLegacyRootMask(t *testing.T) {
 	}
 }
 
+func TestSetSpAlgorithmPersistsAsProjectDefault(t *testing.T) {
+	const dummyAlgorithmId = "test_dummy"
+	superpixel.RegisterSpAlgorithm(dummyAlgorithmId, "Test Dummy", "Dummy algorithm for tests",
+		func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
+			bounds := img.Bounds()
+			return superpixel.NewSpResult(superpixel_map.NewLabelMap(bounds.Dx(), bounds.Dy())), nil
+		},
+		[]superpixel.SpParameterInfo{{Id: "count", Kind: superpixel.SpParameterKindInt, Title: "Count", Default: 4}},
+	)
+
+	outputDir := t.TempDir()
+	inputDir := filepath.Join(outputDir, "input")
+	if err := os.MkdirAll(inputDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	imagePath := filepath.Join(inputDir, "image.png")
+	if err := SavePngImage(imagePath, image.NewNRGBA(image.Rect(0, 0, 8, 8))); err != nil {
+		t.Fatal(err)
+	}
+
+	parameters, err := superpixel.GetDefaultParameterValues("slic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectSettings, err := NewProjectSettings(outputDir, inputDir, &SuperpixelSettings{
+		SpAlgorithmId:         "slic",
+		SpAlgorithmParameters: parameters,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := &AppState{
+		ActiveSettings:   projectSettings,
+		DefaultSettings:  projectSettings.Clone(),
+		ImageFiles:       []string{imagePath},
+		ActiveImage:      image.NewNRGBA(image.Rect(0, 0, 8, 8)),
+		SelectionMaskRaw: superpixel_map.NewMask(8, 8),
+	}
+
+	if err := state.SetSpAlgorithm(dummyAlgorithmId); err != nil {
+		t.Fatal(err)
+	}
+
+	// The change must apply to the current image and become the project default.
+	if state.ActiveSettings.Superpixel.SpAlgorithmId != dummyAlgorithmId {
+		t.Fatalf("active settings algorithm = %q, want %q", state.ActiveSettings.Superpixel.SpAlgorithmId, dummyAlgorithmId)
+	}
+	if state.DefaultSettings.Superpixel.SpAlgorithmId != dummyAlgorithmId {
+		t.Fatalf("project default algorithm = %q, want %q", state.DefaultSettings.Superpixel.SpAlgorithmId, dummyAlgorithmId)
+	}
+
+	// The change must be persisted to the settings file on disk.
+	reloaded := LoadProjectSettings(projectSettings.SettingsFile)
+	if reloaded.Err != nil {
+		t.Fatal(reloaded.Err)
+	}
+	if reloaded.Superpixel.SpAlgorithmId != dummyAlgorithmId {
+		t.Fatalf("persisted algorithm = %q, want %q", reloaded.Superpixel.SpAlgorithmId, dummyAlgorithmId)
+	}
+	if reloaded.Superpixel.SpAlgorithmParameters["count"] != 4 {
+		t.Fatalf("persisted parameters = %v, want dummy defaults", reloaded.Superpixel.SpAlgorithmParameters)
+	}
+}
+
 func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	outputDir := t.TempDir()
 	inputDir := filepath.Join(outputDir, "input")
