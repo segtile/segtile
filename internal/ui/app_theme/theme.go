@@ -1,10 +1,7 @@
 package app_theme
 
 import (
-	"fmt"
 	"image/color"
-	"strconv"
-	"strings"
 
 	"gioui.org/widget/material"
 )
@@ -81,20 +78,6 @@ func (t *AppTheme) Normalize() {
 	if t.HoverStrokeWidth < MinStrokeWidth {
 		t.HoverStrokeWidth = MinStrokeWidth
 	}
-}
-
-// FormatColorChannel formats one RGBA channel for display in the theme editors.
-func FormatColorChannel(v uint8) string {
-	return strconv.Itoa(int(v))
-}
-
-// ParseColorChannel parses one color channel value (0-255).
-func ParseColorChannel(s string) (uint8, error) {
-	value, err := strconv.ParseUint(strings.TrimSpace(s), 10, 8)
-	if err != nil {
-		return 0, fmt.Errorf("invalid color channel %q: expected 0-255", s)
-	}
-	return uint8(value), nil
 }
 
 // Menu bar

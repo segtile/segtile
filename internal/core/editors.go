@@ -86,15 +86,11 @@ func SliderToStrokeWidth(sliderValue float32) float32 {
 	return app_theme.MinStrokeWidth + sliderValue*(maxStrokeWidth-app_theme.MinStrokeWidth)
 }
 
-// SyncThemeEditors updates the theme editors to reflect the current theme.
+// SyncThemeEditors updates the theme controls to reflect the current theme.
+// The outline colors are read directly from the theme when rendering, so only
+// the stroke width sliders need syncing.
 func (appState *AppState) SyncThemeEditors() {
 	theme := appState.Theme()
-	for colorIndex, c := range theme.OutlineColors() {
-		channels := [3]uint8{c.R, c.G, c.B}
-		for channelIndex, v := range channels {
-			appState.ThemeColorEditors[colorIndex][channelIndex].SetText(app_theme.FormatColorChannel(v))
-		}
-	}
 	appState.ThemeSelectionWidthSlider.Value = StrokeWidthToSlider(theme.SelectionStrokeWidth)
 	appState.ThemeHoverWidthSlider.Value = StrokeWidthToSlider(theme.HoverStrokeWidth)
 }

@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"image"
+	"image/color"
 
 	"github.com/reiver/go-giotoast"
 
@@ -10,7 +11,6 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/text"
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
@@ -67,8 +67,8 @@ type UiState struct {
 	ThemeSection      SidebarSection
 
 	// Theme editors
-	// One R, G and B editor per outline color (hover, selection, saved selection).
-	ThemeColorEditors         [app_theme.OutlineColorCount][3]widget.Editor
+	// One clickable color swatch per outline color (hover, selection, saved selection).
+	ThemeColorButtons         [app_theme.OutlineColorCount]widget.Clickable
 	ThemeSelectionWidthSlider widget.Float
 	ThemeHoverWidthSlider     widget.Float
 
@@ -179,6 +179,17 @@ type LoadingState struct {
 	ProjectLoadResult       chan *ProjectSettings
 	CurrentlyOptimizing     bool
 	OptimizationResult      chan superpixel_optimizer.SpOptimizerResult
+
+	// ColorPickResult delivers the result of a native color picker dialog
+	// for a theme outline color; the index selects which color was picked.
+	ColorPickResult chan ThemeColorPickResult
+}
+
+// ThemeColorPickResult is the result of a color picker dialog for one outline color.
+// A nil Color means the dialog was canceled.
+type ThemeColorPickResult struct {
+	ColorIndex int
+	Color      *color.NRGBA
 }
 
 func NewAppState() *AppState {
@@ -200,6 +211,7 @@ func NewAppState() *AppState {
 		LoadingState: LoadingState{
 			ProjectLoadResult:  make(chan *ProjectSettings, 1),
 			OptimizationResult: make(chan superpixel_optimizer.SpOptimizerResult, 1),
+			ColorPickResult:    make(chan ThemeColorPickResult, 1),
 		},
 	}
 
@@ -219,11 +231,6 @@ func NewAppState() *AppState {
 
 	// Initialize the theme editors with default values.
 	// They are synced to the project's theme whenever a project is loaded.
-	for colorIndex := range appState.ThemeColorEditors {
-		for channelIndex := range appState.ThemeColorEditors[colorIndex] {
-			appState.ThemeColorEditors[colorIndex][channelIndex] = widget.Editor{SingleLine: true, Submit: true, Filter: "0123456789", Alignment: text.End}
-		}
-	}
 	appState.SyncThemeEditors()
 
 	appState.RebuildEditors()

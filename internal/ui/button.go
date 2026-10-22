@@ -40,6 +40,13 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		return
 	}
 
+	for i := range appState.ThemeColorButtons {
+		if button == &appState.ThemeColorButtons[i] {
+			triggerColorPick(appState, i)
+			return
+		}
+	}
+
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 		return

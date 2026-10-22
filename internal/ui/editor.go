@@ -7,7 +7,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/internal/core"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 )
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.
@@ -105,46 +104,13 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 
 }
 
-// HandleThemeEditors processes the theme section's color editors and stroke width sliders
+// HandleThemeEditors processes the theme section's stroke width sliders
 // and persists changes to the project settings.
 func HandleThemeEditors(appState *core.AppState, gtx layout.Context) {
 	if appState.ActiveSettings == nil || appState.ActiveSettings.Theme == nil {
 		return
 	}
 	theme := appState.ActiveSettings.Theme
-
-	// Handle outline color channel submissions.
-	themeColors := theme.OutlineColors()
-	colorChanged := false
-	for colorIndex, c := range themeColors {
-		channels := [3]*uint8{&c.R, &c.G, &c.B}
-		for channelIndex, channel := range channels {
-			editor := &appState.ThemeColorEditors[colorIndex][channelIndex]
-			for {
-				ev, ok := editor.Update(gtx)
-				if !ok {
-					break
-				}
-				if _, ok := ev.(widget.SubmitEvent); ok {
-					if v, err := app_theme.ParseColorChannel(editor.Text()); err == nil {
-						if v != *channel {
-							*channel = v
-							colorChanged = true
-						}
-					} else {
-						// Invalid input: revert the editor to the current value.
-						editor.SetText(app_theme.FormatColorChannel(*channel))
-					}
-				}
-			}
-		}
-	}
-	if colorChanged {
-		if err := appState.SaveProjectSettings(); err != nil {
-			log.Println("Warning: could not save config:", err)
-		}
-		appState.Window.Invalidate()
-	}
 
 	// Handle stroke width slider changes; persist when the user lets go.
 	selectionWidthWasDragging := appState.ThemeSelectionWidthSlider.Dragging()

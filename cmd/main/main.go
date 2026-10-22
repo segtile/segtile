@@ -92,6 +92,18 @@ func applicationLoop(appState *core.AppState, appWindow *app.Window) error {
 			default:
 			}
 
+			// Apply a color picker result
+			select {
+			case result := <-appState.ColorPickResult:
+				if result.Color != nil && appState.ActiveSettings != nil && appState.ActiveSettings.Theme != nil {
+					*appState.ActiveSettings.Theme.OutlineColors()[result.ColorIndex] = *result.Color
+					if err := appState.SaveProjectSettings(); err != nil {
+						log.Println("Warning: could not save config:", err)
+					}
+				}
+			default:
+			}
+
 			// New context for this frame
 			gtx := app.NewContext(&ops, e)
 

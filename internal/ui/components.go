@@ -379,19 +379,29 @@ func drawColorSwatch(gtx layout.Context, c color.NRGBA) layout.Dimensions {
 	return layout.Dimensions{Size: image.Pt(size, size)}
 }
 
-// drawThemeSection renders the collapsible "Theme" sidebar section with editors
-// for the outline colors and stroke widths.
+// drawThemeSection renders the collapsible "Theme" sidebar section with controls
+// for the outline colors and stroke widths. Clicking a color swatch opens the
+// native color picker dialog.
 func drawThemeSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
 	return drawSidebarSection(gtx, appState, "Theme", appState.ThemeSection.Open, &appState.ThemeSection.Button, func(gtx layout.Context) layout.Dimensions {
 		theme := appState.Theme()
 		outlineColors := theme.OutlineColors()
-		channelLabels := [3]string{"R", "G", "B"}
 
 		colorRow := func(label string, colorIndex int) layout.FlexChild {
 			return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				children := []layout.FlexChild{
+				button := &appState.ThemeColorButtons[colorIndex]
+				HandleUiButtonClick(appState, gtx, button)
+				buttonStyle := material.ButtonLayout(&theme.GioTheme, button)
+				buttonStyle.CornerRadius = 2
+				buttonStyle.Background = color.NRGBA{R: 0, G: 0, B: 0, A: 0}
+
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return drawColorSwatch(gtx, *outlineColors[colorIndex])
+						return buttonStyle.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return drawColorSwatch(gtx, *outlineColors[colorIndex])
+							})
+						})
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -399,32 +409,7 @@ func drawThemeSection(gtx layout.Context, appState *core.AppState) layout.Dimens
 						lbl.Color = theme.GioTheme.Palette.Fg
 						return lbl.Layout(gtx)
 					}),
-				}
-				for channelIndex := range appState.ThemeColorEditors[colorIndex] {
-					channelIndex := channelIndex
-					editor := &appState.ThemeColorEditors[colorIndex][channelIndex]
-					children = append(children,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									lbl := material.Caption(&theme.GioTheme, channelLabels[channelIndex])
-									lbl.Color = theme.GioTheme.Palette.Fg
-									return lbl.Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									gtx.Constraints.Min.X = gtx.Dp(28)
-									gtx.Constraints.Max.X = gtx.Dp(32)
-									editorStyle := material.Editor(&theme.GioTheme, editor, "0")
-									editorStyle.Color = theme.GioTheme.Palette.Fg
-									return editorStyle.Layout(gtx)
-								}),
-								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
-							)
-						}),
-					)
-				}
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, children...)
+				)
 			})
 		}
 

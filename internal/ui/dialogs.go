@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 
 	"github.com/ncruces/zenity"
 	"github.com/struffel/annotation-tool/internal/core"
@@ -97,4 +98,34 @@ func showSaveEmptyMaskWarning() (ok bool) {
 		"No annotation has been made. Save empty annotation?",
 		zenity.Title("Save empty annotation?"),
 	) == nil
+}
+
+// triggerColorPick opens the native color picker dialog on a background goroutine
+// for the theme outline color with the given index.
+// The result is delivered via ColorPickResult for the event loop to apply.
+func triggerColorPick(appState *core.AppState, colorIndex int) {
+	if appState.ActiveSettings == nil || appState.ActiveSettings.Theme == nil {
+		return
+	}
+	current := *appState.ActiveSettings.Theme.OutlineColors()[colorIndex]
+	go func() {
+		picked, err := zenity.SelectColor(
+			zenity.Title("Select Outline Color"),
+			zenity.Color(current),
+		)
+		var result *color.NRGBA
+		if err == nil {
+			r, g, b, _ := picked.RGBA()
+			result = &color.NRGBA{
+				R: uint8(r >> 8),
+				G: uint8(g >> 8),
+				B: uint8(b >> 8),
+				A: current.A, // Keep the existing alpha; the picker only controls RGB.
+			}
+		}
+		appState.ColorPickResult <- core.ThemeColorPickResult{ColorIndex: colorIndex, Color: result}
+		if appState.Window != nil {
+			appState.Window.Invalidate()
+		}
+	}()
 }
