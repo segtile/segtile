@@ -150,10 +150,10 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 		metadataPath := appState.imageMetadataPathForIndex(appState.ActiveImageIndex)
 
 		// Get the current user for annotator metadata.
-		userName := "unknown"
+		userName := "Unknown"
 		currentUser, err := user.Current()
 		if err != nil {
-			// If we cannot determine the current user, report an error and stick with "unknown" as the annotator.
+			// If we cannot determine the current user, report an error and stick with "Unknown" as the annotator.
 			appState.reportMaskSaveError(metadataPath, fmt.Errorf("could not determine annotator: %w", err))
 		} else {
 			userName = currentUser.Username
@@ -271,7 +271,7 @@ func (appState *AppState) importLegacyMask(i int) (ImageMetadata, *superpixel_ma
 	selection := superpixel_map.NewMaskFromImage(maskImage)
 
 	metadata := ImageMetadata{
-		Annotator:  "unknown",
+		Annotator:  "Unknown",
 		Superpixel: appState.ActiveSettings.Superpixel.Clone(),
 	}
 
