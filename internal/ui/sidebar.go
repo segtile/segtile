@@ -337,15 +337,22 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Caption(&appState.Theme.GioTheme, "Annotator:").Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(&appState.Theme.GioTheme, annotator).Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)).Layout(gtx)
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return material.Caption(&appState.Theme.GioTheme, "Annotator:").Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return material.Body2(&appState.Theme.GioTheme, annotator).Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return material.Caption(&appState.Theme.GioTheme, "Annotation Time:").Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)).Layout(gtx)
+							}),
+						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if appState.SelectionMaskDiffersVersionOnDisk {
