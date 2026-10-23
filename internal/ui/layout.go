@@ -156,6 +156,14 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 									}
 								})
 							} else if appState.ActiveImage != nil {
+
+								// Fit the image to the window if window size changes
+								if appState.CanvasSize != gtx.Constraints.Max {
+									appState.CanvasSize = gtx.Constraints.Max
+									appState.FitToWindow = true
+								}
+
+								// Fit the image to the window if requested
 								if appState.FitToWindow {
 									appState.FitImageToWindow(gtx.Constraints.Max)
 									appState.FitToWindow = false

@@ -130,6 +130,7 @@ type UiState struct {
 	// View transform
 	ViewScale   float32
 	ViewOffset  f32.Point
+	CanvasSize  image.Point
 	FitToWindow bool
 }
 
