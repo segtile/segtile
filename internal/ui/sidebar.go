@@ -20,14 +20,15 @@ import (
 )
 
 const checkboxSize = unit.Dp(20)
+const standardDividerThickness = unit.Dp(2)
 
 // drawSidebarSection draws a collapsible sidebar section header followed by its body when open.
-func drawSidebarSection(gtx layout.Context, appState *core.AppState, title string, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
+func drawSidebarSection(gtx layout.Context, appState *core.AppState, title string, dividerThickness unit.Dp, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
 	HandleUiButtonClick(appState, gtx, button)
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return components.DrawSidebarSectionHeader(gtx, button, appState.Theme, title, open)
+			return components.DrawSidebarSectionHeader(gtx, button, appState.Theme, title, open, dividerThickness)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !open {
@@ -41,7 +42,7 @@ func drawSidebarSection(gtx layout.Context, appState *core.AppState, title strin
 }
 
 func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Images", appState.ImagesSection.Open, &appState.ImagesSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Images", standardDividerThickness, appState.ImagesSection.Open, &appState.ImagesSection.Button, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 
 			// Image name and counter
@@ -135,7 +136,7 @@ func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimen
 }
 
 func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Superpixel", appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Superpixel", standardDividerThickness, appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.ActiveSettings == nil {
 			return layout.Dimensions{}
 		}
@@ -203,16 +204,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 			for i := range appState.SuperpixelParameterEditors {
 				title := appState.SuperpixelParameterEditors[i].Title
 				editor := &appState.SuperpixelParameterEditors[i].Editor
-				checkbox := &appState.SuperpixelParameterEditors[i].OptimizeCheckbox
 				children = append(children,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								checkboxStyle := material.CheckBox(&appState.Theme.GioTheme, checkbox, "")
-								checkboxStyle.IconColor = appState.Theme.GioTheme.Palette.Fg
-								checkboxStyle.Size = unit.Dp(16)
-								return checkboxStyle.Layout(gtx)
-							}),
 							layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
 								label := material.Body1(&appState.Theme.GioTheme, title)
 								label.Color = appState.Theme.GioTheme.Palette.Fg
@@ -229,18 +223,42 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 				)
 			}
 
-			// Optimize button
+			// Spacer before optimization section
 			children = append(children,
 				layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 			)
+
+			// Recursively draw a separate sidebar section for optimization settings
 			children = append(children,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
-							return components.DrawSubtleButton(gtx, &appState.OptimizeButton, appState.Theme, "Suggest Parameters", 14)
-						}),
-					)
+					return drawSidebarSection(gtx, appState, "Suggest Parameters", unit.Dp(0.0), appState.SuperpixelOptimizationSection.Open, &appState.SuperpixelOptimizationSection.Button, func(gtx layout.Context) layout.Dimensions {
+						var optimizationChildren []layout.FlexChild
+
+						for i := range appState.SuperpixelParameterEditors {
+							title := appState.SuperpixelParameterEditors[i].Title
+							checkbox := &appState.SuperpixelParameterEditors[i].OptimizeCheckbox
+							optimizationChildren = append(optimizationChildren,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									checkboxStyle := material.CheckBox(&appState.Theme.GioTheme, checkbox, title)
+									checkboxStyle.IconColor = appState.Theme.GioTheme.Palette.Fg
+									checkboxStyle.Size = unit.Dp(16)
+									return checkboxStyle.Layout(gtx)
+								}),
+							)
+						}
+						optimizationChildren = append(optimizationChildren,
+							layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if len(appState.SelectedOptimizeParameters()) == 0 {
+									gtx = gtx.Disabled()
+								} else {
+									HandleUiButtonClick(appState, gtx, &appState.OptimizeButton)
+								}
+								return components.DrawSubtleButton(gtx, &appState.OptimizeButton, appState.Theme, "Optimize", 12)
+							}),
+						)
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, optimizationChildren...)
+					})
 				}),
 			)
 		}
@@ -250,7 +268,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 }
 
 func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Selection", appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Selection", standardDividerThickness, appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				checkbox := material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Auto Flood Fill")
@@ -307,7 +325,7 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 		title += "*"
 	}
 
-	return drawSidebarSection(gtx, appState, title, appState.SavedImageInfoSection.Open, &appState.SavedImageInfoSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, title, standardDividerThickness, appState.SavedImageInfoSection.Open, &appState.SavedImageInfoSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.ActiveImageMetadata == nil {
 			return material.Caption(&appState.Theme.GioTheme, "Annotation information will show up here once the annotation is saved to disk.").Layout(gtx)
 		}

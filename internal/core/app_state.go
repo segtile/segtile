@@ -63,10 +63,11 @@ type UiState struct {
 	Theme *app_theme.AppTheme
 
 	// Sidebar sections
-	ImagesSection         SidebarSection
-	SuperpixelSection     SidebarSection
-	MiscSection           SidebarSection
-	SavedImageInfoSection SidebarSection
+	ImagesSection                 SidebarSection
+	SuperpixelSection             SidebarSection
+	SuperpixelOptimizationSection SidebarSection
+	MiscSection                   SidebarSection
+	SavedImageInfoSection         SidebarSection
 
 	// Superpixel Editors
 	SuperpixelParameterEditors []SuperpixelParameterEditor

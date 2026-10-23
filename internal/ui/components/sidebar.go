@@ -11,7 +11,7 @@ import (
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
 )
 
-func DrawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, title string, open bool) layout.Dimensions {
+func DrawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, title string, open bool, dividerThickness unit.Dp) layout.Dimensions {
 	buttonStyle := material.ButtonLayout(&theme.GioTheme, btn)
 	buttonStyle.CornerRadius = 2
 	buttonStyle.Background = color.NRGBA{R: 0, G: 0, B: 0, A: 0}
@@ -41,7 +41,7 @@ func DrawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return DrawDivider(gtx, theme, unit.Dp(2))
+				return DrawDivider(gtx, theme, unit.Dp(dividerThickness))
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 		)

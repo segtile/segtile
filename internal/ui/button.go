@@ -28,6 +28,11 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		return
 	}
 
+	if button == &appState.SuperpixelOptimizationSection.Button {
+		appState.SuperpixelOptimizationSection.Open = !appState.SuperpixelOptimizationSection.Open
+		return
+	}
+
 	if button == &appState.MiscSection.Button {
 		appState.MiscSection.Open = !appState.MiscSection.Open
 		return
