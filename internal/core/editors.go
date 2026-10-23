@@ -98,7 +98,14 @@ func (appState *AppState) SetSpAlgorithm(id string) error {
 
 	// Recalculate the superpixels for the current image
 	if appState.ActiveImage != nil {
-		appState.RecalculateSuperpixels(true)
+		if err := appState.RecalculateSuperpixels(true); err != nil {
+			return err
+		}
+	}
+
+	// Persist the new algorithm as the project default
+	if err := appState.SaveProjectSettings(); err != nil {
+		return err
 	}
 
 	return nil
