@@ -58,10 +58,6 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 							HandleUiButtonClick(appState, gtx, &appState.OpenProjectButton)
 							return components.DrawMenuBarButton(gtx, &appState.OpenProjectButton, appState.Theme, app_theme.IconOpen, "Open")
 						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							HandleUiButtonClick(appState, gtx, &appState.SaveButton)
-							return components.DrawMenuBarButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save")
-						}),
 					)
 				}),
 

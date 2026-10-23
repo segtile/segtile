@@ -327,7 +327,15 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 
 	return drawSidebarSection(gtx, appState, title, standardDividerThickness, appState.SavedImageInfoSection.Open, &appState.SavedImageInfoSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.ActiveImageMetadata == nil {
-			return material.Caption(&appState.Theme.GioTheme, "Annotation information will show up here once the annotation is saved to disk.").Layout(gtx)
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return material.Caption(&appState.Theme.GioTheme, "Annotation has not been saved yet.").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					HandleUiButtonClick(appState, gtx, &appState.SaveButton)
+					return components.DrawIconButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save annotation", false)
+				}),
+			)
 		}
 
 		annotator := appState.ActiveImageMetadata.Annotator
@@ -359,11 +367,19 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if appState.SelectionMaskDiffersVersionOnDisk {
-							HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
-							return components.DrawIconButton(gtx, &appState.RevertSavedMaskButton, appState.Theme, app_theme.IconAvReplay, "Revert to saved annotation", false)
-						}
-						return layout.Dimensions{}
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								HandleUiButtonClick(appState, gtx, &appState.SaveButton)
+								return components.DrawIconButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save annotation", false)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if !appState.SelectionMaskDiffersVersionOnDisk {
+									return layout.Dimensions{}
+								}
+								HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
+								return components.DrawIconButton(gtx, &appState.RevertSavedMaskButton, appState.Theme, app_theme.IconAvReplay, "Revert to saved annotation", false)
+							}),
+						)
 					}),
 				)
 			}),
