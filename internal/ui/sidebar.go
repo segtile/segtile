@@ -136,7 +136,7 @@ func drawImagesSection(gtx layout.Context, appState *core.AppState) layout.Dimen
 }
 
 func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Superpixel", standardDividerThickness, appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Superpixel Presegmentation", standardDividerThickness, appState.SuperpixelSection.Open, &appState.SuperpixelSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.ActiveSettings == nil {
 			return layout.Dimensions{}
 		}
