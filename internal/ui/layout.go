@@ -2,6 +2,7 @@ package ui
 
 import (
 	"gioui.org/f32"
+	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -127,6 +128,23 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 											}))
 									} else {
 										return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+											// Logo
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												gtx.Constraints.Min.X = gtx.Dp(360)
+												return app_theme.IconLight.Layout(gtx, appState.Theme.GioTheme.Palette.Fg)
+											}),
+
+											// Version
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												lbl := material.Body1(&appState.Theme.GioTheme, "v"+core.AppVersion)
+												lbl.Color = appState.Theme.GioTheme.ContrastFg
+												lbl.Font.Weight = font.Black
+												return lbl.Layout(gtx)
+											}),
+
+											// Spacer
+											layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+											// Project Buttons
 											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 												lbl := material.Body1(&appState.Theme.GioTheme, "Create a new project or open an existing one.")
 												lbl.Color = appState.Theme.GioTheme.ContrastFg
