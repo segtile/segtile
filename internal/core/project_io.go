@@ -18,6 +18,7 @@ const defaultSpAlgorithmId = "slic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
+	AppVersion                string              `yaml:"app_version"`
 	SettingsFile              string              `yaml:"-"` // Don't store the path to the file in itself.
 	InputDirectory            string              `yaml:"input_directory"`
 	Superpixel                *SuperpixelSettings `yaml:"superpixel"`
@@ -200,6 +201,7 @@ func NewProjectSettings(outputDir, inputDir string, spSettings *SuperpixelSettin
 		InputDirectory:   inputDir,
 		Superpixel:       spSettings,
 		ShrinkGrowAmount: 0,
+		AppVersion:       AppVersion,
 	}
 	if err := cfg.Persist(); err != nil {
 		return nil, err
