@@ -34,7 +34,7 @@ func (appState *AppState) ClearSelection(showToast bool) {
 	appState.ReprocessSelection()
 	appState.Window.Invalidate()
 	if showToast {
-		appState.Toasts.ShowType(time.Now(), giotoast.TypeWarning, "Cleared selection.", 1*time.Second)
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeInfo, "Cleared selection.", 1*time.Second)
 	}
 }
 

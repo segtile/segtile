@@ -2,11 +2,9 @@ package ui
 
 import (
 	"log"
-	"time"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/core"
 )
 
@@ -35,16 +33,19 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		return
 	}
 
+	if button == &appState.SavedImageInfoSection.Button {
+		appState.SavedImageInfoSection.Open = !appState.SavedImageInfoSection.Open
+		return
+	}
+
 	if button == &appState.ChangeSpAlgorithmButton {
 		appState.SpAlgorithmMenuOpen = !appState.SpAlgorithmMenuOpen
 		return
 	}
 
 	if button == &appState.RevertSavedMaskButton {
-		if err := appState.RevertToSavedMask(); err != nil {
-			log.Printf("Failed to revert to saved mask: %v", err)
-			appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
-		}
+		appState.RevertToSavedMask()
+
 		return
 	}
 

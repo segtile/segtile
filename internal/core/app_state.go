@@ -63,9 +63,10 @@ type UiState struct {
 	Theme *app_theme.AppTheme
 
 	// Sidebar sections
-	ImagesSection     SidebarSection
-	SuperpixelSection SidebarSection
-	MiscSection       SidebarSection
+	ImagesSection         SidebarSection
+	SuperpixelSection     SidebarSection
+	MiscSection           SidebarSection
+	SavedImageInfoSection SidebarSection
 
 	// Superpixel Editors
 	SuperpixelParameterEditors []SuperpixelParameterEditor
@@ -187,6 +188,7 @@ func NewAppState() *AppState {
 			ImagesSection:           SidebarSection{Open: true},
 			SuperpixelSection:       SidebarSection{Open: true},
 			MiscSection:             SidebarSection{Open: true},
+			SavedImageInfoSection:   SidebarSection{Open: true},
 			ManualFixBrushRadius:    16,
 		},
 		CacheState: CacheState{

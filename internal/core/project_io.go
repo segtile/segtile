@@ -37,6 +37,7 @@ type SuperpixelSettings struct {
 // ImageMetadata stores metadata for an individual image within the project.
 type ImageMetadata struct {
 	Annotator        string              `json:"annotator"`
+	AnnotationTime   time.Time           `json:"annotation_time"`
 	Superpixel       *SuperpixelSettings `json:"superpixel"`
 	SmoothAmount     float32             `json:"smooth_amount"`
 	ShrinkGrowAmount float32             `json:"shrink_grow_amount"`
