@@ -343,26 +343,24 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 			annotator = "Unknown"
 		}
 
+		annotationTime := "Unknown"
+		if !appState.ActiveImageMetadata.AnnotationTime.IsZero() {
+			annotationTime = appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)
+		}
+
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Caption(&appState.Theme.GioTheme, "Annotator:").Layout(gtx)
+								return components.DrawInfoRow(gtx, appState, "Last saved by:", annotator, app_theme.IconSocialPerson)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body2(&appState.Theme.GioTheme, annotator).Layout(gtx)
+								return layout.Spacer{Height: unit.Dp(4)}.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Caption(&appState.Theme.GioTheme, "Annotation Time:").Layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								annotationTime := "Unknown"
-								if !appState.ActiveImageMetadata.AnnotationTime.IsZero() {
-									annotationTime = appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)
-								}
-								return material.Body2(&appState.Theme.GioTheme, annotationTime).Layout(gtx)
+								return components.DrawInfoRow(gtx, appState, "Last saved at:", annotationTime, app_theme.IconActionDateRange)
 							}),
 						)
 					}),

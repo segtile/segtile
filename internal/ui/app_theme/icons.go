@@ -26,6 +26,8 @@ var (
 	IconContentClear    = mustIcon(widget.NewIcon(icons.ContentClear))
 	IconAvReplay        = mustIcon(widget.NewIcon(icons.AVReplay))
 	IconLight           = mustIcon(widget.NewIcon(iconLogoLightData))
+	IconSocialPerson    = mustIcon(widget.NewIcon(icons.SocialPerson))
+	IconActionDateRange = mustIcon(widget.NewIcon(icons.ActionDateRange))
 )
 
 func mustIcon(icon *widget.Icon, err error) *widget.Icon {
