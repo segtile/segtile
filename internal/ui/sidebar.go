@@ -350,7 +350,11 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 								return material.Caption(&appState.Theme.GioTheme, "Annotation Time:").Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)).Layout(gtx)
+								annotationTime := "Unknown"
+								if !appState.ActiveImageMetadata.AnnotationTime.IsZero() {
+									annotationTime = appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)
+								}
+								return material.Body2(&appState.Theme.GioTheme, annotationTime).Layout(gtx)
 							}),
 						)
 					}),
