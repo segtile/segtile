@@ -61,6 +61,12 @@ func showOpenProjectDialogs() *core.ProjectSettings {
 // Returns nil if the user canceled a dialog.
 func showNewProjectDialogs() *core.ProjectSettings {
 
+	// Message to the user explaining the purpose of the input and output directories.
+	zenity.Info(
+		"Start by selecting the input directory containing raw images.",
+		zenity.Title("New Project Setup"),
+	)
+
 	// Prompt for the input directory
 	inputDir, err := zenity.SelectFile(
 		zenity.Title("Select Input Directory (raw images)"),
@@ -72,6 +78,11 @@ func showNewProjectDialogs() *core.ProjectSettings {
 		}
 		return &core.ProjectSettings{Err: err}
 	}
+
+	zenity.Info(
+		"Now select the output directory where masks and metadata will be stored.",
+		zenity.Title("New Project Setup"),
+	)
 
 	// Prompt for the output directory
 	outputDir, err := zenity.SelectFile(
