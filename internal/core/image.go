@@ -314,6 +314,10 @@ func (appState *AppState) UseSavedSuperpixelSettings() error {
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}
+	if err := appState.SaveProjectSettings(); err != nil {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		return err
+	}
 	appState.Toasts.ShowType(time.Now(), giotoast.TypeInfo, "Applied saved presegmentation settings", time.Second)
 	return nil
 }
