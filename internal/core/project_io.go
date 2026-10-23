@@ -18,6 +18,7 @@ const defaultSpAlgorithmId = "slic"
 
 // ProjectSettings stores all settings of a project that need to be persisted to disk.
 type ProjectSettings struct {
+	AppVersion                string              `yaml:"app_version"`
 	SettingsFile              string              `yaml:"-"` // Don't store the path to the file in itself.
 	InputDirectory            string              `yaml:"input_directory"`
 	Superpixel                *SuperpixelSettings `yaml:"superpixel"`
@@ -37,6 +38,7 @@ type SuperpixelSettings struct {
 // ImageMetadata stores metadata for an individual image within the project.
 type ImageMetadata struct {
 	Annotator        string              `json:"annotator"`
+	AnnotationTime   time.Time           `json:"annotation_time"`
 	Superpixel       *SuperpixelSettings `json:"superpixel"`
 	SmoothAmount     float32             `json:"smooth_amount"`
 	ShrinkGrowAmount float32             `json:"shrink_grow_amount"`
@@ -188,7 +190,6 @@ func (appState *AppState) SaveProjectSettings() error {
 	if err := appState.ActiveSettings.Persist(); err != nil {
 		return err
 	}
-	appState.DefaultSettings = appState.ActiveSettings.Clone()
 	return nil
 }
 
@@ -199,6 +200,7 @@ func NewProjectSettings(outputDir, inputDir string, spSettings *SuperpixelSettin
 		InputDirectory:   inputDir,
 		Superpixel:       spSettings,
 		ShrinkGrowAmount: 0,
+		AppVersion:       AppVersion,
 	}
 	if err := cfg.Persist(); err != nil {
 		return nil, err
@@ -244,7 +246,6 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	// Apply the new settings
 	appState.ActiveSettings = settings
-	appState.DefaultSettings = settings.Clone()
 	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
 	appState.UpdateSelectionOnSpChange.Value = settings.UpdateSelectionOnSpChange
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)

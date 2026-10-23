@@ -2,6 +2,7 @@ package ui
 
 import (
 	"gioui.org/f32"
+	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -12,6 +13,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/struffel/annotation-tool/internal/core"
 	"github.com/struffel/annotation-tool/internal/ui/app_theme"
+	"github.com/struffel/annotation-tool/internal/ui/components"
 )
 
 func Layout(appState *core.AppState, gtx layout.Context) {
@@ -50,15 +52,15 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							HandleUiButtonClick(appState, gtx, &appState.NewProjectButton)
-							return drawMenuBarButton(gtx, &appState.NewProjectButton, appState.Theme, app_theme.IconNew, "New")
+							return components.DrawMenuBarButton(gtx, &appState.NewProjectButton, appState.Theme, app_theme.IconNew, "New")
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							HandleUiButtonClick(appState, gtx, &appState.OpenProjectButton)
-							return drawMenuBarButton(gtx, &appState.OpenProjectButton, appState.Theme, app_theme.IconOpen, "Open")
+							return components.DrawMenuBarButton(gtx, &appState.OpenProjectButton, appState.Theme, app_theme.IconOpen, "Open")
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							HandleUiButtonClick(appState, gtx, &appState.SaveButton)
-							return drawMenuBarButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save")
+							return components.DrawMenuBarButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save")
 						}),
 					)
 				}),
@@ -96,9 +98,8 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return drawSelectionSection(gtx, appState)
 								}),
-								layout.Flexed(1, layout.Spacer{Height: unit.Dp(12)}.Layout),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return drawSavedImageInfo(gtx, appState)
+									return drawSelectionInfoSection(gtx, appState)
 								}),
 							)
 						}),
@@ -127,6 +128,23 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 											}))
 									} else {
 										return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+											// Logo
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												gtx.Constraints.Min.X = gtx.Dp(360)
+												return app_theme.IconLight.Layout(gtx, appState.Theme.GioTheme.Palette.Fg)
+											}),
+
+											// Version
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												lbl := material.Body1(&appState.Theme.GioTheme, "v"+core.AppVersion)
+												lbl.Color = appState.Theme.GioTheme.ContrastFg
+												lbl.Font.Weight = font.Black
+												return lbl.Layout(gtx)
+											}),
+
+											// Spacer
+											layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+											// Project Buttons
 											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 												lbl := material.Body1(&appState.Theme.GioTheme, "Create a new project or open an existing one.")
 												lbl.Color = appState.Theme.GioTheme.ContrastFg
@@ -138,7 +156,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 													triggerNewProject(appState)
 												}
 												gtx.Constraints.Min.X = gtx.Dp(220)
-												return drawBigButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
+												return components.DrawBoldButton(gtx, &appState.NewProjectButton, appState.Theme, "New Project", 16)
 											}),
 											layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -146,16 +164,24 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 													triggerOpenProject(appState)
 												}
 												gtx.Constraints.Min.X = gtx.Dp(220)
-												return drawBigButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
+												return components.DrawBoldButton(gtx, &appState.OpenProjectButton, appState.Theme, "Open Project", 16)
 											}), layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
 											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 												gtx.Constraints.Max.X = gtx.Dp(480)
 												gtx.Constraints.Min.X = 0
-												return drawProjectLoadError(gtx, appState)
+												return components.DrawProjectLoadError(gtx, appState)
 											}))
 									}
 								})
 							} else if appState.ActiveImage != nil {
+
+								// Fit the image to the window if window size changes
+								if appState.CanvasSize != gtx.Constraints.Max {
+									appState.CanvasSize = gtx.Constraints.Max
+									appState.FitToWindow = true
+								}
+
+								// Fit the image to the window if requested
 								if appState.FitToWindow {
 									appState.FitImageToWindow(gtx.Constraints.Max)
 									appState.FitToWindow = false
@@ -168,7 +194,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 								paint.PaintOp{}.Add(gtx.Ops)
 								stack.Pop()
 
-								drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, appState.Theme.HoverHaloColor, appState.Theme.HoverHaloWidth)
+								components.DrawStroke(&stack, gtx, transformation, appState.ViewScale, appState.HoverPathSpec, appState.Theme.HoverOutlineColor, appState.Theme.HoverStrokeWidth, appState.Theme.HoverHaloColor, appState.Theme.HoverHaloWidth)
 
 								if appState.RenderSelectionOutlines {
 									outlineColor := appState.Theme.SelectionOutlineColor
@@ -177,7 +203,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 										outlineColor = appState.Theme.SavedSelectionOutlineColor
 										haloColor = appState.Theme.SavedSelectionHaloColor
 									}
-									drawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, outlineColor, appState.Theme.SelectionStrokeWidth, haloColor, appState.Theme.SelectionHaloWidth)
+									components.DrawStroke(&stack, gtx, transformation, appState.ViewScale, appState.SelectionPathSpec, outlineColor, appState.Theme.SelectionStrokeWidth, haloColor, appState.Theme.SelectionHaloWidth)
 								}
 							}
 

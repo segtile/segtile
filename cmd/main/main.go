@@ -36,6 +36,9 @@ func main() {
 		appWindow.Option(
 			app.Title("Annotation Tool"),
 			app.Size(unit.Dp(1200), unit.Dp(800)),
+			app.MinSize(unit.Dp(800), unit.Dp(800)),
+			app.Title(core.AppName+" "+core.AppVersion),
+			app.Decorated(true),
 		)
 
 		appState := core.NewAppState()

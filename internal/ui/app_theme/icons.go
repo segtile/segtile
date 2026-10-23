@@ -25,6 +25,7 @@ var (
 	IconChangeAlgorithm = mustIcon(widget.NewIcon(icons.ActionAutorenew))
 	IconContentClear    = mustIcon(widget.NewIcon(icons.ContentClear))
 	IconAvReplay        = mustIcon(widget.NewIcon(icons.AVReplay))
+	IconLight           = mustIcon(widget.NewIcon(iconLogoLightData))
 )
 
 func mustIcon(icon *widget.Icon, err error) *widget.Icon {

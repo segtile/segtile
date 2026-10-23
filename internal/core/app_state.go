@@ -28,7 +28,6 @@ type AppState struct {
 
 	// Project
 	ActiveSettings   *ProjectSettings
-	DefaultSettings  *ProjectSettings
 	ImageFiles       []string
 	ActiveImageIndex int
 
@@ -63,19 +62,22 @@ type UiState struct {
 	Theme *app_theme.AppTheme
 
 	// Sidebar sections
-	ImagesSection     SidebarSection
-	SuperpixelSection SidebarSection
-	MiscSection       SidebarSection
+	ImagesSection                 SidebarSection
+	SuperpixelSection             SidebarSection
+	SuperpixelOptimizationSection SidebarSection
+	MiscSection                   SidebarSection
+	SavedImageInfoSection         SidebarSection
 
 	// Superpixel Editors
 	SuperpixelParameterEditors []SuperpixelParameterEditor
 
 	// Selection post-processing
-	ShrinkGrowAmount      widget.Float
-	ShrinkGrowAmountReset widget.Clickable
-	SmoothAmount          widget.Float
-	SmoothAmountReset     widget.Clickable
-	RevertSavedMaskButton widget.Clickable
+	ShrinkGrowAmount         widget.Float
+	ShrinkGrowAmountReset    widget.Clickable
+	SmoothAmount             widget.Float
+	SmoothAmountReset        widget.Clickable
+	RevertSavedMaskButton    widget.Clickable
+	UseSavedSpSettingsButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable
@@ -129,6 +131,7 @@ type UiState struct {
 	// View transform
 	ViewScale   float32
 	ViewOffset  f32.Point
+	CanvasSize  image.Point
 	FitToWindow bool
 }
 
@@ -187,6 +190,7 @@ func NewAppState() *AppState {
 			ImagesSection:           SidebarSection{Open: true},
 			SuperpixelSection:       SidebarSection{Open: true},
 			MiscSection:             SidebarSection{Open: true},
+			SavedImageInfoSection:   SidebarSection{Open: true},
 			ManualFixBrushRadius:    16,
 		},
 		CacheState: CacheState{

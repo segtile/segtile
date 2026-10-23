@@ -88,26 +88,14 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
 	}
-	hadActiveImageMetadata := appState.ActiveImageMetadata != nil
 	appState.ActiveImageMetadata = nil
 	if found {
 		appState.ActiveImageMetadata = &metadata
 		appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
-		appState.ActiveSettings.Superpixel = metadata.Superpixel.Clone()
 		appState.ActiveSettings.SmoothAmount = metadata.SmoothAmount
 		appState.ActiveSettings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
 		appState.SmoothAmount.Value = metadata.SmoothAmount
 		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
-	} else if hadActiveImageMetadata && appState.DefaultSettings != nil {
-		defaults := appState.DefaultSettings
-		appState.ActiveSettings.Superpixel = defaults.Clone().Superpixel
-		appState.ActiveSettings.SmoothAmount = defaults.SmoothAmount
-		appState.ActiveSettings.ShrinkGrowAmount = defaults.ShrinkGrowAmount
-		appState.SmoothAmount.Value = defaults.SmoothAmount
-		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(defaults.ShrinkGrowAmount)
-	}
-	if found || (hadActiveImageMetadata && appState.DefaultSettings != nil) {
-		appState.RebuildEditors()
 	}
 	appState.SelectionMaskDiffersVersionOnDisk = false
 
@@ -162,10 +150,10 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 		metadataPath := appState.imageMetadataPathForIndex(appState.ActiveImageIndex)
 
 		// Get the current user for annotator metadata.
-		userName := "unknown"
+		userName := "Unknown"
 		currentUser, err := user.Current()
 		if err != nil {
-			// If we cannot determine the current user, report an error and stick with "unknown" as the annotator.
+			// If we cannot determine the current user, report an error and stick with "Unknown" as the annotator.
 			appState.reportMaskSaveError(metadataPath, fmt.Errorf("could not determine annotator: %w", err))
 		} else {
 			userName = currentUser.Username
@@ -194,6 +182,7 @@ func (appState *AppState) SaveCurrentMask(evenIfEmpty bool) {
 		// Save the metadata to its designated path.
 		metadata := &ImageMetadata{
 			Annotator:        userName,
+			AnnotationTime:   time.Now(),
 			Superpixel:       appState.ActiveSettings.Superpixel,
 			SmoothAmount:     appState.SmoothAmount.Value,
 			ShrinkGrowAmount: SliderToSignedShrinkGrow(appState.ShrinkGrowAmount.Value),
@@ -282,7 +271,7 @@ func (appState *AppState) importLegacyMask(i int) (ImageMetadata, *superpixel_ma
 	selection := superpixel_map.NewMaskFromImage(maskImage)
 
 	metadata := ImageMetadata{
-		Annotator:  "unknown",
+		Annotator:  "Unknown",
 		Superpixel: appState.ActiveSettings.Superpixel.Clone(),
 	}
 
@@ -305,6 +294,52 @@ func (appState *AppState) importLegacyMask(i int) (ImageMetadata, *superpixel_ma
 	return metadata, selection, true, nil
 }
 
+func (appState *AppState) UseSavedSuperpixelSettings() error {
+	if appState.ActiveImage == nil || appState.ActiveSettings == nil || appState.ActiveImageMetadata == nil || appState.ActiveImageMetadata.Superpixel == nil {
+		err := fmt.Errorf("no saved presegmentation settings exist for this image")
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		return err
+	}
+
+	previousSettings := appState.ActiveSettings.Superpixel
+	appState.ActiveSettings.Superpixel = appState.ActiveImageMetadata.Superpixel.Clone()
+	appState.RebuildEditors()
+	if err := appState.RecalculateSuperpixels(false); err != nil {
+		appState.ActiveSettings.Superpixel = previousSettings
+		appState.RebuildEditors()
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		return err
+	}
+
+	if appState.Window != nil {
+		appState.Window.Invalidate()
+	}
+	if err := appState.SaveProjectSettings(); err != nil {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		return err
+	}
+	appState.Toasts.ShowType(time.Now(), giotoast.TypeInfo, "Applied saved presegmentation settings", time.Second)
+	return nil
+}
+
+func (appState *AppState) HasDifferentSavedSuperpixelSettings() bool {
+	if appState.ActiveSettings == nil || appState.ActiveSettings.Superpixel == nil || appState.ActiveImageMetadata == nil || appState.ActiveImageMetadata.Superpixel == nil {
+		return false
+	}
+
+	current := appState.ActiveSettings.Superpixel
+	saved := appState.ActiveImageMetadata.Superpixel
+	if current.SpAlgorithmId != saved.SpAlgorithmId || len(current.SpAlgorithmParameters) != len(saved.SpAlgorithmParameters) {
+		return true
+	}
+	for id, value := range current.SpAlgorithmParameters {
+		if savedValue, ok := saved.SpAlgorithmParameters[id]; !ok || savedValue != value {
+			return true
+		}
+	}
+	return false
+}
+
 func (appState *AppState) RevertToSavedMask() error {
 	if appState.ActiveImage == nil || appState.ActiveSettings == nil || appState.ActiveImageIndex < 0 || appState.ActiveImageIndex >= len(appState.ImageFiles) {
 		return fmt.Errorf("no project image is currently loaded")
@@ -312,12 +347,15 @@ func (appState *AppState) RevertToSavedMask() error {
 
 	metadata, savedSelection, found, err := appState.loadSavedImageState(appState.ActiveImageIndex)
 	if err != nil {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
 		return err
 	}
 	if !found {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "No saved mask state exists for this image", 3*time.Second)
 		return fmt.Errorf("no saved mask state exists for this image")
 	}
 	if savedSelection.Bounds() != appState.ActiveImage.Bounds() {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds()), 3*time.Second)
 		return fmt.Errorf("saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds())
 	}
 
@@ -332,6 +370,7 @@ func (appState *AppState) RevertToSavedMask() error {
 
 	appState.SelectionMaskRaw = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
 	if err := appState.RecalculateSuperpixels(false); err != nil {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
 		return err
 	}
 	appState.SelectionMaskRaw = savedSelection
@@ -340,6 +379,8 @@ func (appState *AppState) RevertToSavedMask() error {
 	if appState.Window != nil {
 		appState.Window.Invalidate()
 	}
+
+	appState.Toasts.ShowType(time.Now(), giotoast.TypeInfo, "Reverted to saved annotation", 1*time.Second)
 	return nil
 }
 
