@@ -54,6 +54,11 @@ func HandleUiButtonClick(appState *core.AppState, gtx layout.Context, button *wi
 		return
 	}
 
+	if button == &appState.UseSavedSpSettingsButton {
+		appState.UseSavedSuperpixelSettings()
+		return
+	}
+
 	if button == &appState.PrevUnlabeledButton {
 		appState.LoadPreviousUnlabeledImage()
 		return

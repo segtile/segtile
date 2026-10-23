@@ -28,7 +28,6 @@ type AppState struct {
 
 	// Project
 	ActiveSettings   *ProjectSettings
-	DefaultSettings  *ProjectSettings
 	ImageFiles       []string
 	ActiveImageIndex int
 
@@ -73,11 +72,12 @@ type UiState struct {
 	SuperpixelParameterEditors []SuperpixelParameterEditor
 
 	// Selection post-processing
-	ShrinkGrowAmount      widget.Float
-	ShrinkGrowAmountReset widget.Clickable
-	SmoothAmount          widget.Float
-	SmoothAmountReset     widget.Clickable
-	RevertSavedMaskButton widget.Clickable
+	ShrinkGrowAmount         widget.Float
+	ShrinkGrowAmountReset    widget.Clickable
+	SmoothAmount             widget.Float
+	SmoothAmountReset        widget.Clickable
+	RevertSavedMaskButton    widget.Clickable
+	UseSavedSpSettingsButton widget.Clickable
 
 	// Image navigation buttons
 	FirstButton         widget.Clickable

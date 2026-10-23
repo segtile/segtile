@@ -373,29 +373,27 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 				return layout.Spacer{Height: unit.Dp(4)}.Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Caption(&appState.Theme.GioTheme, "Presegmentation:").Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				label := material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
-				label.Font.Weight = font.Bold
-				return label.Layout(gtx)
-			}),
-			// Render the parameters line by line
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-
-				params := appState.ActiveImageMetadata.Superpixel.SpAlgorithmParameters
-
-				// Sort the parameter keys
-				var keys []string
-				for k := range params {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return material.Caption(&appState.Theme.GioTheme, "Presegmentation:").Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								label := material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
+								label.Font.Weight = font.Bold
+								return label.Layout(gtx)
+							}),
+							// Render the parameters line by line
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								params := appState.ActiveImageMetadata.Superpixel.SpAlgorithmParameters
+
+								var keys []string
+								for k := range params {
+									keys = append(keys, k)
+								}
+								sort.Strings(keys)
+
 								var lines []layout.FlexChild
 								for _, k := range keys {
 									key := k
@@ -407,6 +405,13 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)
 							}),
 						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if appState.HasDifferentSavedSuperpixelSettings() {
+							HandleUiButtonClick(appState, gtx, &appState.UseSavedSpSettingsButton)
+							return components.DrawIconButton(gtx, &appState.UseSavedSpSettingsButton, appState.Theme, app_theme.IconAvReplay, "Use saved presegmentation settings", false)
+						}
+						return layout.Dimensions{}
 					}),
 				)
 			}),

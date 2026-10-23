@@ -88,26 +88,14 @@ func (appState *AppState) loadImageAtIndex(i int) error {
 		log.Printf("Failed to restore image state for %s: %v", filepath.Base(appState.ImageFiles[i]), err)
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, fmt.Sprintf("Failed to restore %s", filepath.Base(appState.ImageFiles[i])), 3*time.Second)
 	}
-	hadActiveImageMetadata := appState.ActiveImageMetadata != nil
 	appState.ActiveImageMetadata = nil
 	if found {
 		appState.ActiveImageMetadata = &metadata
 		appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
-		appState.ActiveSettings.Superpixel = metadata.Superpixel.Clone()
 		appState.ActiveSettings.SmoothAmount = metadata.SmoothAmount
 		appState.ActiveSettings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
 		appState.SmoothAmount.Value = metadata.SmoothAmount
 		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
-	} else if hadActiveImageMetadata && appState.DefaultSettings != nil {
-		defaults := appState.DefaultSettings
-		appState.ActiveSettings.Superpixel = defaults.Clone().Superpixel
-		appState.ActiveSettings.SmoothAmount = defaults.SmoothAmount
-		appState.ActiveSettings.ShrinkGrowAmount = defaults.ShrinkGrowAmount
-		appState.SmoothAmount.Value = defaults.SmoothAmount
-		appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(defaults.ShrinkGrowAmount)
-	}
-	if found || (hadActiveImageMetadata && appState.DefaultSettings != nil) {
-		appState.RebuildEditors()
 	}
 	appState.SelectionMaskDiffersVersionOnDisk = false
 
@@ -304,6 +292,48 @@ func (appState *AppState) importLegacyMask(i int) (ImageMetadata, *superpixel_ma
 	}
 
 	return metadata, selection, true, nil
+}
+
+func (appState *AppState) UseSavedSuperpixelSettings() error {
+	if appState.ActiveImage == nil || appState.ActiveSettings == nil || appState.ActiveImageMetadata == nil || appState.ActiveImageMetadata.Superpixel == nil {
+		err := fmt.Errorf("no saved presegmentation settings exist for this image")
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		return err
+	}
+
+	previousSettings := appState.ActiveSettings.Superpixel
+	appState.ActiveSettings.Superpixel = appState.ActiveImageMetadata.Superpixel.Clone()
+	appState.RebuildEditors()
+	if err := appState.RecalculateSuperpixels(false); err != nil {
+		appState.ActiveSettings.Superpixel = previousSettings
+		appState.RebuildEditors()
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
+		return err
+	}
+
+	if appState.Window != nil {
+		appState.Window.Invalidate()
+	}
+	appState.Toasts.ShowType(time.Now(), giotoast.TypeInfo, "Applied saved presegmentation settings", time.Second)
+	return nil
+}
+
+func (appState *AppState) HasDifferentSavedSuperpixelSettings() bool {
+	if appState.ActiveSettings == nil || appState.ActiveSettings.Superpixel == nil || appState.ActiveImageMetadata == nil || appState.ActiveImageMetadata.Superpixel == nil {
+		return false
+	}
+
+	current := appState.ActiveSettings.Superpixel
+	saved := appState.ActiveImageMetadata.Superpixel
+	if current.SpAlgorithmId != saved.SpAlgorithmId || len(current.SpAlgorithmParameters) != len(saved.SpAlgorithmParameters) {
+		return true
+	}
+	for id, value := range current.SpAlgorithmParameters {
+		if savedValue, ok := saved.SpAlgorithmParameters[id]; !ok || savedValue != value {
+			return true
+		}
+	}
+	return false
 }
 
 func (appState *AppState) RevertToSavedMask() error {

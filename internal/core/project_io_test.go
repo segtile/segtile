@@ -239,7 +239,6 @@ func TestSetSpAlgorithmPersistsAsProjectDefault(t *testing.T) {
 
 	state := &AppState{
 		ActiveSettings:   projectSettings,
-		DefaultSettings:  projectSettings.Clone(),
 		ImageFiles:       []string{imagePath},
 		ActiveImage:      image.NewNRGBA(image.Rect(0, 0, 8, 8)),
 		SelectionMaskRaw: superpixel_map.NewMask(8, 8),
@@ -249,12 +248,12 @@ func TestSetSpAlgorithmPersistsAsProjectDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The change must apply to the current image and become the project default.
+	// The change must apply to the current project settings without replacing them.
 	if state.ActiveSettings.Superpixel.SpAlgorithmId != dummyAlgorithmId {
 		t.Fatalf("active settings algorithm = %q, want %q", state.ActiveSettings.Superpixel.SpAlgorithmId, dummyAlgorithmId)
 	}
-	if state.DefaultSettings.Superpixel.SpAlgorithmId != dummyAlgorithmId {
-		t.Fatalf("project default algorithm = %q, want %q", state.DefaultSettings.Superpixel.SpAlgorithmId, dummyAlgorithmId)
+	if state.ActiveSettings != projectSettings {
+		t.Fatal("changing the algorithm replaced the authoritative project settings")
 	}
 
 	// The change must be persisted to the settings file on disk.
@@ -352,9 +351,8 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 		t.Fatal(loadedProject.Err)
 	}
 	loadedState := &AppState{
-		ActiveSettings:  loadedProject.Clone(),
-		DefaultSettings: loadedProject.Clone(),
-		ImageFiles:      []string{imagePath, secondImagePath},
+		ActiveSettings: loadedProject.Clone(),
+		ImageFiles:     []string{imagePath, secondImagePath},
 		UiState: UiState{
 			ShrinkGrowAmount: widget.Float{Value: 0.5},
 			SmoothAmount:     widget.Float{Value: 0},
@@ -366,13 +364,26 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	if countMaskPixels(loadedState.SelectionMaskRaw) != 1 || !loadedState.SelectionMaskRaw.PositiveAt(8, 8) {
 		t.Fatal("restored selection did not match the saved unprocessed selection")
 	}
-	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != loadedProject.Superpixel.SpAlgorithmParameters["count"] ||
 		loadedState.ActiveSettings.ShrinkGrowAmount != 1 ||
 		loadedState.ActiveSettings.SmoothAmount != 0.25 {
-		t.Fatalf("image settings were not restored: %+v", loadedState.ActiveSettings)
+		t.Fatalf("navigation changed SP settings or failed to restore post-processing settings: %+v", loadedState.ActiveSettings)
 	}
 	if loadedState.SelectionMaskDiffersVersionOnDisk {
 		t.Fatal("restored selection should not be marked as modified")
+	}
+	loadedState.ActiveSettings.ShrinkGrowAmount = 0.5
+	loadedState.ActiveSettings.SmoothAmount = 0.1
+	loadedState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(0.5)
+	loadedState.SmoothAmount.Value = 0.1
+	if err := loadedState.UseSavedSuperpixelSettings(); err != nil {
+		t.Fatal(err)
+	}
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 {
+		t.Fatal("using saved presegmentation settings did not apply the saved SP parameters")
+	}
+	if loadedState.ActiveSettings.ShrinkGrowAmount != 0.5 || loadedState.ActiveSettings.SmoothAmount != 0.1 {
+		t.Fatal("using saved presegmentation settings changed post-processing settings")
 	}
 	loadedState.SelectionMaskRaw.SetValueAt(0, 0, true)
 	loadedState.SelectionMaskDiffersVersionOnDisk = true
@@ -410,10 +421,10 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	if loadedState.SelectionMaskDiffersVersionOnDisk {
 		t.Fatal("blank selection should not be marked as modified")
 	}
-	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != loadedProject.Superpixel.SpAlgorithmParameters["count"] ||
-		loadedState.ActiveSettings.ShrinkGrowAmount != loadedProject.ShrinkGrowAmount ||
-		loadedState.ActiveSettings.SmoothAmount != loadedProject.SmoothAmount {
-		t.Fatalf("image without metadata did not use project defaults: %+v", loadedState.ActiveSettings)
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
+		loadedState.ActiveSettings.ShrinkGrowAmount != 1 ||
+		loadedState.ActiveSettings.SmoothAmount != 0.25 {
+		t.Fatalf("image without metadata did not retain current settings: %+v", loadedState.ActiveSettings)
 	}
 
 	// A user change marks the selection as modified and navigation then saves it.
@@ -426,6 +437,43 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	}
 	if _, _, found, err := loadedState.loadSavedImageState(1); err != nil || !found {
 		t.Fatalf("modified image should have been saved on navigation (found=%v, err=%v)", found, err)
+	}
+}
+
+func TestHasDifferentSavedSuperpixelSettings(t *testing.T) {
+	state := &AppState{
+		ActiveSettings: &ProjectSettings{
+			Superpixel: &SuperpixelSettings{
+				SpAlgorithmId:         "slic",
+				SpAlgorithmParameters: map[string]float64{"count": 4, "compactness": 10},
+			},
+		},
+		ActiveImageMetadata: &ImageMetadata{
+			Superpixel: &SuperpixelSettings{
+				SpAlgorithmId:         "slic",
+				SpAlgorithmParameters: map[string]float64{"count": 4, "compactness": 10},
+			},
+		},
+	}
+
+	if state.HasDifferentSavedSuperpixelSettings() {
+		t.Fatal("identical settings should not offer the apply button")
+	}
+
+	state.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] = 5
+	if !state.HasDifferentSavedSuperpixelSettings() {
+		t.Fatal("different parameter values should offer the apply button")
+	}
+
+	state.ActiveSettings.Superpixel.SpAlgorithmParameters = map[string]float64{"count": 4, "compactness": 10}
+	state.ActiveSettings.Superpixel.SpAlgorithmId = "snic"
+	if !state.HasDifferentSavedSuperpixelSettings() {
+		t.Fatal("a different algorithm should offer the apply button")
+	}
+
+	state.ActiveImageMetadata = nil
+	if state.HasDifferentSavedSuperpixelSettings() {
+		t.Fatal("missing saved metadata should not offer the apply button")
 	}
 }
 

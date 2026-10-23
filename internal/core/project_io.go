@@ -190,7 +190,6 @@ func (appState *AppState) SaveProjectSettings() error {
 	if err := appState.ActiveSettings.Persist(); err != nil {
 		return err
 	}
-	appState.DefaultSettings = appState.ActiveSettings.Clone()
 	return nil
 }
 
@@ -247,7 +246,6 @@ func (appState *AppState) ApplyProjectSettings(settings *ProjectSettings) {
 
 	// Apply the new settings
 	appState.ActiveSettings = settings
-	appState.DefaultSettings = settings.Clone()
 	appState.EnableAutoFloodFill.Value = settings.EnableAutoFloodFill
 	appState.UpdateSelectionOnSpChange.Value = settings.UpdateSelectionOnSpChange
 	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(settings.ShrinkGrowAmount)
