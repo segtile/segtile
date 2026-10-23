@@ -164,6 +164,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 
 								label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
 								label.Color = appState.Theme.GioTheme.Palette.Fg
+								label.Font.Weight = font.Bold
 								return label.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -268,7 +269,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 }
 
 func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Selection", standardDividerThickness, appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Selection Tuning", standardDividerThickness, appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				checkbox := material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Auto Flood Fill")
