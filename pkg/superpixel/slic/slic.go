@@ -51,7 +51,7 @@ func init() {
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
 		return Run(img, int(params["count"]), params["compactness"])
 	}
-	superpixel.RegisterSpAlgorithm("slic", "SLIC", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
+	superpixel.RegisterSpAlgorithm("slic", "Simple Linear Iterative Clustering", "This is an implementation of SLIC superpixels, based on the original paper.", runFromMap, parameterInfo)
 }
 
 func Run(img image.Image, count int, compactness float64) (superpixel.SpResult, error) {
