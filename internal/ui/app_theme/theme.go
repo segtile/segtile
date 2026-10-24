@@ -29,7 +29,6 @@ const (
 	MenuBarVerticalSpacing   = 2
 	MenuBarIconSpacing       = 3
 	MenuBarIconSize          = 18
-	SidebarWidth             = 280
 )
 
 // Theme configuration for the application

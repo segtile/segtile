@@ -21,6 +21,7 @@ import (
 
 const checkboxSize = unit.Dp(20)
 const standardDividerThickness = unit.Dp(2)
+const sidebarWidth = 300
 
 // drawSidebarSection draws a collapsible sidebar section header followed by its body when open.
 func drawSidebarSection(gtx layout.Context, appState *core.AppState, title string, dividerThickness unit.Dp, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
@@ -162,7 +163,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 									superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.ActiveSettings.Superpixel.SpAlgorithmId)
 								}
 
-								label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
+								label := material.Body2(&appState.Theme.GioTheme, superpixelTitle)
 								label.Color = appState.Theme.GioTheme.Palette.Fg
 								label.Font.Weight = font.Bold
 								return label.Layout(gtx)
@@ -172,6 +173,8 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 							}),
 						)
 					}),
+
+					// Superpixel algorithm menu
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if !appState.SpAlgorithmMenuOpen {
 							return layout.Dimensions{}
@@ -203,6 +206,8 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 
 			// Individual parameter editors
 			for i := range appState.SuperpixelParameterEditors {
+
+				paramId := appState.SuperpixelParameterEditors[i].Id
 				title := appState.SuperpixelParameterEditors[i].Title
 				editor := &appState.SuperpixelParameterEditors[i].Editor
 				children = append(children,
@@ -215,9 +220,8 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 							}),
 
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
-								editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-								return editorStyle.Layout(gtx)
+								uncommitedChange := (fmt.Sprintf("%g", appState.ActiveSettings.Superpixel.SpAlgorithmParameters[paramId]) != editor.Text())
+								return components.DrawEditor(gtx, appState, editor, uncommitedChange)
 							}),
 						)
 					}),

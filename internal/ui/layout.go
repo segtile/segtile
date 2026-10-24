@@ -74,8 +74,8 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 							}
 
 							// Set fixed width for the sidebar
-							gtx.Constraints.Min.X = gtx.Dp(app_theme.SidebarWidth)
-							gtx.Constraints.Max.X = gtx.Dp(app_theme.SidebarWidth)
+							gtx.Constraints.Min.X = gtx.Dp(sidebarWidth)
+							gtx.Constraints.Max.X = gtx.Dp(sidebarWidth)
 
 							// Draw sidebar background
 							sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
