@@ -39,6 +39,10 @@ type outlineSegment struct {
 
 // Generates the outline marking the line between pixels in the image that has the target value and those that do not.
 func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec {
+	return calculateOutline(mask, targetValue, false)
+}
+
+func calculateOutline(mask superpixel_map.Map, targetValue uint32, includeImageBorder bool) clip.PathSpec {
 	// Start measuring the time for outline calculation.
 	//startTime := time.Now()
 	defer func() {
@@ -145,8 +149,65 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 		p.MoveTo(seg.startPoint)
 		p.LineTo(seg.endPoint)
 	}
+	if includeImageBorder {
+		for _, seg := range selectionEdgeSegments(mask, targetValue) {
+			p.MoveTo(seg.startPoint)
+			p.LineTo(seg.endPoint)
+		}
+	}
 
 	return p.End()
+}
+
+func selectionEdgeSegments(mask superpixel_map.Map, targetValue uint32) []outlineSegment {
+	bounds := mask.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+	var segments []outlineSegment
+
+	appendRuns := func(length int, selected func(int) bool, point func(int) f32.Point) {
+		start := -1
+		for i := 0; i <= length; i++ {
+			isSelected := i < length && selected(i)
+			if isSelected && start < 0 {
+				start = i
+			} else if !isSelected && start >= 0 {
+				segments = append(segments, outlineSegment{
+					startPoint: point(start),
+					endPoint:   point(i),
+				})
+				start = -1
+			}
+		}
+	}
+
+	for _, y := range []int{0, height} {
+		edgeY := y
+		row := y
+		if y == height {
+			row = height - 1
+		}
+		appendRuns(width, func(x int) bool {
+			return mask.Uint32At(x, row) != targetValue
+		}, func(x int) f32.Point {
+			return f32.Point{X: float32(x), Y: float32(edgeY)}
+		})
+	}
+
+	for _, x := range []int{0, width} {
+		edgeX := x
+		column := x
+		if x == width {
+			column = width - 1
+		}
+		appendRuns(height, func(y int) bool {
+			return mask.Uint32At(column, y) != targetValue
+		}, func(y int) f32.Point {
+			return f32.Point{X: float32(edgeX), Y: float32(y)}
+		})
+	}
+
+	return segments
 }
 
 // Set the selection outline based on the processed selection mask and the smoothing preference.
@@ -157,9 +218,9 @@ func (appState *AppState) ReprocessSelectionOutline() {
 	}
 
 	if appState.SmoothSelectionOutlines {
-		appState.SelectionPathSpec = CalculateOutline(appState.ProcessedSelectionMask, 0)
+		appState.SelectionPathSpec = calculateOutline(appState.ProcessedSelectionMask, 0, true)
 	} else {
-		appState.SelectionPathSpec = CalculateOutline(appState.SelectionMaskRaw, 0)
+		appState.SelectionPathSpec = calculateOutline(appState.SelectionMaskRaw, 0, true)
 	}
 	log.Printf("Reprocessed Selection Outline Postprocessing: %v", appState.SmoothSelectionOutlines)
 }
