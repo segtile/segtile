@@ -25,7 +25,7 @@ var (
 	IconChangeAlgorithm = mustIcon(widget.NewIcon(icons.ActionAutorenew))
 	IconContentClear    = mustIcon(widget.NewIcon(icons.ContentClear))
 	IconAvReplay        = mustIcon(widget.NewIcon(icons.AVReplay))
-	IconLight           = mustIcon(widget.NewIcon(iconLogoLightData))
+	IconLogoLight       = mustIcon(widget.NewIcon(iconLogoLightData))
 	IconSocialPerson    = mustIcon(widget.NewIcon(icons.SocialPerson))
 	IconActionDateRange = mustIcon(widget.NewIcon(icons.ActionDateRange))
 )

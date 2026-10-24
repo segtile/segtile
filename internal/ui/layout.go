@@ -127,7 +127,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 											// Logo
 											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 												gtx.Constraints.Min.X = gtx.Dp(360)
-												return app_theme.IconLight.Layout(gtx, appState.Theme.GioTheme.Palette.Fg)
+												return app_theme.IconLogoLight.Layout(gtx, appState.Theme.GioTheme.Palette.Fg)
 											}),
 
 											// Version
