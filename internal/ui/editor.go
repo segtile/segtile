@@ -17,9 +17,8 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 
 	recalculate := false
 
-	// Handle settings changes.
+	// Handle settings changes: If a submit event occurs, parse all editors and apply their values
 	for i := range appState.SuperpixelParameterEditors {
-		param := appState.SuperpixelParameterEditors[i].Id
 		editor := &appState.SuperpixelParameterEditors[i].Editor
 		// Drain events and apply the value on Submit
 		for {
@@ -28,17 +27,25 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 				break
 			}
 
-			// Check if the event is a SubmitEvent
+			// If a submit event orrcurs, parse all editors and apply their values
 			_, ok = ev.(widget.SubmitEvent)
 			if ok {
-				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
-					if v != appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] {
-						appState.SelectionMaskDiffersVersionOnDisk = true
-					}
-					appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] = v
-					log.Printf("Set %s to %v\n", param, v)
-					recalculate = true
+				recalculate = true
+			}
+		}
+	}
+
+	if recalculate {
+		for i := range appState.SuperpixelParameterEditors {
+			param := appState.SuperpixelParameterEditors[i].Id
+			editor := &appState.SuperpixelParameterEditors[i].Editor
+			if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
+				if v != appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] {
+					appState.SelectionMaskDiffersVersionOnDisk = true
 				}
+				appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] = v
+				log.Printf("Set %s to %v\n", param, v)
+				recalculate = true
 			}
 		}
 	}
