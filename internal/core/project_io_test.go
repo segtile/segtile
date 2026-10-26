@@ -401,14 +401,15 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 	loadedState.ActiveSettings.SmoothAmount = loadedProject.SmoothAmount
 	loadedState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(loadedProject.ShrinkGrowAmount)
 	loadedState.SmoothAmount.Value = loadedProject.SmoothAmount
-	loadedState.SelectionMaskDiffersVersionOnDisk = true
-	if err := loadedState.RevertToSavedMask(); err != nil {
+	if err := loadedState.UseSavedSuperpixelSettings(); err != nil {
 		t.Fatal(err)
 	}
-	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
-		loadedState.ActiveSettings.ShrinkGrowAmount != 1 ||
-		loadedState.ActiveSettings.SmoothAmount != 0.25 {
-		t.Fatal("reverting did not restore saved image settings")
+	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 {
+		t.Fatal("using saved presegmentation settings did not restore saved image metadata")
+	}
+	if loadedState.ActiveSettings.ShrinkGrowAmount != loadedProject.ShrinkGrowAmount ||
+		loadedState.ActiveSettings.SmoothAmount != loadedProject.SmoothAmount {
+		t.Fatal("using saved presegmentation settings changed post-processing settings")
 	}
 
 	// Navigating away from an unmodified restored image must not write anything.
@@ -422,8 +423,8 @@ func TestSaveAndRestoreImageMetadataAndSelection(t *testing.T) {
 		t.Fatal("blank selection should not be marked as modified")
 	}
 	if loadedState.ActiveSettings.Superpixel.SpAlgorithmParameters["count"] != 2 ||
-		loadedState.ActiveSettings.ShrinkGrowAmount != 1 ||
-		loadedState.ActiveSettings.SmoothAmount != 0.25 {
+		loadedState.ActiveSettings.ShrinkGrowAmount != loadedProject.ShrinkGrowAmount ||
+		loadedState.ActiveSettings.SmoothAmount != loadedProject.SmoothAmount {
 		t.Fatalf("image without metadata did not retain current settings: %+v", loadedState.ActiveSettings)
 	}
 
