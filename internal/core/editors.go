@@ -37,9 +37,11 @@ func (appState *AppState) RebuildEditors() {
 		editor := widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
 		editor.SetText(fmt.Sprintf("%g", paramValue))
 		appState.SuperpixelParameterEditors = append(appState.SuperpixelParameterEditors, SuperpixelParameterEditor{
-			Editor: editor,
-			Id:     paramInfo.Id,
-			Title:  paramInfo.Title,
+			Editor:   editor,
+			Id:       paramInfo.Id,
+			Title:    paramInfo.Title,
+			MinValue: paramInfo.Min,
+			MaxValue: paramInfo.Max,
 		})
 	}
 }

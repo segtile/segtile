@@ -211,6 +211,8 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 				paramId := appState.SuperpixelParameterEditors[i].Id
 				title := appState.SuperpixelParameterEditors[i].Title
 				editor := &appState.SuperpixelParameterEditors[i].Editor
+				editorMin := appState.SuperpixelParameterEditors[i].MinValue
+				editorMax := appState.SuperpixelParameterEditors[i].MaxValue
 				children = append(children,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
@@ -221,8 +223,18 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 							}),
 
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								uncommitedChange := (fmt.Sprintf("%g", appState.ActiveSettings.Superpixel.SpAlgorithmParameters[paramId]) != editor.Text())
-								return components.DrawEditor(gtx, appState, editor, uncommitedChange)
+								editorState := components.EditorStateNormal
+								editorValue, err := strconv.ParseFloat(appState.SuperpixelParameterEditors[i].Editor.Text(), 64)
+
+								if err != nil || editorValue < editorMin || editorValue > editorMax {
+									editorState = components.EditorStateOutOfRange
+								} else {
+									if fmt.Sprintf("%g", appState.ActiveSettings.Superpixel.SpAlgorithmParameters[paramId]) != editor.Text() {
+										editorState = components.EditorStateUncommitedChange
+									}
+								}
+
+								return components.DrawEditor(gtx, appState, editor, editorState)
 							}),
 						)
 					}),

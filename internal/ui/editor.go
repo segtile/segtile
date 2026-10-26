@@ -3,9 +3,11 @@ package ui
 import (
 	"log"
 	"strconv"
+	"time"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
+	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/core"
 )
 
@@ -32,6 +34,27 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 			if ok {
 				recalculate = true
 			}
+		}
+	}
+
+	if recalculate {
+		for i := range appState.SuperpixelParameterEditors {
+
+			// Not parseable
+			paramValue, err := strconv.ParseFloat(appState.SuperpixelParameterEditors[i].Editor.Text(), 64)
+			if err != nil {
+				appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "Invalid superpixel parameter value for "+appState.SuperpixelParameterEditors[i].Title, 3*time.Second)
+				recalculate = false
+				break
+			}
+
+			// Out of range
+			if paramValue < appState.SuperpixelParameterEditors[i].MinValue || paramValue > appState.SuperpixelParameterEditors[i].MaxValue {
+				appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "Superpixel parameter value out of range for "+appState.SuperpixelParameterEditors[i].Title, 3*time.Second)
+				recalculate = false
+				break
+			}
+
 		}
 	}
 
