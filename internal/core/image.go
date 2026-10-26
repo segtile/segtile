@@ -364,6 +364,10 @@ func (appState *AppState) RevertToSavedMask() error {
 		return fmt.Errorf("saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds())
 	}
 
+	// Revert grow/shrink/smooth settings to the saved state.
+	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(appState.ActiveImageMetadata.ShrinkGrowAmount)
+	appState.SmoothAmount.Value = appState.ActiveImageMetadata.SmoothAmount
+
 	// Apply the saved selection mask to the current state.
 	appState.SelectionMaskRaw = savedSelection
 	appState.ReprocessSelection()
