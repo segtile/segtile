@@ -39,6 +39,8 @@ type outlineSegment struct {
 
 // Generates the outline marking the line between pixels in the image that has the target value and those that do not.
 func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec {
+	_, isSelectionMask := mask.(*superpixel_map.Mask)
+
 	// Start measuring the time for outline calculation.
 	//startTime := time.Now()
 	defer func() {
@@ -60,14 +62,20 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 	var wg sync.WaitGroup
 
 	// First pass: Vertical border segments between horizontally adjacent pixels.
-	for x := 0; x < width-1; x++ {
+	for x := -1; x < width; x++ {
 		wg.Add(1)
 		go func(x int) {
 			defer wg.Done()
 			startPoint := f32.Point{X: -1, Y: -1}
 			for y := 0; y < height; y++ {
-				matchA := mask.Uint32At(x, y) == targetValue
-				matchB := mask.Uint32At(x+1, y) == targetValue
+				matchA := isSelectionMask && targetValue == 0
+				if x >= 0 {
+					matchA = mask.Uint32At(x, y) == targetValue
+				}
+				matchB := isSelectionMask && targetValue == 0
+				if x+1 < width {
+					matchB = mask.Uint32At(x+1, y) == targetValue
+				}
 				if matchA != matchB {
 					// The two labels are different: This means that there is a boundary
 					if startPoint.X < 0 {
@@ -88,21 +96,27 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 			if startPoint.X >= 0 {
 				collectedSegments <- outlineSegment{
 					startPoint: startPoint,
-					endPoint:   f32.Point{X: float32(x), Y: float32(height)},
+					endPoint:   f32.Point{X: float32(x + 1), Y: float32(height)},
 				}
 			}
 		}(x)
 	}
 
 	// Horizontal border segments between vertically adjacent pixels.
-	for y := 0; y < height-1; y++ {
+	for y := -1; y < height; y++ {
 		wg.Add(1)
 		go func(y int) {
 			defer wg.Done()
 			startPoint := f32.Point{X: -1, Y: -1}
 			for x := 0; x < width; x++ {
-				matchA := mask.Uint32At(x, y) == targetValue
-				matchB := mask.Uint32At(x, y+1) == targetValue
+				matchA := isSelectionMask && targetValue == 0
+				if y >= 0 {
+					matchA = mask.Uint32At(x, y) == targetValue
+				}
+				matchB := isSelectionMask && targetValue == 0
+				if y+1 < height {
+					matchB = mask.Uint32At(x, y+1) == targetValue
+				}
 				if matchA != matchB {
 					// The two labels are different: This means that there is a boundary
 					if startPoint.X < 0 {
@@ -122,7 +136,7 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 			if startPoint.X >= 0 {
 				collectedSegments <- outlineSegment{
 					startPoint: startPoint,
-					endPoint:   f32.Point{X: float32(width), Y: float32(y)},
+					endPoint:   f32.Point{X: float32(width), Y: float32(y + 1)},
 				}
 			}
 		}(y)
@@ -145,7 +159,6 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 		p.MoveTo(seg.startPoint)
 		p.LineTo(seg.endPoint)
 	}
-
 	return p.End()
 }
 

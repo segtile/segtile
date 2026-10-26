@@ -5,6 +5,7 @@ import (
 	"log"
 	"slices"
 
+	"gioui.org/io/key"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"github.com/struffel/annotation-tool/pkg/superpixel"
@@ -36,10 +37,13 @@ func (appState *AppState) RebuildEditors() {
 		paramValue := appState.ActiveSettings.Superpixel.SpAlgorithmParameters[paramInfo.Id]
 		editor := widget.Editor{SingleLine: true, Submit: true, Filter: "-.0123456789", Alignment: text.End}
 		editor.SetText(fmt.Sprintf("%g", paramValue))
+		editor.InputHint = key.HintNumeric
 		appState.SuperpixelParameterEditors = append(appState.SuperpixelParameterEditors, SuperpixelParameterEditor{
-			Editor: editor,
-			Id:     paramInfo.Id,
-			Title:  paramInfo.Title,
+			Editor:   editor,
+			Id:       paramInfo.Id,
+			Title:    paramInfo.Title,
+			MinValue: paramInfo.Min,
+			MaxValue: paramInfo.Max,
 		})
 	}
 }

@@ -6,25 +6,6 @@ import (
 	"github.com/struffel/annotation-tool/pkg/superpixel_map"
 )
 
-// cloneMask returns a new Gray16 image with the same pixel values as mask.
-func cloneMask(mask *image.Gray16) *image.Gray16 {
-	bounds := mask.Bounds()
-	clone := image.NewGray16(bounds)
-	// Fast path: same stride means Pix is a contiguous block we can copy directly.
-	if mask.Stride == clone.Stride && len(mask.Pix) == len(clone.Pix) {
-		copy(clone.Pix, mask.Pix)
-		return clone
-	}
-	// General path: copy row by row to respect differing strides / bounds origins.
-	w := bounds.Dx() * 2
-	for y := 0; y < bounds.Dy(); y++ {
-		src := mask.Pix[y*mask.Stride : y*mask.Stride+w]
-		dst := clone.Pix[y*clone.Stride : y*clone.Stride+w]
-		copy(dst, src)
-	}
-	return clone
-}
-
 // distanceToBoundary computes, for every pixel in mask, the 4-connected BFS distance to the
 // nearest pixel on the opposite side of the binary mask boundary (0 for boundary pixels
 // themselves on either side). The image edge is not treated as a boundary.

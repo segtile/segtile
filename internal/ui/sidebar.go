@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 
 const checkboxSize = unit.Dp(20)
 const standardDividerThickness = unit.Dp(2)
+const sidebarWidth = 300
 
 // drawSidebarSection draws a collapsible sidebar section header followed by its body when open.
 func drawSidebarSection(gtx layout.Context, appState *core.AppState, title string, dividerThickness unit.Dp, open bool, button *widget.Clickable, body func(layout.Context) layout.Dimensions) layout.Dimensions {
@@ -162,8 +162,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 									superpixelTitle = fmt.Sprintf("Untitled (%s)", appState.ActiveSettings.Superpixel.SpAlgorithmId)
 								}
 
-								label := material.Body1(&appState.Theme.GioTheme, superpixelTitle)
+								label := material.Body2(&appState.Theme.GioTheme, superpixelTitle)
 								label.Color = appState.Theme.GioTheme.Palette.Fg
+								label.Font.Weight = font.Bold
 								return label.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -171,6 +172,8 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 							}),
 						)
 					}),
+
+					// Superpixel algorithm menu
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if !appState.SpAlgorithmMenuOpen {
 							return layout.Dimensions{}
@@ -184,7 +187,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								HandleUiButtonClick(appState, gtx, button)
-								return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
+								menuItem := component.MenuItem(&appState.Theme.GioTheme, button, title)
+								menuItem.Label.TextSize = unit.Sp(14)
+								return menuItem.Layout(gtx)
 							}))
 						}
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -202,8 +207,12 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 
 			// Individual parameter editors
 			for i := range appState.SuperpixelParameterEditors {
+
+				paramId := appState.SuperpixelParameterEditors[i].Id
 				title := appState.SuperpixelParameterEditors[i].Title
 				editor := &appState.SuperpixelParameterEditors[i].Editor
+				editorMin := appState.SuperpixelParameterEditors[i].MinValue
+				editorMax := appState.SuperpixelParameterEditors[i].MaxValue
 				children = append(children,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
@@ -214,9 +223,18 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 							}),
 
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								editorStyle := material.Editor(&appState.Theme.GioTheme, editor, "value")
-								editorStyle.Color = appState.Theme.GioTheme.Palette.Fg
-								return editorStyle.Layout(gtx)
+								editorState := components.EditorStateNormal
+								editorValue, err := strconv.ParseFloat(appState.SuperpixelParameterEditors[i].Editor.Text(), 64)
+
+								if err != nil || editorValue < editorMin || editorValue > editorMax {
+									editorState = components.EditorStateInvalid
+								} else {
+									if fmt.Sprintf("%g", appState.ActiveSettings.Superpixel.SpAlgorithmParameters[paramId]) != editor.Text() {
+										editorState = components.EditorStateUncommitedChange
+									}
+								}
+
+								return components.DrawEditor(gtx, appState, editor, editorState)
 							}),
 						)
 					}),
@@ -268,7 +286,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 }
 
 func drawSelectionSection(gtx layout.Context, appState *core.AppState) layout.Dimensions {
-	return drawSidebarSection(gtx, appState, "Selection", standardDividerThickness, appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
+	return drawSidebarSection(gtx, appState, "Selection Tuning", standardDividerThickness, appState.MiscSection.Open, &appState.MiscSection.Button, func(gtx layout.Context) layout.Dimensions {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				checkbox := material.CheckBox(&appState.Theme.GioTheme, &appState.EnableAutoFloodFill, "Auto Flood Fill")
@@ -327,12 +345,30 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 
 	return drawSidebarSection(gtx, appState, title, standardDividerThickness, appState.SavedImageInfoSection.Open, &appState.SavedImageInfoSection.Button, func(gtx layout.Context) layout.Dimensions {
 		if appState.ActiveImageMetadata == nil {
-			return material.Caption(&appState.Theme.GioTheme, "Annotation information will show up here once the annotation is saved to disk.").Layout(gtx)
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return material.Caption(&appState.Theme.GioTheme, "Annotation has not been saved yet.").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					HandleUiButtonClick(appState, gtx, &appState.SaveButton)
+					return components.DrawIconButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save annotation", false)
+				}),
+			)
 		}
 
 		annotator := appState.ActiveImageMetadata.Annotator
 		if annotator == "" {
 			annotator = "Unknown"
+		}
+
+		annotationTime := "Unknown"
+		if !appState.ActiveImageMetadata.AnnotationTime.IsZero() {
+			annotationTime = appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)
+		}
+
+		spTitle, _, spParameterInfo, err := superpixel.GetAlgorithmInfo(appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
+		if err != nil {
+			spTitle = fmt.Sprintf("Unknown (%s)", appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
 		}
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -341,29 +377,30 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Caption(&appState.Theme.GioTheme, "Annotator:").Layout(gtx)
+								return components.DrawInfoRow(gtx, appState, "Last saved by:", annotator, app_theme.IconSocialPerson)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body2(&appState.Theme.GioTheme, annotator).Layout(gtx)
+								return layout.Spacer{Height: unit.Dp(4)}.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Caption(&appState.Theme.GioTheme, "Annotation Time:").Layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								annotationTime := "Unknown"
-								if !appState.ActiveImageMetadata.AnnotationTime.IsZero() {
-									annotationTime = appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)
-								}
-								return material.Body2(&appState.Theme.GioTheme, annotationTime).Layout(gtx)
+								return components.DrawInfoRow(gtx, appState, "Last saved at:", annotationTime, app_theme.IconActionDateRange)
 							}),
 						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if appState.SelectionMaskDiffersVersionOnDisk {
-							HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
-							return components.DrawIconButton(gtx, &appState.RevertSavedMaskButton, appState.Theme, app_theme.IconAvReplay, "Revert to saved annotation", false)
-						}
-						return layout.Dimensions{}
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								HandleUiButtonClick(appState, gtx, &appState.SaveButton)
+								return components.DrawIconButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save annotation", false)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if !appState.SelectionMaskDiffersVersionOnDisk {
+									return layout.Dimensions{}
+								}
+								HandleUiButtonClick(appState, gtx, &appState.RevertSavedMaskButton)
+								return components.DrawIconButton(gtx, &appState.RevertSavedMaskButton, appState.Theme, app_theme.IconAvReplay, "Revert to saved annotation", false)
+							}),
+						)
 					}),
 				)
 			}),
@@ -384,26 +421,23 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 								return material.Caption(&appState.Theme.GioTheme, "Presegmentation:").Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								label := material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
+								label := material.Body2(&appState.Theme.GioTheme, spTitle)
 								label.Font.Weight = font.Bold
 								return label.Layout(gtx)
 							}),
 							// Render the parameters line by line
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+
 								params := appState.ActiveImageMetadata.Superpixel.SpAlgorithmParameters
-
-								var keys []string
-								for k := range params {
-									keys = append(keys, k)
-								}
-								sort.Strings(keys)
-
 								var lines []layout.FlexChild
-								for _, k := range keys {
-									key := k
-									value := params[k]
+
+								for _, paramInfo := range spParameterInfo {
+									paramValue, ok := params[paramInfo.Id]
+									if !ok {
+										continue
+									}
 									lines = append(lines, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return material.Body2(&appState.Theme.GioTheme, key+": "+strconv.FormatFloat(value, 'f', 3, 64)).Layout(gtx)
+										return material.Body2(&appState.Theme.GioTheme, paramInfo.Title+": "+strconv.FormatFloat(paramValue, 'f', 3, 64)).Layout(gtx)
 									}))
 								}
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)

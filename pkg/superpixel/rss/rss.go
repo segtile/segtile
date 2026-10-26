@@ -49,7 +49,7 @@ func init() {
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
 		return Run(img, int(params["count"]), params["compactness"])
 	}
-	superpixel.RegisterSpAlgorithm("rss", "RSS", "Rooted Spanning Superpixels (Chai, 2020).", runFromMap, parameters)
+	superpixel.RegisterSpAlgorithm("rss", "Rooted Spanning Superpixels", "Rooted Spanning Superpixels (Chai, 2020).", runFromMap, parameters)
 }
 
 type queueItem struct {

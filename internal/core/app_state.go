@@ -154,6 +154,8 @@ type SuperpixelParameterEditor struct {
 	Id               string
 	Title            string
 	OptimizeCheckbox widget.Bool
+	MinValue         float64
+	MaxValue         float64
 }
 
 // CacheState holds cached rendering data (rebuilt when selection or image transform changes, not every frame)

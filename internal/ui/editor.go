@@ -3,9 +3,11 @@ package ui
 import (
 	"log"
 	"strconv"
+	"time"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
+	"github.com/reiver/go-giotoast"
 	"github.com/struffel/annotation-tool/internal/core"
 )
 
@@ -17,9 +19,8 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 
 	recalculate := false
 
-	// Handle settings changes.
+	// Handle settings changes: If a submit event occurs, parse all editors and apply their values
 	for i := range appState.SuperpixelParameterEditors {
-		param := appState.SuperpixelParameterEditors[i].Id
 		editor := &appState.SuperpixelParameterEditors[i].Editor
 		// Drain events and apply the value on Submit
 		for {
@@ -27,16 +28,47 @@ func HandleEditors(appState *core.AppState, gtx layout.Context) {
 			if !ok {
 				break
 			}
-			if _, ok := ev.(widget.SubmitEvent); ok {
-				if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
-					if v != appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] {
-						appState.SelectionMaskDiffersVersionOnDisk = true
-					}
-					appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] = v
-					log.Printf("Set %s to %v\n", param, v)
 
-					recalculate = true
+			// If a submit event orrcurs, parse all editors and apply their values
+			_, ok = ev.(widget.SubmitEvent)
+			if ok {
+				recalculate = true
+			}
+		}
+	}
+
+	if recalculate {
+		for i := range appState.SuperpixelParameterEditors {
+
+			// Not parseable
+			paramValue, err := strconv.ParseFloat(appState.SuperpixelParameterEditors[i].Editor.Text(), 64)
+			if err != nil {
+				appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "Invalid superpixel parameter value for "+appState.SuperpixelParameterEditors[i].Title, 3*time.Second)
+				recalculate = false
+				break
+			}
+
+			// Out of range
+			if paramValue < appState.SuperpixelParameterEditors[i].MinValue || paramValue > appState.SuperpixelParameterEditors[i].MaxValue {
+				appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "Superpixel parameter value out of range for "+appState.SuperpixelParameterEditors[i].Title, 3*time.Second)
+				recalculate = false
+				break
+			}
+
+		}
+	}
+
+	if recalculate {
+		for i := range appState.SuperpixelParameterEditors {
+			param := appState.SuperpixelParameterEditors[i].Id
+			editor := &appState.SuperpixelParameterEditors[i].Editor
+			if v, err := strconv.ParseFloat(editor.Text(), 64); err == nil {
+				if v != appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] {
+					appState.SelectionMaskDiffersVersionOnDisk = true
 				}
+				appState.ActiveSettings.Superpixel.SpAlgorithmParameters[param] = v
+				log.Printf("Set %s to %v\n", param, v)
+				recalculate = true
 			}
 		}
 	}
