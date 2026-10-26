@@ -51,7 +51,7 @@ func init() {
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
 		return Run(img, params["threshold"], params["beta"])
 	}
-	superpixel.RegisterSpAlgorithm("scale_adaptive", "Scale-Adaptive", "Scale-adaptive superpixel algorithm for medical images, based on Sun, Ma and Zhou (2022).", runFromMap, parameterInfo)
+	superpixel.RegisterSpAlgorithm("scale_adaptive", "Scale-Adaptive SLIC", "Scale-adaptive superpixel algorithm for medical images, based on Sun, Ma and Zhou (2022).", runFromMap, parameterInfo)
 }
 
 // Priority queue

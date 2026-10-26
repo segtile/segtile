@@ -58,10 +58,6 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 							HandleUiButtonClick(appState, gtx, &appState.OpenProjectButton)
 							return components.DrawMenuBarButton(gtx, &appState.OpenProjectButton, appState.Theme, app_theme.IconOpen, "Open")
 						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							HandleUiButtonClick(appState, gtx, &appState.SaveButton)
-							return components.DrawMenuBarButton(gtx, &appState.SaveButton, appState.Theme, app_theme.IconSave, "Save")
-						}),
 					)
 				}),
 
@@ -78,8 +74,8 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 							}
 
 							// Set fixed width for the sidebar
-							gtx.Constraints.Min.X = gtx.Dp(app_theme.SidebarWidth)
-							gtx.Constraints.Max.X = gtx.Dp(app_theme.SidebarWidth)
+							gtx.Constraints.Min.X = gtx.Dp(sidebarWidth)
+							gtx.Constraints.Max.X = gtx.Dp(sidebarWidth)
 
 							// Draw sidebar background
 							sidebarClip := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
@@ -131,7 +127,7 @@ func Layout(appState *core.AppState, gtx layout.Context) {
 											// Logo
 											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 												gtx.Constraints.Min.X = gtx.Dp(360)
-												return app_theme.IconLight.Layout(gtx, appState.Theme.GioTheme.Palette.Fg)
+												return app_theme.IconLogoLight.Layout(gtx, appState.Theme.GioTheme.Palette.Fg)
 											}),
 
 											// Version

@@ -51,7 +51,7 @@ func init() {
 	runFromMap := func(img image.Image, params map[string]float64) (superpixel.SpResult, error) {
 		return Run(img, int(params["count"]), params["compactness"])
 	}
-	superpixel.RegisterSpAlgorithm("vcell", "VCells", "This is an implementation of VCells superpixels, based on the original paper.", runFromMap, parameterInfo)
+	superpixel.RegisterSpAlgorithm("vcell", "VCells Superpixels", "This is an implementation of VCells superpixels, based on the original paper.", runFromMap, parameterInfo)
 }
 
 // Run executes the VCells superpixel algorithm on the given image.

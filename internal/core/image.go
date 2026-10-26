@@ -340,12 +340,17 @@ func (appState *AppState) HasDifferentSavedSuperpixelSettings() bool {
 	return false
 }
 
+// RevertToSavedMask restores the annotation mask to the last saved state for the current image.
 func (appState *AppState) RevertToSavedMask() error {
+
+	// Catch error states
+
 	if appState.ActiveImage == nil || appState.ActiveSettings == nil || appState.ActiveImageIndex < 0 || appState.ActiveImageIndex >= len(appState.ImageFiles) {
+		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, "No project image is currently loaded", 3*time.Second)
 		return fmt.Errorf("no project image is currently loaded")
 	}
 
-	metadata, savedSelection, found, err := appState.loadSavedImageState(appState.ActiveImageIndex)
+	_, savedSelection, found, err := appState.loadSavedImageState(appState.ActiveImageIndex)
 	if err != nil {
 		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
 		return err
@@ -359,20 +364,11 @@ func (appState *AppState) RevertToSavedMask() error {
 		return fmt.Errorf("saved selection dimensions %v do not match image dimensions %v", savedSelection.Bounds(), appState.ActiveImage.Bounds())
 	}
 
-	appState.ActiveSettings.Superpixel = metadata.Superpixel.Clone()
-	appState.ActiveSettings.SmoothAmount = metadata.SmoothAmount
-	appState.ActiveSettings.ShrinkGrowAmount = metadata.ShrinkGrowAmount
-	appState.SmoothAmount.Value = metadata.SmoothAmount
-	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(metadata.ShrinkGrowAmount)
-	appState.ActiveImageMetadata = &metadata
-	appState.ActiveImageMetadata.Superpixel = metadata.Superpixel.Clone()
-	appState.RebuildEditors()
+	// Revert grow/shrink/smooth settings to the saved state.
+	appState.ShrinkGrowAmount.Value = SignedShrinkGrowToSlider(appState.ActiveImageMetadata.ShrinkGrowAmount)
+	appState.SmoothAmount.Value = appState.ActiveImageMetadata.SmoothAmount
 
-	appState.SelectionMaskRaw = superpixel_map.NewMask(appState.ActiveImage.Bounds().Dx(), appState.ActiveImage.Bounds().Dy())
-	if err := appState.RecalculateSuperpixels(false); err != nil {
-		appState.Toasts.ShowType(time.Now(), giotoast.TypeError, err.Error(), 3*time.Second)
-		return err
-	}
+	// Apply the saved selection mask to the current state.
 	appState.SelectionMaskRaw = savedSelection
 	appState.ReprocessSelection()
 	appState.SelectionMaskDiffersVersionOnDisk = false
