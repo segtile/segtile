@@ -1,7 +1,7 @@
 $IMG = "\\lennart\Sync\MasterThesisData\EvalDatasets\BrainMRI\IMG\"
 $MASK = "\\lennart\Sync\MasterThesisData\EvalDatasets\BrainMRI\MASK\"
 
-
+<#
 go run ./cmd/bench `
     "$IMG" `
     "$MASK" `
@@ -27,12 +27,12 @@ go run ./cmd/bench `
     vcell `
     "count=50,1000,50" `
     "compactness=0,25,1.25"
-
+#>
 go run ./cmd/bench `
     "$IMG" `
     "$MASK" `
     "\\lennart\Sync\MasterThesisData\BenchmarkResults\ScaleAdaptive\BrainMRI.csv" `
     scale_adaptive `
-    "threshold=5,100,5" `
-    "beta=0,1,0.05"
+    "threshold=10,250,10" `
+    "beta=0.0,1,0.01"
 
