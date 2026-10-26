@@ -39,6 +39,8 @@ type outlineSegment struct {
 
 // Generates the outline marking the line between pixels in the image that has the target value and those that do not.
 func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec {
+	_, isSelectionMask := mask.(*superpixel_map.Mask)
+
 	// Start measuring the time for outline calculation.
 	//startTime := time.Now()
 	defer func() {
@@ -66,11 +68,11 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 			defer wg.Done()
 			startPoint := f32.Point{X: -1, Y: -1}
 			for y := 0; y < height; y++ {
-				matchA := targetValue == 0
+				matchA := isSelectionMask && targetValue == 0
 				if x >= 0 {
 					matchA = mask.Uint32At(x, y) == targetValue
 				}
-				matchB := targetValue == 0
+				matchB := isSelectionMask && targetValue == 0
 				if x+1 < width {
 					matchB = mask.Uint32At(x+1, y) == targetValue
 				}
@@ -107,11 +109,11 @@ func CalculateOutline(mask superpixel_map.Map, targetValue uint32) clip.PathSpec
 			defer wg.Done()
 			startPoint := f32.Point{X: -1, Y: -1}
 			for x := 0; x < width; x++ {
-				matchA := targetValue == 0
+				matchA := isSelectionMask && targetValue == 0
 				if y >= 0 {
 					matchA = mask.Uint32At(x, y) == targetValue
 				}
-				matchB := targetValue == 0
+				matchB := isSelectionMask && targetValue == 0
 				if y+1 < height {
 					matchB = mask.Uint32At(x, y+1) == targetValue
 				}
