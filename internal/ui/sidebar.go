@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"time"
 
@@ -188,7 +187,9 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								HandleUiButtonClick(appState, gtx, button)
-								return component.MenuItem(&appState.Theme.GioTheme, button, title).Layout(gtx)
+								menuItem := component.MenuItem(&appState.Theme.GioTheme, button, title)
+								menuItem.Label.TextSize = unit.Sp(14)
+								return menuItem.Layout(gtx)
 							}))
 						}
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -353,6 +354,11 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 			annotationTime = appState.ActiveImageMetadata.AnnotationTime.Format(time.RFC1123)
 		}
 
+		spTitle, _, spParameterInfo, err := superpixel.GetAlgorithmInfo(appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
+		if err != nil {
+			spTitle = fmt.Sprintf("Unknown (%s)", appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
+		}
+
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -403,26 +409,23 @@ func drawSelectionInfoSection(gtx layout.Context, appState *core.AppState) layou
 								return material.Caption(&appState.Theme.GioTheme, "Presegmentation:").Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								label := material.Body2(&appState.Theme.GioTheme, appState.ActiveImageMetadata.Superpixel.SpAlgorithmId)
+								label := material.Body2(&appState.Theme.GioTheme, spTitle)
 								label.Font.Weight = font.Bold
 								return label.Layout(gtx)
 							}),
 							// Render the parameters line by line
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+
 								params := appState.ActiveImageMetadata.Superpixel.SpAlgorithmParameters
-
-								var keys []string
-								for k := range params {
-									keys = append(keys, k)
-								}
-								sort.Strings(keys)
-
 								var lines []layout.FlexChild
-								for _, k := range keys {
-									key := k
-									value := params[k]
+
+								for _, paramInfo := range spParameterInfo {
+									paramValue, ok := params[paramInfo.Id]
+									if !ok {
+										continue
+									}
 									lines = append(lines, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return material.Body2(&appState.Theme.GioTheme, key+": "+strconv.FormatFloat(value, 'f', 3, 64)).Layout(gtx)
+										return material.Body2(&appState.Theme.GioTheme, paramInfo.Title+": "+strconv.FormatFloat(paramValue, 'f', 3, 64)).Layout(gtx)
 									}))
 								}
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)
