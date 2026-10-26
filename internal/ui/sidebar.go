@@ -227,7 +227,7 @@ func drawSuperpixelSection(gtx layout.Context, appState *core.AppState) layout.D
 								editorValue, err := strconv.ParseFloat(appState.SuperpixelParameterEditors[i].Editor.Text(), 64)
 
 								if err != nil || editorValue < editorMin || editorValue > editorMax {
-									editorState = components.EditorStateOutOfRange
+									editorState = components.EditorStateInvalid
 								} else {
 									if fmt.Sprintf("%g", appState.ActiveSettings.Superpixel.SpAlgorithmParameters[paramId]) != editor.Text() {
 										editorState = components.EditorStateUncommitedChange

@@ -14,7 +14,7 @@ type EditorState int
 const (
 	EditorStateNormal EditorState = iota
 	EditorStateUncommitedChange
-	EditorStateOutOfRange
+	EditorStateInvalid
 )
 
 func DrawEditor(gtx layout.Context, appState *core.AppState, editor *widget.Editor, editorState EditorState) layout.Dimensions {
@@ -28,7 +28,7 @@ func DrawEditor(gtx layout.Context, appState *core.AppState, editor *widget.Edit
 			if editorState == EditorStateUncommitedChange {
 				return DrawEditorUnderline(gtx, appState.Theme, appState.Theme.GioTheme.ContrastBg)
 			}
-			if editorState == EditorStateOutOfRange {
+			if editorState == EditorStateInvalid {
 				return DrawEditorUnderline(gtx, appState.Theme, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 			}
 
