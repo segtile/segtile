@@ -17,7 +17,7 @@ func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 			key.Filter{Focus: &appState.KeyboardTag, Name: "C", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "S", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "D", Optional: key.ModCtrl},
-			key.Filter{Focus: &appState.KeyboardTag, Name: "V", Optional: key.ModCtrl},
+			key.Filter{Focus: &appState.KeyboardTag, Name: "G", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: "R", Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameCtrl, Optional: key.ModCtrl},
 			key.Filter{Focus: &appState.KeyboardTag, Name: key.NameSpace, Optional: key.ModShift},
@@ -89,8 +89,8 @@ func HandleKeyboard(appState *core.AppState, gtx layout.Context) {
 			continue
 		}
 
-		// [V]iew raw mask: Disable smoothing of selection outline (while held)
-		if ke.Name == "V" {
+		// [G]ranular view: Disable smoothing of selection outline (while held)
+		if ke.Name == "G" {
 			if ke.State == key.Press {
 				appState.SmoothSelectionOutlines = false
 				appState.ReprocessSelectionOutline()
