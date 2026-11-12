@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "image/jpeg"
 	"log"
 	"os"
 	"time"

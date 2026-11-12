@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	_ "image/gif"
+	_ "image/jpeg"
 	"image/png"
 	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"time"
+
+	_ "golang.org/x/image/tiff"
 
 	"gioui.org/f32"
 	"gioui.org/op/paint"
