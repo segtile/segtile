@@ -3,8 +3,6 @@ package app_theme
 import (
 	"image/color"
 
-	"gioui.org/font/gofont"
-	"gioui.org/text"
 	"gioui.org/widget/material"
 )
 
@@ -46,14 +44,11 @@ var Theme = &AppTheme{
 
 	// Material theme for Gio widgets
 	GioTheme: func() material.Theme {
-
-		collection := gofont.Collection()
-
 		theme := material.NewTheme().WithPalette(palette)
-		theme.Shaper = text.NewShaper(
+		/*theme.Shaper = text.NewShaper(
 			text.NoSystemFonts(),
-			text.WithCollection(collection),
-		)
+			text.WithCollection(gofont.Collection()),
+		)*/
 		return theme
 	}(),
 
