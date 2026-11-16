@@ -28,6 +28,8 @@ var (
 	IconLogoLight       = mustIcon(widget.NewIcon(iconLogoLightData))
 	IconSocialPerson    = mustIcon(widget.NewIcon(icons.SocialPerson))
 	IconActionDateRange = mustIcon(widget.NewIcon(icons.ActionDateRange))
+	IconSectionClosed   = mustIcon(widget.NewIcon(icons.NavigationChevronRight))
+	IconSectionOpen     = mustIcon(widget.NewIcon(icons.NavigationExpandMore))
 )
 
 func mustIcon(icon *widget.Icon, err error) *widget.Icon {

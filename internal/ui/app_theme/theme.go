@@ -3,6 +3,8 @@ package app_theme
 import (
 	"image/color"
 
+	"gioui.org/font/gofont"
+	"gioui.org/text"
 	"gioui.org/widget/material"
 )
 
@@ -38,12 +40,22 @@ var palette = material.Palette{
 	ContrastFg: color.NRGBA{R: 255, G: 255, B: 255, A: 255}, // Used for text and icons on top of buttons
 	ContrastBg: color.NRGBA{R: 63, G: 81, B: 181, A: 255},   // Used for buttons and other interactive elements
 }
-var gioTheme = material.NewTheme().WithPalette(palette)
 
 // Global theme instance used throughout the application
 var Theme = &AppTheme{
+
 	// Material theme for Gio widgets
-	GioTheme: gioTheme,
+	GioTheme: func() material.Theme {
+
+		collection := gofont.Collection()
+
+		theme := material.NewTheme().WithPalette(palette)
+		theme.Shaper = text.NewShaper(
+			text.NoSystemFonts(),
+			text.WithCollection(collection),
+		)
+		return theme
+	}(),
 
 	// Colors for outlines
 	HoverOutlineColor: color.NRGBA{R: 0, G: 200, B: 255, A: 220},

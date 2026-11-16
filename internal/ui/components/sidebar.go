@@ -1,6 +1,7 @@
 package components
 
 import (
+	"image"
 	"image/color"
 
 	"gioui.org/layout"
@@ -21,19 +22,17 @@ func DrawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *
 		label.Color = theme.GioTheme.Palette.ContrastFg
 		label.Alignment = text.Start
 
-		iconLabel := material.Body2(&theme.GioTheme, "")
+		icon := app_theme.IconSectionClosed
 		if open {
-			iconLabel.Text = "▾"
-		} else {
-			iconLabel.Text = "▸"
+			icon = app_theme.IconSectionOpen
 		}
-		iconLabel.Color = theme.GioTheme.Palette.ContrastFg
-		iconLabel.Alignment = text.End
 
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return iconLabel.Layout(gtx)
+				size := gtx.Dp(16)
+				gtx.Constraints = layout.Exact(gtx.Constraints.Constrain(image.Pt(size, size)))
+				return icon.Layout(gtx, theme.GioTheme.Palette.ContrastFg)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
