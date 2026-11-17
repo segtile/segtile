@@ -174,5 +174,5 @@ func (appState *AppState) ReprocessSelectionOutline() {
 	} else {
 		appState.SelectionPathSpec = CalculateOutline(appState.SelectionMaskRaw, 0)
 	}
-	log.Printf("Reprocessed Selection Outline Postprocessing: %v", appState.SmoothSelectionOutlines)
+	// log.Printf("Reprocessed Selection Outline Postprocessing: %v", appState.SmoothSelectionOutlines)
 }

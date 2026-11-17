@@ -1,8 +1,6 @@
 package core
 
 import (
-	"log"
-
 	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
 )
 
@@ -94,5 +92,5 @@ func (appState *AppState) ReprocessSelection() {
 
 	appState.ReprocessSelectionOutline()
 	appState.SelectionMaskDirty = false
-	log.Println("Reprocessed Selection")
+	// log.Println("Reprocessed Selection")
 }
