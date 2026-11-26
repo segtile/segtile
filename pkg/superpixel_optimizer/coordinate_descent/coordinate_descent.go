@@ -8,10 +8,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/struffel/annotation-tool/pkg/progress"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
-	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
+	"github.com/segtile/segtile/pkg/progress"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_metrics"
+	"github.com/segtile/segtile/pkg/superpixel_optimizer"
 )
 
 func init() {

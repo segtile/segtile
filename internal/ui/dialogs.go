@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ncruces/zenity"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 // Creates a goroutine to open an existing project.

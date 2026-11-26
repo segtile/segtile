@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/struffel/annotation-tool/pkg/progress"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/progress"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 type SpOptimizerInputPair struct {

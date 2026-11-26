@@ -8,7 +8,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
+	"github.com/segtile/segtile/internal/ui/app_theme"
 )
 
 func DrawSidebarSectionHeader(gtx layout.Context, btn *widget.Clickable, theme *app_theme.AppTheme, title string, open bool, dividerThickness unit.Dp) layout.Dimensions {

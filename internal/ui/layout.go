@@ -11,9 +11,9 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/core"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
-	"github.com/struffel/annotation-tool/internal/ui/components"
+	"github.com/segtile/segtile/internal/core"
+	"github.com/segtile/segtile/internal/ui/app_theme"
+	"github.com/segtile/segtile/internal/ui/components"
 )
 
 func Layout(appState *core.AppState, gtx layout.Context) {

@@ -22,9 +22,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_utils"
 )
 
 func init() {

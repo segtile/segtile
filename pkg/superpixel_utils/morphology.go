@@ -3,7 +3,7 @@ package superpixel_utils
 import (
 	"image"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // distanceToBoundary computes, for every pixel in mask, the 4-connected BFS distance to the

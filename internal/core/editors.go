@@ -8,7 +8,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/text"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel"
 )
 
 // RebuildEditors sets up the editors in the UI for the current superpixel parameters.

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
+	"github.com/segtile/segtile/pkg/superpixel_utils"
 )
 
 // SelectionMade returns true if there is an active selection in the current image.

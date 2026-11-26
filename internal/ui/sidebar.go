@@ -12,10 +12,10 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/struffel/annotation-tool/internal/core"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
-	"github.com/struffel/annotation-tool/internal/ui/components"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/segtile/segtile/internal/core"
+	"github.com/segtile/segtile/internal/ui/app_theme"
+	"github.com/segtile/segtile/internal/ui/components"
+	"github.com/segtile/segtile/pkg/superpixel"
 )
 
 const checkboxSize = unit.Dp(20)

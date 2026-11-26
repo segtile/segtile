@@ -12,17 +12,17 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 	_ "golang.org/x/image/tiff"
 
-	"github.com/struffel/annotation-tool/internal/cli"
-	"github.com/struffel/annotation-tool/internal/core"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/internal/cli"
+	"github.com/segtile/segtile/internal/core"
+	"github.com/segtile/segtile/pkg/superpixel"
+	_ "github.com/segtile/segtile/pkg/superpixel/rss"
+	_ "github.com/segtile/segtile/pkg/superpixel/scale_adaptive"
+	_ "github.com/segtile/segtile/pkg/superpixel/slic"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 
-	//_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
+	//_ "github.com/segtile/segtile/pkg/superpixel/snic"
+	_ "github.com/segtile/segtile/pkg/superpixel/vcell"
+	"github.com/segtile/segtile/pkg/superpixel_utils"
 )
 
 func renderSegmentationBorders(img image.Image, labelMap *superpixel_map.LabelMap, borderColor colorful.Color) *image.NRGBA {

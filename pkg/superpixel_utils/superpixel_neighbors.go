@@ -1,7 +1,7 @@
 package superpixel_utils
 
 import (
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // labelMapNeighborhoodsWeighted computes, for each label in a label map, which other labels

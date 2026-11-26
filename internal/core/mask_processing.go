@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
+	"github.com/segtile/segtile/pkg/superpixel_utils"
 )
 
 // Scale factors converting the -1..1 / 0..1 slider values into pixel radius, relative to image width.

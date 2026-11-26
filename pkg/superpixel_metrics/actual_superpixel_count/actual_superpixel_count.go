@@ -3,9 +3,9 @@ package actual_superpixel_count
 import (
 	"image"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_metrics"
 )
 
 func init() {

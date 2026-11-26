@@ -11,11 +11,11 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/internal/ui/app_theme"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
+	"github.com/segtile/segtile/pkg/superpixel_optimizer"
 )
 
 // AppState holds the entire state of the application.

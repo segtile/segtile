@@ -7,7 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
+	"github.com/segtile/segtile/internal/ui/app_theme"
 )
 
 // DrawIconButton draws a button with an icon and handles its click event.

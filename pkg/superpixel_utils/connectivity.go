@@ -1,7 +1,7 @@
 package superpixel_utils
 
 import (
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // EnforceConnectivity ensures that every label forms a single 4-connected component.

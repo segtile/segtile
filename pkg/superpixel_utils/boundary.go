@@ -3,7 +3,7 @@ package superpixel_utils
 import (
 	"image"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // Finds all pixels in the image that have a neighbor with a different value and returns them as a slice of image.Points

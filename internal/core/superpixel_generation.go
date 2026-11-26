@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel"
 )
 
 func (appState *AppState) RecalculateSuperpixels(showToast bool) error {

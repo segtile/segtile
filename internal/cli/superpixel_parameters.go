@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel"
 )
 
 func LoadDefaultSuperpixelParameters(algorithmName string) (map[string]float64, error) {

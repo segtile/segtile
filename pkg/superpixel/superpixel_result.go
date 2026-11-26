@@ -3,8 +3,8 @@ package superpixel
 import (
 	"sync"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
-	"github.com/struffel/annotation-tool/pkg/superpixel_utils"
+	"github.com/segtile/segtile/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_utils"
 )
 
 // SpResult encapsulates the result of a superpixel segmentation, including the label map and the count of superpixels.

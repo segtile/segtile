@@ -8,7 +8,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	"github.com/struffel/annotation-tool/internal/ui/app_theme"
+	"github.com/segtile/segtile/internal/ui/app_theme"
 )
 
 // DrawDivider draws a horizontal divider with the specified thickness and theme.

@@ -7,7 +7,7 @@ import (
 	"gioui.org/app"
 	"gioui.org/io/system"
 	"gioui.org/unit"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 func TestEmptyOpenClose(t *testing.T) {

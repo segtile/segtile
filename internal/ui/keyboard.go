@@ -3,7 +3,7 @@ package ui
 import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 func HandleKeyboard(appState *core.AppState, gtx layout.Context) {

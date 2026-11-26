@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/ncruces/zenity"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 func triggerOptimization(appState *core.AppState) {

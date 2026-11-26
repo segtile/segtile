@@ -6,7 +6,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 type EditorState int

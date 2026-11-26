@@ -20,7 +20,7 @@ import (
 	"gioui.org/op/paint"
 	"github.com/reiver/go-giotoast"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 func (appState *AppState) LoadNextImage() {

@@ -3,12 +3,12 @@ package labeling_calibration_score
 import (
 	"image"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/density_score"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
-	"github.com/struffel/annotation-tool/pkg/superpixel_metrics/regularity_score"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_metrics"
+	"github.com/segtile/segtile/pkg/superpixel_metrics/density_score"
+	"github.com/segtile/segtile/pkg/superpixel_metrics/distance_weighted_dice_coefficient"
+	"github.com/segtile/segtile/pkg/superpixel_metrics/regularity_score"
 )
 
 func init() {

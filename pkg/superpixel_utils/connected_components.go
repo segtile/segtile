@@ -1,7 +1,7 @@
 package superpixel_utils
 
 import (
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // FindConnectedComponents finds all 4-connected components of pixels with equal values.

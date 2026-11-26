@@ -8,13 +8,13 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/struffel/annotation-tool/pkg/progress"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/progress"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_metrics/labeling_calibration_score"
-	"github.com/struffel/annotation-tool/pkg/superpixel_optimizer"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel_optimizer/coordinate_descent"
+	_ "github.com/segtile/segtile/pkg/superpixel_metrics/labeling_calibration_score"
+	"github.com/segtile/segtile/pkg/superpixel_optimizer"
+	_ "github.com/segtile/segtile/pkg/superpixel_optimizer/coordinate_descent"
 )
 
 const optimizeSampleCount = 16

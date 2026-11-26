@@ -1,4 +1,4 @@
-module github.com/struffel/annotation-tool
+module github.com/segtile/segtile
 
 go 1.26.1
 

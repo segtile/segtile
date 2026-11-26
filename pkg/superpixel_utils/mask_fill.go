@@ -3,7 +3,7 @@ package superpixel_utils
 import (
 	"image"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 func FloodFillMaskFromPoint(mask *superpixel_map.Mask, x, y int) bool {

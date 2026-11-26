@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // newMask creates a width x height mask with the given pixels set to selected (65535).

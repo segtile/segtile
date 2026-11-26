@@ -3,7 +3,7 @@ package superpixel_utils
 import (
 	"sort"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 // EnforceContiguousIndexing ensures that the superpixel labels are contiguous and start from 0.

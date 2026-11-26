@@ -5,7 +5,7 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 // Next/Prev handling, both for buttons and keyboard shortcuts

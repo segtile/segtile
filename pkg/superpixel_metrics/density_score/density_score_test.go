@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 func TestRunHandlesThreeGroundTruthComponents(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 func TestEnforceConnectivity_AlreadyConnected(t *testing.T) {

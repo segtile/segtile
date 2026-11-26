@@ -12,9 +12,9 @@ import (
 
 	"gioui.org/f32"
 	"gioui.org/widget"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel"
+	_ "github.com/segtile/segtile/pkg/superpixel/slic"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 func TestApplyManualFixAt_ClipsBrushToImageBounds(t *testing.T) {

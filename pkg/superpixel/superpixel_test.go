@@ -6,13 +6,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/rss"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/scale_adaptive"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/slic"
+	"github.com/segtile/segtile/pkg/superpixel"
+	_ "github.com/segtile/segtile/pkg/superpixel/rss"
+	_ "github.com/segtile/segtile/pkg/superpixel/scale_adaptive"
+	_ "github.com/segtile/segtile/pkg/superpixel/slic"
 
-	//_ "github.com/struffel/annotation-tool/pkg/superpixel/snic"
-	_ "github.com/struffel/annotation-tool/pkg/superpixel/vcell"
+	//_ "github.com/segtile/segtile/pkg/superpixel/snic"
+	_ "github.com/segtile/segtile/pkg/superpixel/vcell"
 )
 
 // BenchmarkSuperpixel runs one sub-benchmark per registered algorithm, so each gets its own stats.

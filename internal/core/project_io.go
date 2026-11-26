@@ -9,7 +9,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/pkg/superpixel"
+	"github.com/segtile/segtile/pkg/superpixel"
 )
 
 const DefaultConfigFileName = "settings.yaml"

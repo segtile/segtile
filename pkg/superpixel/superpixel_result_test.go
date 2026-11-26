@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/struffel/annotation-tool/pkg/superpixel_map"
+	"github.com/segtile/segtile/pkg/superpixel_map"
 )
 
 func loadTestData(t testing.TB, path string) *superpixel_map.LabelMap {

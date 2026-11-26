@@ -8,7 +8,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 // HandleEditors processes all superpixel parameter editor events and applies the changes.

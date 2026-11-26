@@ -7,7 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 func DrawInfoRow(gtx layout.Context, appState *core.AppState, title string, value string, icon *widget.Icon) layout.Dimensions {

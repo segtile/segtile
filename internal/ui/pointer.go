@@ -9,7 +9,7 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"github.com/reiver/go-giotoast"
-	"github.com/struffel/annotation-tool/internal/core"
+	"github.com/segtile/segtile/internal/core"
 )
 
 func HandlePointer(appState *core.AppState, gtx layout.Context) {
